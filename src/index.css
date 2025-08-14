@@ -9,34 +9,49 @@ All colors MUST be HSL.
 @layer base {
   :root {
     --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    --foreground: 210 11% 15%;
 
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 210 11% 15%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover-foreground: 210 11% 15%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    /* EVOLVE Leadership Brand Colors */
+    --primary: 173 43% 52%; /* #6DB5A5 - Main teal */
+    --primary-foreground: 0 0% 100%;
+    --primary-dark: 173 43% 42%; /* #4A9B8E - Darker teal */
+    --primary-light: 173 43% 62%; /* #8BC4B8 - Lighter teal */
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 0 0% 100%;
+    --secondary-foreground: 173 43% 52%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 220 14% 96%;
+    --muted-foreground: 220 9% 46%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent: 173 43% 62%;
+    --accent-foreground: 210 11% 15%;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 173 43% 52%;
 
-    --radius: 0.5rem;
+    /* Text Colors */
+    --text-primary: 210 11% 15%; /* #2C3E50 - Dark charcoal for headings */
+    --text-secondary: 220 9% 34%; /* #4A5568 - Medium gray for body */
+
+    /* Gradients */
+    --gradient-spiral: radial-gradient(circle, hsl(173 43% 62%), hsl(173 43% 52%), hsl(173 43% 42%));
+    --gradient-hero: linear-gradient(135deg, hsl(173 43% 62% / 0.1), hsl(173 43% 52% / 0.05));
+
+    /* Animations */
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-spring: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+
+    --radius: 0.75rem;
 
     --sidebar-background: 0 0% 98%;
 
@@ -100,6 +115,50 @@ All colors MUST be HSL.
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-sans;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply text-[hsl(var(--text-primary))];
+  }
+
+  p, span {
+    @apply text-[hsl(var(--text-secondary))];
+  }
+}
+
+@layer components {
+  /* Spiral Element */
+  .spiral-element {
+    background: var(--gradient-spiral);
+    @apply rounded-full;
+  }
+
+  /* Hero Section */
+  .hero-section {
+    background: var(--gradient-hero);
+  }
+
+  /* Smooth Transitions */
+  .transition-smooth {
+    transition: var(--transition-smooth);
+  }
+
+  .transition-spring {
+    transition: var(--transition-spring);
+  }
+
+  /* Assessment Button Variant */
+  .btn-assessment {
+    @apply bg-white border-2 border-primary text-primary font-semibold px-8 py-4 rounded-xl hover:bg-primary hover:text-white transition-smooth flex items-center gap-3;
+  }
+
+  /* Progress Bar */
+  .progress-bar {
+    @apply bg-primary/20 rounded-full;
+  }
+
+  .progress-fill {
+    @apply bg-primary rounded-full transition-all duration-500 ease-out;
   }
 }
