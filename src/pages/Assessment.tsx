@@ -81,25 +81,29 @@ export const Assessment = () => {
   const handleStart = async () => {
     setIsStarted(true);
     
-    // Welcome message
-    addMessage('bot', "Hi! I'm your leadership assessment guide. 👋");
-    
-    setTimeout(() => {
-      addMessage('bot', "I'll ask you some questions to understand your leadership style and help you discover your leadership persona.");
-    }, 1000);
-    
-    setTimeout(async () => {
-      addMessage('bot', "This will take about 10 minutes, and your progress is automatically saved. Let me get started...");
+    try {
+      // Welcome message
+      addMessage('bot', "Hi! I'm your leadership assessment guide. 👋");
       
-      // Initialize OpenAI assistant and start the conversation
+      // Initialize OpenAI assistant first
       if (!isInitialized) {
         await initializeAssistant();
       }
       
+      // Wait a moment, then start the conversation
       setTimeout(async () => {
-        await sendMessage("Please start the leadership assessment by asking me the first question.");
-      }, 1500);
-    }, 2000);
+        try {
+          await sendMessage("Please start the leadership assessment by asking me the first question.");
+        } catch (error) {
+          console.error('Error sending initial message:', error);
+          addMessage('bot', "I apologize, but I'm having trouble connecting. Please try refreshing the page.");
+        }
+      }, 1000);
+      
+    } catch (error) {
+      console.error('Error initializing assistant:', error);
+      addMessage('bot', "I apologize, but I'm having trouble starting up. Please try refreshing the page.");
+    }
   };
 
   const handleMultipleChoiceAnswer = async (answer: string) => {
