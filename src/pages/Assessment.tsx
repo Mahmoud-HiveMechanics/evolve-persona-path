@@ -1,10 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Header } from '../components/Header';
 import { SpiralElement } from '../components/SpiralElement';
 import { Button } from '../components/ui/button';
-import { Card } from '../components/ui/card';
 import { Progress } from '../components/ui/progress';
-import { ArrowRight, ArrowLeft } from 'lucide-react';
+import { ArrowRight, Send, User, Bot } from 'lucide-react';
 
 interface Question {
   id: number;
@@ -12,6 +11,15 @@ interface Question {
   question: string;
   options?: string[];
   context?: string;
+}
+
+interface ChatMessage {
+  id: string;
+  type: 'bot' | 'user';
+  content: string;
+  timestamp: Date;
+  options?: string[];
+  isQuestion?: boolean;
 }
 
 const assessmentQuestions: Question[] = [
@@ -70,44 +78,143 @@ const assessmentQuestions: Question[] = [
 ];
 
 export const Assessment = () => {
-  const [currentQuestion, setCurrentQuestion] = useState(0);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<number, string>>({});
   const [isStarted, setIsStarted] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
-  const [selectedAnswer, setSelectedAnswer] = useState<string>('');
+  const [isTyping, setIsTyping] = useState(false);
+  const [showOptions, setShowOptions] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const progress = ((currentQuestion + 1) / assessmentQuestions.length) * 100;
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, isTyping]);
+
+  const addMessage = (type: 'bot' | 'user', content: string, options?: string[], isQuestion: boolean = false) => {
+    const newMessage: ChatMessage = {
+      id: Date.now().toString(),
+      type,
+      content,
+      timestamp: new Date(),
+      options,
+      isQuestion
+    };
+    setMessages(prev => [...prev, newMessage]);
+  };
+
+  const simulateTyping = (delay: number = 1500) => {
+    setIsTyping(true);
+    setTimeout(() => {
+      setIsTyping(false);
+    }, delay);
+  };
 
   const handleStart = () => {
     setIsStarted(true);
+    
+    // Welcome message
+    addMessage('bot', "Hi! I'm your leadership assessment guide. 👋");
+    
+    setTimeout(() => {
+      addMessage('bot', "I'll ask you some questions to understand your leadership style and help you discover your leadership persona.");
+    }, 1000);
+    
+    setTimeout(() => {
+      addMessage('bot', "This will take about 10 minutes, and your progress is automatically saved. Ready to begin?");
+    }, 2000);
+    
+    setTimeout(() => {
+      askNextQuestion();
+    }, 3500);
+  };
+
+  const askNextQuestion = () => {
+    if (currentQuestionIndex >= assessmentQuestions.length) {
+      completeAssessment();
+      return;
+    }
+
+    const question = assessmentQuestions[currentQuestionIndex];
+    
+    simulateTyping();
+    
+    setTimeout(() => {
+      if (question.context) {
+        addMessage('bot', `Context: ${question.context}`);
+        setTimeout(() => {
+          addMessage('bot', question.question, question.options, true);
+          setShowOptions(true);
+        }, 1000);
+      } else {
+        addMessage('bot', question.question, question.options, true);
+        setShowOptions(true);
+      }
+    }, 1500);
   };
 
   const handleAnswer = (answer: string) => {
-    setSelectedAnswer(answer);
-  };
-
-  const handleNext = () => {
-    if (selectedAnswer) {
-      setAnswers(prev => ({
-        ...prev,
-        [assessmentQuestions[currentQuestion].id]: selectedAnswer
-      }));
+    const currentQuestion = assessmentQuestions[currentQuestionIndex];
+    
+    // Add user's answer to chat
+    addMessage('user', answer);
+    
+    // Store the answer
+    setAnswers(prev => ({
+      ...prev,
+      [currentQuestion.id]: answer
+    }));
+    
+    setShowOptions(false);
+    
+    // Bot acknowledgment
+    setTimeout(() => {
+      const acknowledgments = [
+        "Thanks for sharing that insight!",
+        "Interesting perspective!",
+        "Got it, that's helpful to know.",
+        "I see, that tells me a lot about your style.",
+        "Great, I'm building a picture of your leadership approach."
+      ];
       
-      if (currentQuestion < assessmentQuestions.length - 1) {
-        setCurrentQuestion(prev => prev + 1);
-        setSelectedAnswer('');
-      } else {
-        setIsComplete(true);
-      }
-    }
+      const randomAck = acknowledgments[Math.floor(Math.random() * acknowledgments.length)];
+      addMessage('bot', randomAck);
+      
+      setTimeout(() => {
+        setCurrentQuestionIndex(prev => prev + 1);
+        
+        if (currentQuestionIndex < assessmentQuestions.length - 1) {
+          setTimeout(() => {
+            addMessage('bot', "Let me ask you something else...");
+            setTimeout(askNextQuestion, 1000);
+          }, 1000);
+        } else {
+          setTimeout(askNextQuestion, 1000);
+        }
+      }, 1000);
+    }, 800);
   };
 
-  const handlePrevious = () => {
-    if (currentQuestion > 0) {
-      setCurrentQuestion(prev => prev - 1);
-      setSelectedAnswer(answers[assessmentQuestions[currentQuestion - 1].id] || '');
-    }
+  const completeAssessment = () => {
+    setTimeout(() => {
+      addMessage('bot', "Excellent! You've completed the assessment. 🎉");
+    }, 1000);
+    
+    setTimeout(() => {
+      addMessage('bot', "I'm now analyzing your responses to create your personalized leadership profile...");
+    }, 2500);
+    
+    setTimeout(() => {
+      setIsComplete(true);
+      addMessage('bot', "Your leadership profile is ready! To receive your detailed results and personalized insights, please enter your email address below.");
+    }, 4000);
   };
+
+  const progress = ((currentQuestionIndex + 1) / assessmentQuestions.length) * 100;
 
   if (!isStarted) {
     return (
@@ -141,7 +248,7 @@ export const Assessment = () => {
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 bg-primary rounded-full"></div>
-                  <span>Your progress is automatically saved</span>
+                  <span>Conversational interface</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 bg-primary rounded-full"></div>
@@ -164,66 +271,16 @@ export const Assessment = () => {
     );
   }
 
-  if (isComplete) {
-    return (
-      <div className="min-h-screen bg-white">
-        <Header />
-        
-        <div className="min-h-[calc(100vh-80px)] flex items-center justify-center px-6">
-          <div className="max-w-2xl mx-auto text-center space-y-8">
-            <SpiralElement size="lg" className="mx-auto" />
-            
-            <div className="space-y-4">
-              <h1 className="text-4xl font-bold text-text-primary">
-                Assessment Complete!
-              </h1>
-              <p className="text-lg text-text-secondary">
-                Great! Your assessment is complete. Let's discover your leadership persona 
-                and get your personalized insights.
-              </p>
-            </div>
-            
-            <div className="bg-primary/5 rounded-xl p-6">
-              <p className="text-text-secondary mb-4">
-                Your personalized leadership profile is ready. Enter your email to receive 
-                your detailed results and continue your leadership journey.
-              </p>
-              
-              <div className="space-y-4">
-                <input 
-                  type="email" 
-                  placeholder="Enter your email address"
-                  className="w-full px-4 py-3 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20"
-                />
-                <Button className="btn-assessment w-full">
-                  <SpiralElement size="sm" />
-                  Get My Leadership Profile
-                  <ArrowRight size={20} />
-                </Button>
-              </div>
-            </div>
-            
-            <p className="text-sm text-text-secondary">
-              Your information is secure and will only be used to send your results.
-            </p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  const question = assessmentQuestions[currentQuestion];
-
   return (
     <div className="min-h-screen bg-white">
       <Header />
       
-      <div className="max-w-4xl mx-auto px-6 py-12">
-        {/* Progress */}
-        <div className="mb-8">
+      <div className="max-w-4xl mx-auto px-6 py-6">
+        {/* Progress Bar */}
+        <div className="mb-6">
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm text-text-secondary">
-              Question {currentQuestion + 1} of {assessmentQuestions.length}
+              Question {Math.min(currentQuestionIndex + 1, assessmentQuestions.length)} of {assessmentQuestions.length}
             </span>
             <span className="text-sm text-text-secondary">
               {Math.round(progress)}% complete
@@ -232,75 +289,103 @@ export const Assessment = () => {
           <div className="progress-bar h-2">
             <div 
               className="progress-fill h-full" 
-              style={{ width: `${progress}%` }}
+              style={{ width: `${Math.min(progress, 100)}%` }}
             />
           </div>
         </div>
 
-        {/* Question Card */}
-        <Card className="p-8 mb-8">
-          <div className="space-y-6">
-            {question.context && (
-              <div className="bg-muted/30 rounded-lg p-4">
-                <p className="text-sm text-text-secondary italic">
-                  Context: {question.context}
-                </p>
+        {/* Chat Container */}
+        <div className="bg-muted/10 rounded-xl border border-border min-h-[600px] flex flex-col">
+          {/* Chat Messages */}
+          <div className="flex-1 p-6 overflow-y-auto space-y-4">
+            {messages.map((message) => (
+              <div
+                key={message.id}
+                className={`flex gap-3 ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
+              >
+                {message.type === 'bot' && (
+                  <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center flex-shrink-0">
+                    <Bot size={20} className="text-white" />
+                  </div>
+                )}
+                
+                <div className={`max-w-[80%] ${message.type === 'user' ? 'order-first' : ''}`}>
+                  <div
+                    className={`p-4 rounded-xl ${
+                      message.type === 'user'
+                        ? 'bg-primary text-white ml-auto'
+                        : 'bg-white border border-border text-text-primary'
+                    }`}
+                  >
+                    <p className="text-sm leading-relaxed">{message.content}</p>
+                    
+                    {message.isQuestion && message.options && showOptions && (
+                      <div className="mt-4 space-y-2">
+                        {message.options.map((option, index) => (
+                          <button
+                            key={index}
+                            onClick={() => handleAnswer(option)}
+                            className="w-full text-left p-3 rounded-lg border border-border hover:border-primary hover:bg-primary/5 transition-smooth text-sm"
+                          >
+                            {option}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <div className="text-xs text-text-secondary mt-1 px-2">
+                    {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </div>
+                </div>
+                
+                {message.type === 'user' && (
+                  <div className="w-10 h-10 bg-text-secondary rounded-full flex items-center justify-center flex-shrink-0">
+                    <User size={20} className="text-white" />
+                  </div>
+                )}
+              </div>
+            ))}
+            
+            {/* Typing Indicator */}
+            {isTyping && (
+              <div className="flex gap-3 justify-start">
+                <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center flex-shrink-0">
+                  <Bot size={20} className="text-white" />
+                </div>
+                <div className="bg-white border border-border rounded-xl p-4">
+                  <div className="flex gap-1">
+                    <div className="w-2 h-2 bg-text-secondary rounded-full animate-bounce"></div>
+                    <div className="w-2 h-2 bg-text-secondary rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                    <div className="w-2 h-2 bg-text-secondary rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                  </div>
+                </div>
               </div>
             )}
             
-            <h2 className="text-2xl font-semibold text-text-primary leading-relaxed">
-              {question.question}
-            </h2>
+            {/* Email Capture Form */}
+            {isComplete && (
+              <div className="bg-primary/5 rounded-xl p-6 border border-primary/20">
+                <div className="space-y-4">
+                  <h3 className="font-semibold text-text-primary">Get Your Leadership Profile</h3>
+                  <input 
+                    type="email" 
+                    placeholder="Enter your email address"
+                    className="w-full px-4 py-3 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  />
+                  <Button className="btn-assessment w-full">
+                    <SpiralElement size="sm" />
+                    Get My Results
+                    <ArrowRight size={20} />
+                  </Button>
+                  <p className="text-xs text-text-secondary text-center">
+                    Your information is secure and will only be used to send your results.
+                  </p>
+                </div>
+              </div>
+            )}
             
-            <div className="space-y-3">
-              {question.options?.map((option, index) => (
-                <button
-                  key={index}
-                  onClick={() => handleAnswer(option)}
-                  className={`w-full text-left p-4 rounded-lg border-2 transition-smooth ${
-                    selectedAnswer === option
-                      ? 'border-primary bg-primary/5 text-primary'
-                      : 'border-border hover:border-primary/50 hover:bg-primary/5'
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className={`w-4 h-4 rounded-full border-2 transition-smooth ${
-                      selectedAnswer === option
-                        ? 'border-primary bg-primary'
-                        : 'border-border'
-                    }`}>
-                      {selectedAnswer === option && (
-                        <div className="w-full h-full rounded-full bg-white scale-50" />
-                      )}
-                    </div>
-                    <span className="text-text-secondary">{option}</span>
-                  </div>
-                </button>
-              ))}
-            </div>
+            <div ref={messagesEndRef} />
           </div>
-        </Card>
-
-        {/* Navigation */}
-        <div className="flex items-center justify-between">
-          <Button
-            variant="outline"
-            onClick={handlePrevious}
-            disabled={currentQuestion === 0}
-            className="flex items-center gap-2"
-          >
-            <ArrowLeft size={16} />
-            Previous
-          </Button>
-          
-          <Button
-            onClick={handleNext}
-            disabled={!selectedAnswer}
-            className="btn-assessment"
-          >
-            {currentQuestion === assessmentQuestions.length - 1 ? 'Complete Assessment' : 'Next Question'}
-            <ArrowRight size={16} />
-          </Button>
         </div>
       </div>
     </div>
