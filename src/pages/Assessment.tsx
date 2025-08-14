@@ -6,7 +6,6 @@ import { Progress } from '../components/ui/progress';
 import { Textarea } from '../components/ui/textarea';
 import { Slider } from '../components/ui/slider';
 import { ArrowRight, Send, User, Bot } from 'lucide-react';
-import { useOpenAIAssistant } from '../hooks/useOpenAIAssistant';
 
 interface ChatMessage {
   id: string;
@@ -24,6 +23,33 @@ interface ChatMessage {
   isQuestion?: boolean;
 }
 
+// Sample mixed questions for demonstration
+const sampleQuestions = [
+  {
+    type: 'multiple-choice' as const,
+    question: "When facing a complex challenge, what's your first instinct?",
+    options: [
+      "Gather input from multiple stakeholders",
+      "Analyze data and research best practices", 
+      "Trust my intuition and experience",
+      "Break it down into smaller, manageable parts"
+    ]
+  },
+  {
+    type: 'open-ended' as const,
+    question: "Describe a time when you had to lead through a difficult situation. What approach did you take?"
+  },
+  {
+    type: 'scale' as const,
+    question: "How comfortable are you with ambiguous situations?",
+    scaleInfo: {
+      min: 1,
+      max: 10,
+      min_label: "Very uncomfortable",
+      max_label: "Very comfortable"
+    }
+  }
+];
 
 export const Assessment = () => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -33,16 +59,9 @@ export const Assessment = () => {
   const [openEndedResponse, setOpenEndedResponse] = useState('');
   const [scaleValue, setScaleValue] = useState([5]);
   const [questionCount, setQuestionCount] = useState(0);
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  
-  const { 
-    isInitialized, 
-    isLoading, 
-    error, 
-    currentQuestion, 
-    sendMessage, 
-    initializeAssistant 
-  } = useOpenAIAssistant();
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -63,25 +82,25 @@ export const Assessment = () => {
     setMessages(prev => [...prev, newMessage]);
   };
 
-  // Watch for new questions from the assistant
+  // Simple question flow for now (we can integrate OpenAI later)
   useEffect(() => {
-    if (currentQuestion) {
-      setShowCurrentQuestion(false);
+    if (isStarted && currentQuestionIndex < sampleQuestions.length && !showCurrentQuestion && !isComplete) {
+      const question = sampleQuestions[currentQuestionIndex];
       
       setTimeout(() => {
-        addMessage('bot', currentQuestion.question, {
+        addMessage('bot', question.question, {
           isQuestion: true,
-          questionType: currentQuestion.type,
-          options: currentQuestion.options,
-          scaleInfo: currentQuestion.scale_info
+          questionType: question.type,
+          options: question.options,
+          scaleInfo: question.scaleInfo
         });
         setShowCurrentQuestion(true);
         setQuestionCount(prev => prev + 1);
       }, 1000);
     }
-  }, [currentQuestion]);
+  }, [isStarted, currentQuestionIndex, showCurrentQuestion, isComplete]);
 
-  const handleStart = async () => {
+  const handleStart = () => {
     setIsStarted(true);
     
     // Welcome message
@@ -94,53 +113,56 @@ export const Assessment = () => {
     setTimeout(() => {
       addMessage('bot', "This will take about 10 minutes, and your progress is automatically saved. Ready to begin?");
     }, 2000);
-    
-    // Initialize the assistant and start the conversation
-    setTimeout(async () => {
-      if (!isInitialized) {
-        await initializeAssistant();
-      }
-      
-      // Send initial message to start the assessment
-      setTimeout(() => {
-        sendMessage("Hello! I'm ready to begin my leadership assessment. Please start with the first question.");
-      }, 1000);
-    }, 3500);
   };
 
-  const handleMultipleChoiceAnswer = async (answer: string) => {
+  const handleMultipleChoiceAnswer = (answer: string) => {
     addMessage('user', answer);
     setShowCurrentQuestion(false);
     
-    // Send response to assistant
-    await sendMessage(answer);
+    // Move to next question after a brief acknowledgment
+    setTimeout(() => {
+      addMessage('bot', "Thanks for sharing that insight!");
+      setTimeout(() => {
+        setCurrentQuestionIndex(prev => prev + 1);
+      }, 1000);
+    }, 500);
   };
 
-  const handleOpenEndedSubmit = async () => {
+  const handleOpenEndedSubmit = () => {
     if (!openEndedResponse.trim()) return;
     
     addMessage('user', openEndedResponse);
     setShowCurrentQuestion(false);
     
-    // Send response to assistant
-    await sendMessage(openEndedResponse);
-    setOpenEndedResponse('');
+    // Move to next question
+    setTimeout(() => {
+      addMessage('bot', "Interesting perspective! That tells me a lot about your leadership style.");
+      setOpenEndedResponse('');
+      setTimeout(() => {
+        setCurrentQuestionIndex(prev => prev + 1);
+      }, 1000);
+    }, 500);
   };
 
-  const handleScaleSubmit = async () => {
-    const scaleResponse = `${scaleValue[0]} out of ${currentQuestion?.scale_info?.max || 10}`;
+  const handleScaleSubmit = () => {
+    const scaleResponse = `${scaleValue[0]} out of 10`;
     addMessage('user', scaleResponse);
     setShowCurrentQuestion(false);
     
-    // Send response to assistant
-    await sendMessage(scaleResponse);
-    setScaleValue([5]); // Reset to middle value
+    // Move to next question
+    setTimeout(() => {
+      addMessage('bot', "Got it, that's helpful to know.");
+      setScaleValue([5]); // Reset to middle value
+      setTimeout(() => {
+        setCurrentQuestionIndex(prev => prev + 1);
+      }, 1000);
+    }, 500);
   };
 
 
-  // Handle completion detection (you can enhance this logic)
+  // Handle completion detection
   useEffect(() => {
-    if (questionCount >= 8 && !isComplete) {
+    if (currentQuestionIndex >= sampleQuestions.length && !isComplete) {
       setTimeout(() => {
         setIsComplete(true);
         addMessage('bot', "Excellent! You've completed the assessment. 🎉");
@@ -154,9 +176,9 @@ export const Assessment = () => {
         }, 3000);
       }, 1000);
     }
-  }, [questionCount, isComplete]);
+  }, [currentQuestionIndex, isComplete]);
 
-  const progress = Math.min((questionCount / 8) * 100, 100);
+  const progress = Math.min((questionCount / sampleQuestions.length) * 100, 100);
 
   if (!isStarted) {
     return (
@@ -222,7 +244,7 @@ export const Assessment = () => {
         <div className="mb-6">
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm text-text-secondary">
-                Question {questionCount} of ~8-10
+                Question {questionCount} of {sampleQuestions.length}
               </span>
               <span className="text-sm text-text-secondary">
                 {Math.round(progress)}% complete
@@ -364,20 +386,6 @@ export const Assessment = () => {
               </div>
             )}
             
-            {/* Error Display */}
-            {error && (
-              <div className="bg-red-50 border border-red-200 rounded-xl p-4">
-                <p className="text-red-700 text-sm">Error: {error}</p>
-                <Button 
-                  onClick={() => window.location.reload()} 
-                  variant="outline" 
-                  size="sm" 
-                  className="mt-2"
-                >
-                  Refresh Page
-                </Button>
-              </div>
-            )}
             
             {/* Email Capture Form */}
             {isComplete && (
