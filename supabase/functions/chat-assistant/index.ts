@@ -18,81 +18,20 @@ serve(async (req) => {
       throw new Error('OPENAI_API_KEY is not set');
     }
 
-    const { action, threadId, message, assistantId } = await req.json();
-    console.log('Chat assistant request:', { action, threadId, message, assistantId });
+    const { action, threadId, message, assistantId, runId } = await req.json();
+    console.log('Chat assistant request:', { action, threadId, message, assistantId, runId });
 
     let response;
+    const EXISTING_ASSISTANT_ID = 'asst_0IGtbLANauxTpbn8rSj7MVy5';
 
     switch (action) {
-      case 'create_assistant':
-        response = await fetch('https://api.openai.com/v1/assistants', {
-          method: 'POST',
+      case 'use_existing_assistant':
+        response = await fetch(`https://api.openai.com/v1/assistants/${EXISTING_ASSISTANT_ID}`, {
+          method: 'GET',
           headers: {
             'Authorization': `Bearer ${OPENAI_API_KEY}`,
-            'Content-Type': 'application/json',
             'OpenAI-Beta': 'assistants=v2'
           },
-          body: JSON.stringify({
-            name: "Leadership Assessment Coach",
-            instructions: `You are an expert leadership assessment coach. Your role is to conduct a comprehensive leadership evaluation through a conversational assessment.
-
-ASSESSMENT GUIDELINES:
-1. Ask one question at a time, adapting based on previous responses
-2. Use a mix of question types: multiple-choice, open-ended, and scale ratings
-3. Ask 8-12 total questions, varying based on the depth of responses
-4. Explore key leadership dimensions: communication, decision-making, team building, vision, emotional intelligence, adaptability, and conflict resolution
-
-QUESTION TYPES TO USE:
-- Multiple-choice: For clear preference scenarios (provide 3-4 options)
-- Open-ended: For experiences and personal insights (encourage 2-3 sentence responses)
-- Scale: For self-assessment ratings (1-10 scale with clear anchors)
-
-CONVERSATION FLOW:
-1. Start with a warm welcome and one engaging opening question
-2. Follow up based on their answers to dig deeper
-3. Adapt question difficulty and focus areas based on their responses
-4. End with a comprehensive leadership profile summary
-
-Use the ask_question function for each question. Always be encouraging and professional.`,
-            model: "gpt-4-1106-preview",
-            tools: [{
-              type: "function",
-              function: {
-                name: "ask_question",
-                description: "Ask a leadership assessment question",
-                parameters: {
-                  type: "object",
-                  properties: {
-                    question: {
-                      type: "string",
-                      description: "The question to ask"
-                    },
-                    type: {
-                      type: "string",
-                      enum: ["multiple-choice", "open-ended", "scale"],
-                      description: "Type of question"
-                    },
-                    options: {
-                      type: "array",
-                      items: { type: "string" },
-                      description: "Options for multiple-choice questions"
-                    },
-                    scale_info: {
-                      type: "object",
-                      properties: {
-                        min: { type: "number" },
-                        max: { type: "number" },
-                        min_label: { type: "string" },
-                        max_label: { type: "string" }
-                      },
-                      description: "Scale information for rating questions"
-                    }
-                  },
-                  required: ["question", "type"]
-                }
-              }
-            }]
-          }),
         });
         break;
 
@@ -137,7 +76,6 @@ Use the ask_question function for each question. Always be encouraging and profe
         break;
 
       case 'get_run_status':
-        const { runId } = await req.json();
         response = await fetch(`https://api.openai.com/v1/threads/${threadId}/runs/${runId}`, {
           method: 'GET',
           headers: {

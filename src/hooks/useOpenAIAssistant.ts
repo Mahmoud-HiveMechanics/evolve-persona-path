@@ -49,10 +49,11 @@ export const useOpenAIAssistant = (): UseOpenAIAssistantReturn => {
     setError(null);
     
     try {
-      // Create assistant
-      const assistantResponse = await callAssistant('create_assistant');
-      console.log('Assistant created:', assistantResponse);
-      setAssistantId(assistantResponse.id);
+      // Use existing assistant
+      const EXISTING_ASSISTANT_ID = 'asst_0IGtbLANauxTpbn8rSj7MVy5';
+      const assistantResponse = await callAssistant('use_existing_assistant');
+      console.log('Using existing assistant:', assistantResponse);
+      setAssistantId(EXISTING_ASSISTANT_ID);
 
       // Create thread
       const threadResponse = await callAssistant('create_thread');

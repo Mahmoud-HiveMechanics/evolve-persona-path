@@ -6,6 +6,7 @@ import { Progress } from '../components/ui/progress';
 import { Textarea } from '../components/ui/textarea';
 import { Slider } from '../components/ui/slider';
 import { ArrowRight, Send, User, Bot } from 'lucide-react';
+import { useOpenAIAssistant } from '../hooks/useOpenAIAssistant';
 
 interface ChatMessage {
   id: string;
@@ -23,33 +24,6 @@ interface ChatMessage {
   isQuestion?: boolean;
 }
 
-// Sample mixed questions for demonstration
-const sampleQuestions = [
-  {
-    type: 'multiple-choice' as const,
-    question: "When facing a complex challenge, what's your first instinct?",
-    options: [
-      "Gather input from multiple stakeholders",
-      "Analyze data and research best practices", 
-      "Trust my intuition and experience",
-      "Break it down into smaller, manageable parts"
-    ]
-  },
-  {
-    type: 'open-ended' as const,
-    question: "Describe a time when you had to lead through a difficult situation. What approach did you take?"
-  },
-  {
-    type: 'scale' as const,
-    question: "How comfortable are you with ambiguous situations?",
-    scaleInfo: {
-      min: 1,
-      max: 10,
-      min_label: "Very uncomfortable",
-      max_label: "Very comfortable"
-    }
-  }
-];
 
 export const Assessment = () => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -59,9 +33,17 @@ export const Assessment = () => {
   const [openEndedResponse, setOpenEndedResponse] = useState('');
   const [scaleValue, setScaleValue] = useState([5]);
   const [questionCount, setQuestionCount] = useState(0);
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [isLoading, setIsLoading] = useState(false);
+  const [totalQuestions, setTotalQuestions] = useState(10);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  
+  const { 
+    isInitialized, 
+    isLoading: assistantLoading, 
+    error: assistantError, 
+    currentQuestion, 
+    sendMessage, 
+    initializeAssistant 
+  } = useOpenAIAssistant();
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -69,7 +51,7 @@ export const Assessment = () => {
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages, isLoading]);
+  }, [messages, assistantLoading]);
 
   const addMessage = (type: 'bot' | 'user', content: string, questionData?: Partial<ChatMessage>) => {
     const newMessage: ChatMessage = {
@@ -82,25 +64,21 @@ export const Assessment = () => {
     setMessages(prev => [...prev, newMessage]);
   };
 
-  // Simple question flow for now (we can integrate OpenAI later)
+  // Handle OpenAI assistant questions
   useEffect(() => {
-    if (isStarted && currentQuestionIndex < sampleQuestions.length && !showCurrentQuestion && !isComplete) {
-      const question = sampleQuestions[currentQuestionIndex];
-      
-      setTimeout(() => {
-        addMessage('bot', question.question, {
-          isQuestion: true,
-          questionType: question.type,
-          options: question.options,
-          scaleInfo: question.scaleInfo
-        });
-        setShowCurrentQuestion(true);
-        setQuestionCount(prev => prev + 1);
-      }, 1000);
+    if (currentQuestion && !showCurrentQuestion) {
+      addMessage('bot', currentQuestion.question, {
+        isQuestion: true,
+        questionType: currentQuestion.type,
+        options: currentQuestion.options,
+        scaleInfo: currentQuestion.scale_info
+      });
+      setShowCurrentQuestion(true);
+      setQuestionCount(prev => prev + 1);
     }
-  }, [isStarted, currentQuestionIndex, showCurrentQuestion, isComplete]);
+  }, [currentQuestion, showCurrentQuestion]);
 
-  const handleStart = () => {
+  const handleStart = async () => {
     setIsStarted(true);
     
     // Welcome message
@@ -110,75 +88,58 @@ export const Assessment = () => {
       addMessage('bot', "I'll ask you some questions to understand your leadership style and help you discover your leadership persona.");
     }, 1000);
     
-    setTimeout(() => {
-      addMessage('bot', "This will take about 10 minutes, and your progress is automatically saved. Ready to begin?");
+    setTimeout(async () => {
+      addMessage('bot', "This will take about 10 minutes, and your progress is automatically saved. Let me get started...");
+      
+      // Initialize OpenAI assistant and start the conversation
+      if (!isInitialized) {
+        await initializeAssistant();
+      }
+      
+      setTimeout(async () => {
+        await sendMessage("Please start the leadership assessment by asking me the first question.");
+      }, 1500);
     }, 2000);
   };
 
-  const handleMultipleChoiceAnswer = (answer: string) => {
+  const handleMultipleChoiceAnswer = async (answer: string) => {
     addMessage('user', answer);
     setShowCurrentQuestion(false);
     
-    // Move to next question after a brief acknowledgment
-    setTimeout(() => {
-      addMessage('bot', "Thanks for sharing that insight!");
-      setTimeout(() => {
-        setCurrentQuestionIndex(prev => prev + 1);
-      }, 1000);
-    }, 500);
+    // Send response to OpenAI assistant
+    await sendMessage(answer);
   };
 
-  const handleOpenEndedSubmit = () => {
+  const handleOpenEndedSubmit = async () => {
     if (!openEndedResponse.trim()) return;
     
     addMessage('user', openEndedResponse);
     setShowCurrentQuestion(false);
     
-    // Move to next question
-    setTimeout(() => {
-      addMessage('bot', "Interesting perspective! That tells me a lot about your leadership style.");
-      setOpenEndedResponse('');
-      setTimeout(() => {
-        setCurrentQuestionIndex(prev => prev + 1);
-      }, 1000);
-    }, 500);
+    // Send response to OpenAI assistant
+    await sendMessage(openEndedResponse);
+    setOpenEndedResponse('');
   };
 
-  const handleScaleSubmit = () => {
+  const handleScaleSubmit = async () => {
     const scaleResponse = `${scaleValue[0]} out of 10`;
     addMessage('user', scaleResponse);
     setShowCurrentQuestion(false);
     
-    // Move to next question
-    setTimeout(() => {
-      addMessage('bot', "Got it, that's helpful to know.");
-      setScaleValue([5]); // Reset to middle value
-      setTimeout(() => {
-        setCurrentQuestionIndex(prev => prev + 1);
-      }, 1000);
-    }, 500);
+    // Send response to OpenAI assistant
+    await sendMessage(scaleResponse);
+    setScaleValue([5]); // Reset to middle value
   };
 
 
-  // Handle completion detection
+  // Handle assistant errors
   useEffect(() => {
-    if (currentQuestionIndex >= sampleQuestions.length && !isComplete) {
-      setTimeout(() => {
-        setIsComplete(true);
-        addMessage('bot', "Excellent! You've completed the assessment. 🎉");
-        
-        setTimeout(() => {
-          addMessage('bot', "I'm now analyzing your responses to create your personalized leadership profile...");
-        }, 1500);
-        
-        setTimeout(() => {
-          addMessage('bot', "Your leadership profile is ready! To receive your detailed results and personalized insights, please enter your email address below.");
-        }, 3000);
-      }, 1000);
+    if (assistantError) {
+      addMessage('bot', `I apologize, but I encountered an issue: ${assistantError}. Please try refreshing the page.`);
     }
-  }, [currentQuestionIndex, isComplete]);
+  }, [assistantError]);
 
-  const progress = Math.min((questionCount / sampleQuestions.length) * 100, 100);
+  const progress = Math.min((questionCount / totalQuestions) * 100, 100);
 
   if (!isStarted) {
     return (
@@ -244,7 +205,7 @@ export const Assessment = () => {
         <div className="mb-6">
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm text-text-secondary">
-                Question {questionCount} of {sampleQuestions.length}
+                Question {questionCount} of ~{totalQuestions}
               </span>
               <span className="text-sm text-text-secondary">
                 {Math.round(progress)}% complete
@@ -293,7 +254,7 @@ export const Assessment = () => {
                                 key={index}
                                 onClick={() => handleMultipleChoiceAnswer(option)}
                                 className="w-full text-left p-3 rounded-lg border border-border hover:border-primary hover:bg-primary/5 transition-smooth text-sm"
-                                disabled={isLoading}
+                                disabled={assistantLoading}
                               >
                                 {option}
                               </button>
@@ -308,7 +269,7 @@ export const Assessment = () => {
                               onChange={(e) => setOpenEndedResponse(e.target.value)}
                               placeholder="Share your thoughts here... (2-3 sentences)"
                               className="min-h-[100px]"
-                              disabled={isLoading}
+                              disabled={assistantLoading}
                             />
                             <div className="flex justify-between items-center">
                               <span className="text-xs text-text-secondary">
@@ -316,7 +277,7 @@ export const Assessment = () => {
                               </span>
                               <Button
                                 onClick={handleOpenEndedSubmit}
-                                disabled={!openEndedResponse.trim() || isLoading}
+                                disabled={!openEndedResponse.trim() || assistantLoading}
                                 size="sm"
                               >
                                 <Send size={16} />
@@ -336,7 +297,7 @@ export const Assessment = () => {
                                 max={message.scaleInfo.max}
                                 step={1}
                                 className="w-full"
-                                disabled={isLoading}
+                                disabled={assistantLoading}
                               />
                               <div className="flex justify-between text-xs text-text-secondary mt-2">
                                 <span>{message.scaleInfo.min_label}</span>
@@ -346,7 +307,7 @@ export const Assessment = () => {
                             </div>
                             <Button
                               onClick={handleScaleSubmit}
-                              disabled={isLoading}
+                              disabled={assistantLoading}
                               size="sm"
                               className="w-full"
                             >
@@ -371,7 +332,7 @@ export const Assessment = () => {
             ))}
             
             {/* Loading Indicator */}
-            {isLoading && (
+            {assistantLoading && (
               <div className="flex gap-3 justify-start">
                 <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center flex-shrink-0">
                   <Bot size={20} className="text-white" />
