@@ -3,89 +3,46 @@ import { Header } from '../components/Header';
 import { SpiralElement } from '../components/SpiralElement';
 import { Button } from '../components/ui/button';
 import { Progress } from '../components/ui/progress';
+import { Textarea } from '../components/ui/textarea';
+import { Slider } from '../components/ui/slider';
 import { ArrowRight, Send, User, Bot } from 'lucide-react';
-
-interface Question {
-  id: number;
-  type: 'multiple-choice' | 'scale' | 'scenario';
-  question: string;
-  options?: string[];
-  context?: string;
-}
+import { useOpenAIAssistant } from '../hooks/useOpenAIAssistant';
 
 interface ChatMessage {
   id: string;
   type: 'bot' | 'user';
   content: string;
   timestamp: Date;
+  questionType?: 'multiple-choice' | 'open-ended' | 'scale';
   options?: string[];
+  scaleInfo?: {
+    min: number;
+    max: number;
+    min_label: string;
+    max_label: string;
+  };
   isQuestion?: boolean;
 }
 
-const assessmentQuestions: Question[] = [
-  {
-    id: 1,
-    type: 'multiple-choice',
-    question: "When facing a complex challenge, what's your first instinct?",
-    options: [
-      "Gather input from multiple stakeholders",
-      "Analyze data and research best practices",
-      "Trust my intuition and experience",
-      "Break it down into smaller, manageable parts"
-    ]
-  },
-  {
-    id: 2,
-    type: 'scenario',
-    question: "Your team is struggling to meet a critical deadline. How do you respond?",
-    context: "The project is 70% complete but behind schedule due to unexpected technical challenges.",
-    options: [
-      "Work alongside the team to find solutions",
-      "Reallocate resources from other projects",
-      "Communicate transparently with stakeholders about delays",
-      "Focus on the most critical deliverables first"
-    ]
-  },
-  {
-    id: 3,
-    type: 'scale',
-    question: "How comfortable are you with ambiguous situations?",
-    options: ["Very uncomfortable", "Somewhat uncomfortable", "Neutral", "Somewhat comfortable", "Very comfortable"]
-  },
-  {
-    id: 4,
-    type: 'multiple-choice',
-    question: "What motivates you most as a leader?",
-    options: [
-      "Achieving organizational goals",
-      "Developing and mentoring others",
-      "Driving innovation and change",
-      "Building strong relationships and trust"
-    ]
-  },
-  {
-    id: 5,
-    type: 'scenario',
-    question: "A high-performing team member comes to you with concerns about team dynamics. What's your approach?",
-    context: "They mention feeling disconnected from the team and question their role in upcoming projects.",
-    options: [
-      "Schedule one-on-one time to understand their perspective",
-      "Facilitate a team discussion about roles and collaboration",
-      "Review and clarify team processes and expectations",
-      "Connect them with a mentor or coach for additional support"
-    ]
-  }
-];
 
 export const Assessment = () => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [answers, setAnswers] = useState<Record<number, string>>({});
   const [isStarted, setIsStarted] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
-  const [isTyping, setIsTyping] = useState(false);
-  const [showOptions, setShowOptions] = useState(false);
+  const [showCurrentQuestion, setShowCurrentQuestion] = useState(false);
+  const [openEndedResponse, setOpenEndedResponse] = useState('');
+  const [scaleValue, setScaleValue] = useState([5]);
+  const [questionCount, setQuestionCount] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  
+  const { 
+    isInitialized, 
+    isLoading, 
+    error, 
+    currentQuestion, 
+    sendMessage, 
+    initializeAssistant 
+  } = useOpenAIAssistant();
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -93,28 +50,38 @@ export const Assessment = () => {
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages, isTyping]);
+  }, [messages, isLoading]);
 
-  const addMessage = (type: 'bot' | 'user', content: string, options?: string[], isQuestion: boolean = false) => {
+  const addMessage = (type: 'bot' | 'user', content: string, questionData?: Partial<ChatMessage>) => {
     const newMessage: ChatMessage = {
       id: Date.now().toString(),
       type,
       content,
       timestamp: new Date(),
-      options,
-      isQuestion
+      ...questionData
     };
     setMessages(prev => [...prev, newMessage]);
   };
 
-  const simulateTyping = (delay: number = 1500) => {
-    setIsTyping(true);
-    setTimeout(() => {
-      setIsTyping(false);
-    }, delay);
-  };
+  // Watch for new questions from the assistant
+  useEffect(() => {
+    if (currentQuestion) {
+      setShowCurrentQuestion(false);
+      
+      setTimeout(() => {
+        addMessage('bot', currentQuestion.question, {
+          isQuestion: true,
+          questionType: currentQuestion.type,
+          options: currentQuestion.options,
+          scaleInfo: currentQuestion.scale_info
+        });
+        setShowCurrentQuestion(true);
+        setQuestionCount(prev => prev + 1);
+      }, 1000);
+    }
+  }, [currentQuestion]);
 
-  const handleStart = () => {
+  const handleStart = async () => {
     setIsStarted(true);
     
     // Welcome message
@@ -128,93 +95,68 @@ export const Assessment = () => {
       addMessage('bot', "This will take about 10 minutes, and your progress is automatically saved. Ready to begin?");
     }, 2000);
     
-    setTimeout(() => {
-      askNextQuestion();
+    // Initialize the assistant and start the conversation
+    setTimeout(async () => {
+      if (!isInitialized) {
+        await initializeAssistant();
+      }
+      
+      // Send initial message to start the assessment
+      setTimeout(() => {
+        sendMessage("Hello! I'm ready to begin my leadership assessment. Please start with the first question.");
+      }, 1000);
     }, 3500);
   };
 
-  const askNextQuestion = () => {
-    if (currentQuestionIndex >= assessmentQuestions.length) {
-      completeAssessment();
-      return;
-    }
-
-    const question = assessmentQuestions[currentQuestionIndex];
-    
-    simulateTyping();
-    
-    setTimeout(() => {
-      if (question.context) {
-        addMessage('bot', `Context: ${question.context}`);
-        setTimeout(() => {
-          addMessage('bot', question.question, question.options, true);
-          setShowOptions(true);
-        }, 1000);
-      } else {
-        addMessage('bot', question.question, question.options, true);
-        setShowOptions(true);
-      }
-    }, 1500);
-  };
-
-  const handleAnswer = (answer: string) => {
-    const currentQuestion = assessmentQuestions[currentQuestionIndex];
-    
-    // Add user's answer to chat
+  const handleMultipleChoiceAnswer = async (answer: string) => {
     addMessage('user', answer);
+    setShowCurrentQuestion(false);
     
-    // Store the answer
-    setAnswers(prev => ({
-      ...prev,
-      [currentQuestion.id]: answer
-    }));
+    // Send response to assistant
+    await sendMessage(answer);
+  };
+
+  const handleOpenEndedSubmit = async () => {
+    if (!openEndedResponse.trim()) return;
     
-    setShowOptions(false);
+    addMessage('user', openEndedResponse);
+    setShowCurrentQuestion(false);
     
-    // Bot acknowledgment
-    setTimeout(() => {
-      const acknowledgments = [
-        "Thanks for sharing that insight!",
-        "Interesting perspective!",
-        "Got it, that's helpful to know.",
-        "I see, that tells me a lot about your style.",
-        "Great, I'm building a picture of your leadership approach."
-      ];
-      
-      const randomAck = acknowledgments[Math.floor(Math.random() * acknowledgments.length)];
-      addMessage('bot', randomAck);
-      
+    // Send response to assistant
+    await sendMessage(openEndedResponse);
+    setOpenEndedResponse('');
+  };
+
+  const handleScaleSubmit = async () => {
+    const scaleResponse = `${scaleValue[0]} out of ${currentQuestion?.scale_info?.max || 10}`;
+    addMessage('user', scaleResponse);
+    setShowCurrentQuestion(false);
+    
+    // Send response to assistant
+    await sendMessage(scaleResponse);
+    setScaleValue([5]); // Reset to middle value
+  };
+
+
+  // Handle completion detection (you can enhance this logic)
+  useEffect(() => {
+    if (questionCount >= 8 && !isComplete) {
       setTimeout(() => {
-        setCurrentQuestionIndex(prev => prev + 1);
+        setIsComplete(true);
+        addMessage('bot', "Excellent! You've completed the assessment. 🎉");
         
-        if (currentQuestionIndex < assessmentQuestions.length - 1) {
-          setTimeout(() => {
-            addMessage('bot', "Let me ask you something else...");
-            setTimeout(askNextQuestion, 1000);
-          }, 1000);
-        } else {
-          setTimeout(askNextQuestion, 1000);
-        }
+        setTimeout(() => {
+          addMessage('bot', "I'm now analyzing your responses to create your personalized leadership profile...");
+        }, 1500);
+        
+        setTimeout(() => {
+          addMessage('bot', "Your leadership profile is ready! To receive your detailed results and personalized insights, please enter your email address below.");
+        }, 3000);
       }, 1000);
-    }, 800);
-  };
+    }
+  }, [questionCount, isComplete]);
 
-  const completeAssessment = () => {
-    setTimeout(() => {
-      addMessage('bot', "Excellent! You've completed the assessment. 🎉");
-    }, 1000);
-    
-    setTimeout(() => {
-      addMessage('bot', "I'm now analyzing your responses to create your personalized leadership profile...");
-    }, 2500);
-    
-    setTimeout(() => {
-      setIsComplete(true);
-      addMessage('bot', "Your leadership profile is ready! To receive your detailed results and personalized insights, please enter your email address below.");
-    }, 4000);
-  };
-
-  const progress = ((currentQuestionIndex + 1) / assessmentQuestions.length) * 100;
+  const progress = Math.min((questionCount / 8) * 100, 100);
 
   if (!isStarted) {
     return (
@@ -278,14 +220,14 @@ export const Assessment = () => {
       <div className="max-w-4xl mx-auto px-6 py-6">
         {/* Progress Bar */}
         <div className="mb-6">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm text-text-secondary">
-              Question {Math.min(currentQuestionIndex + 1, assessmentQuestions.length)} of {assessmentQuestions.length}
-            </span>
-            <span className="text-sm text-text-secondary">
-              {Math.round(progress)}% complete
-            </span>
-          </div>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm text-text-secondary">
+                Question {questionCount} of ~8-10
+              </span>
+              <span className="text-sm text-text-secondary">
+                {Math.round(progress)}% complete
+              </span>
+            </div>
           <div className="progress-bar h-2">
             <div 
               className="progress-fill h-full" 
@@ -319,17 +261,77 @@ export const Assessment = () => {
                   >
                     <p className="text-sm leading-relaxed">{message.content}</p>
                     
-                    {message.isQuestion && message.options && showOptions && (
-                      <div className="mt-4 space-y-2">
-                        {message.options.map((option, index) => (
-                          <button
-                            key={index}
-                            onClick={() => handleAnswer(option)}
-                            className="w-full text-left p-3 rounded-lg border border-border hover:border-primary hover:bg-primary/5 transition-smooth text-sm"
-                          >
-                            {option}
-                          </button>
-                        ))}
+                    {/* Dynamic Question UI based on type */}
+                    {message.isQuestion && showCurrentQuestion && (
+                      <div className="mt-4">
+                        {message.questionType === 'multiple-choice' && message.options && (
+                          <div className="space-y-2">
+                            {message.options.map((option, index) => (
+                              <button
+                                key={index}
+                                onClick={() => handleMultipleChoiceAnswer(option)}
+                                className="w-full text-left p-3 rounded-lg border border-border hover:border-primary hover:bg-primary/5 transition-smooth text-sm"
+                                disabled={isLoading}
+                              >
+                                {option}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                        
+                        {message.questionType === 'open-ended' && (
+                          <div className="space-y-3">
+                            <Textarea
+                              value={openEndedResponse}
+                              onChange={(e) => setOpenEndedResponse(e.target.value)}
+                              placeholder="Share your thoughts here... (2-3 sentences)"
+                              className="min-h-[100px]"
+                              disabled={isLoading}
+                            />
+                            <div className="flex justify-between items-center">
+                              <span className="text-xs text-text-secondary">
+                                {openEndedResponse.length}/500 characters
+                              </span>
+                              <Button
+                                onClick={handleOpenEndedSubmit}
+                                disabled={!openEndedResponse.trim() || isLoading}
+                                size="sm"
+                              >
+                                <Send size={16} />
+                                Submit
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {message.questionType === 'scale' && message.scaleInfo && (
+                          <div className="space-y-4">
+                            <div className="px-2">
+                              <Slider
+                                value={scaleValue}
+                                onValueChange={setScaleValue}
+                                min={message.scaleInfo.min}
+                                max={message.scaleInfo.max}
+                                step={1}
+                                className="w-full"
+                                disabled={isLoading}
+                              />
+                              <div className="flex justify-between text-xs text-text-secondary mt-2">
+                                <span>{message.scaleInfo.min_label}</span>
+                                <span className="font-medium">{scaleValue[0]}</span>
+                                <span>{message.scaleInfo.max_label}</span>
+                              </div>
+                            </div>
+                            <Button
+                              onClick={handleScaleSubmit}
+                              disabled={isLoading}
+                              size="sm"
+                              className="w-full"
+                            >
+                              Submit Rating
+                            </Button>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -346,8 +348,8 @@ export const Assessment = () => {
               </div>
             ))}
             
-            {/* Typing Indicator */}
-            {isTyping && (
+            {/* Loading Indicator */}
+            {isLoading && (
               <div className="flex gap-3 justify-start">
                 <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center flex-shrink-0">
                   <Bot size={20} className="text-white" />
@@ -359,6 +361,21 @@ export const Assessment = () => {
                     <div className="w-2 h-2 bg-text-secondary rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
                   </div>
                 </div>
+              </div>
+            )}
+            
+            {/* Error Display */}
+            {error && (
+              <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+                <p className="text-red-700 text-sm">Error: {error}</p>
+                <Button 
+                  onClick={() => window.location.reload()} 
+                  variant="outline" 
+                  size="sm" 
+                  className="mt-2"
+                >
+                  Refresh Page
+                </Button>
               </div>
             )}
             
