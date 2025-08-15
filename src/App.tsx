@@ -10,6 +10,7 @@ import { About } from "./pages/About";
 import { Auth } from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import { ProtectedRoute } from "./components/ProtectedRoute";
+import Evaluation from "./pages/Evaluation";
 
 const queryClient = new QueryClient();
 
@@ -25,6 +26,11 @@ const App = () => (
           <Route path="/assessment" element={
             <ProtectedRoute>
               <Assessment />
+            </ProtectedRoute>
+          } />
+          <Route path="/evaluation" element={
+            <ProtectedRoute>
+              <Evaluation />
             </ProtectedRoute>
           } />
           <Route path="/model" element={<Model />} />
