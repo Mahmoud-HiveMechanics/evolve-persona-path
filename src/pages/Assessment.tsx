@@ -5,7 +5,7 @@ import { Button } from '../components/ui/button';
 import { Progress } from '../components/ui/progress';
 import { Textarea } from '../components/ui/textarea';
 import { Slider } from '../components/ui/slider';
-import { ArrowRight, Send, User, Bot, CheckCircle2, Loader2 } from 'lucide-react';
+import { ArrowRight, Send, User, Bot, CheckCircle2, Loader2, Mic, Square } from 'lucide-react';
 import { useOpenAIAssistant } from '../hooks/useOpenAIAssistant';
 import { useConversation } from '../hooks/useConversation';
 import { useAuth } from '../hooks/useAuth';
@@ -37,6 +37,9 @@ export const Assessment = () => {
   const [questionCount, setQuestionCount] = useState(0);
   const [totalQuestions, setTotalQuestions] = useState(10);
   const [kickoffSent, setKickoffSent] = useState(false);
+  const [recording, setRecording] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordedChunksRef = useRef<BlobPart[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
   const { conversationId, threadId, createConversation, saveMessage, markConversationComplete } = useConversation();
@@ -376,18 +379,77 @@ export const Assessment = () => {
                               className="min-h-[100px]"
                               disabled={assistantLoading}
                             />
-                            <div className="flex justify-between items-center">
+                            <div className="flex justify-between items-center gap-2">
                               <span className="text-xs text-text-secondary">
                                 {openEndedResponse.length}/500 characters
                               </span>
-                              <Button
-                                onClick={handleOpenEndedSubmit}
-                                disabled={!openEndedResponse.trim() || assistantLoading}
-                                size="sm"
-                              >
-                                <Send size={16} />
-                                Submit
-                              </Button>
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  onClick={async () => {
+                                    if (recording) {
+                                      mediaRecorderRef.current?.stop();
+                                      return;
+                                    }
+                                    try {
+                                      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                                      const mr = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+                                      recordedChunksRef.current = [];
+                                      mr.ondataavailable = (e) => {
+                                        if (e.data && e.data.size > 0) recordedChunksRef.current.push(e.data);
+                                      };
+                                      mr.onstop = async () => {
+                                        setRecording(false);
+                                        const blob = new Blob(recordedChunksRef.current, { type: 'audio/webm' });
+                                        // Convert to base64
+                                        const base64 = await new Promise<string>((resolve, reject) => {
+                                          const reader = new FileReader();
+                                          reader.onloadend = () => {
+                                            const res = (reader.result as string) || '';
+                                            resolve(res.split(',')[1] || '');
+                                          };
+                                          reader.onerror = reject;
+                                          reader.readAsDataURL(blob);
+                                        });
+
+                                        try {
+                                          const resp = await fetch('/functions/v1/chat-assistant', {
+                                            method: 'POST',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({ action: 'transcribe_audio', audioBase64: base64, mimeType: 'audio/webm' })
+                                          });
+                                          const json = await resp.json();
+                                          if (resp.ok && json?.text) {
+                                            setOpenEndedResponse(prev => (prev ? prev + ' ' : '') + json.text);
+                                          }
+                                        } catch (err) {
+                                          console.error('Transcription error:', err);
+                                        } finally {
+                                          stream.getTracks().forEach(t => t.stop());
+                                        }
+                                      };
+                                      mediaRecorderRef.current = mr;
+                                      mr.start();
+                                      setRecording(true);
+                                    } catch (err) {
+                                      console.error('Microphone error:', err);
+                                    }
+                                  }}
+                                  size="sm"
+                                  variant={recording ? 'destructive' : 'secondary'}
+                                  title={recording ? 'Stop recording' : 'Record voice note'}
+                                >
+                                  {recording ? <Square size={16} /> : <Mic size={16} />}
+                                  {recording ? 'Stop' : 'Record'}
+                                </Button>
+                                <Button
+                                  onClick={handleOpenEndedSubmit}
+                                  disabled={!openEndedResponse.trim() || assistantLoading}
+                                  size="sm"
+                                >
+                                  <Send size={16} />
+                                  Submit
+                                </Button>
+                              </div>
                             </div>
                           </div>
                         )}

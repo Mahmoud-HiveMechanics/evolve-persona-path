@@ -51,6 +51,10 @@ serve(async (req) => {
       "Content-Type": "application/json",
       "OpenAI-Beta": "assistants=v2"
     };
+    // For multipart requests (audio transcription), let fetch set Content-Type
+    const authOnlyHeaders = {
+      "Authorization": `Bearer ${OPENAI_API_KEY}`
+    };
 
     let response;
 
@@ -199,6 +203,54 @@ serve(async (req) => {
           })
         });
         break;
+      }
+
+      case "transcribe_audio": {
+        // Expect base64 audio and mimeType
+        const { audioBase64, mimeType } = bodyJson ?? {};
+        if (!audioBase64) {
+          return new Response(
+            JSON.stringify({ ok: false, status: 400, error: { message: "Missing audioBase64 for transcribe_audio" } }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        try {
+          // Decode base64 to bytes
+          const binaryString = atob(audioBase64);
+          const bytes = new Uint8Array(binaryString.length);
+          for (let i = 0; i < binaryString.length; i++) bytes[i] = binaryString.charCodeAt(i);
+          const blob = new Blob([bytes], { type: mimeType || "audio/webm" });
+
+          const form = new FormData();
+          form.append("file", blob, "voice_note.webm");
+          form.append("model", "whisper-1");
+
+          const resp = await fetch("https://api.openai.com/v1/audio/transcriptions", {
+            method: "POST",
+            headers: authOnlyHeaders,
+            body: form
+          });
+          const txt = await resp.text();
+          let json: any = null;
+          try { json = txt ? JSON.parse(txt) : null; } catch (_) {}
+
+          if (!resp.ok) {
+            return new Response(
+              JSON.stringify({ ok: false, status: resp.status, error: json || txt }),
+              { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          }
+
+          return new Response(
+            JSON.stringify({ ok: true, status: 200, text: json?.text || "" }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        } catch (e) {
+          return new Response(
+            JSON.stringify({ ok: false, status: 500, error: { message: String(e) } }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
       }
 
       default: {
