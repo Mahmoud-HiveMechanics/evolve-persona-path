@@ -15,10 +15,34 @@ interface ChatMessage {
 export const useConversation = () => {
   const { user } = useAuth();
   const [conversationId, setConversationId] = useState<string | null>(null);
+  const [threadId, setThreadId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  const createConversation = async (assistantId?: string, threadId?: string) => {
-    if (!user) return null;
+  // Get user's threadId from profile
+  useEffect(() => {
+    const getUserThread = async () => {
+      if (!user) return;
+
+      try {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('thread_id')
+          .eq('user_id', user.id)
+          .single();
+
+        if (profile?.thread_id) {
+          setThreadId(profile.thread_id);
+        }
+      } catch (error) {
+        console.error('Error fetching user thread:', error);
+      }
+    };
+
+    getUserThread();
+  }, [user]);
+
+  const createConversation = async (assistantId?: string) => {
+    if (!user || !threadId) return null;
 
     try {
       const { data, error } = await supabase
@@ -87,6 +111,7 @@ export const useConversation = () => {
 
   return {
     conversationId,
+    threadId,
     createConversation,
     saveMessage,
     markConversationComplete,

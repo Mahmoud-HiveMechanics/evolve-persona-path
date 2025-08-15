@@ -40,6 +40,34 @@ export const useAuth = () => {
         }
       }
     });
+
+    // Create OpenAI thread for new user after successful signup
+    if (!error) {
+      try {
+        const { data: threadData } = await supabase.functions.invoke('chat-assistant', {
+          body: {
+            action: 'create_thread',
+            assistantId: 'asst_0IGtbLANauxTpbn8rSj7MVy5'
+          }
+        });
+
+        if (threadData?.id) {
+          // Wait a moment for the user to be created in auth.users
+          setTimeout(async () => {
+            const { data: session } = await supabase.auth.getSession();
+            if (session?.session?.user) {
+              await supabase
+                .from('profiles')
+                .update({ thread_id: threadData.id })
+                .eq('user_id', session.session.user.id);
+            }
+          }, 1000);
+        }
+      } catch (threadError) {
+        console.error('Error creating thread:', threadError);
+      }
+    }
+
     return { error };
   };
 
