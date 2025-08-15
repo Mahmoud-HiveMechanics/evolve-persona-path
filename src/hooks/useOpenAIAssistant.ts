@@ -37,6 +37,8 @@ export const useOpenAIAssistant = ({ threadId }: UseOpenAIAssistantProps): UseOp
   const [pendingToolCallId, setPendingToolCallId] = useState<string | null>(null);
   // Track the last tool_call id we surfaced as a question to avoid duplicates
   const [lastShownToolCallId, setLastShownToolCallId] = useState<string | null>(null);
+  // Expose a quick probe to let the page decide whether to kick off a new run
+  (useOpenAIAssistant as any).__hasActiveRun = () => Boolean(activeRunId);
 
   const normalizeError = (err: any): string => {
     if (!err) return 'Unknown error';
@@ -105,7 +107,6 @@ export const useOpenAIAssistant = ({ threadId }: UseOpenAIAssistantProps): UseOp
       setAssistantId(EXISTING_ASSISTANT_ID);
 
       console.log('Using existing thread:', threadId);
-      setIsInitialized(true);
 
       // Resume any active run from a previous session to avoid sending a new message
       try {
@@ -122,6 +123,9 @@ export const useOpenAIAssistant = ({ threadId }: UseOpenAIAssistantProps): UseOp
         // Non-fatal; just log
         console.warn('No active run to resume or resume check failed:', resumeErr);
       }
+
+      // Mark initialized only after resume check completes to avoid racing kickoff
+      setIsInitialized(true);
     } catch (err) {
       console.error('Assistant initialization error:', err);
       setError(err instanceof Error ? err.message : 'Failed to initialize assistant');
@@ -131,7 +135,7 @@ export const useOpenAIAssistant = ({ threadId }: UseOpenAIAssistantProps): UseOp
   };
 
   // Poll a run until it completes or requires action
-  const pollRunUntilActionOrComplete = async (runId: string): Promise<"completed" | "requires_action"> => {
+  const pollRunUntilActionOrComplete = async (runId: string): Promise<"completed" | "requires_action" | "expired"> => {
     let attempts = 0;
     const maxAttempts = 60; // up to ~60s
     while (attempts < maxAttempts) {
@@ -167,6 +171,9 @@ export const useOpenAIAssistant = ({ threadId }: UseOpenAIAssistantProps): UseOp
         }
         return 'requires_action';
       }
+      if (status === 'failed' || status === 'cancelled' || status === 'expired') {
+        return 'expired';
+      }
 
       attempts += 1;
     }
@@ -191,27 +198,51 @@ export const useOpenAIAssistant = ({ threadId }: UseOpenAIAssistantProps): UseOp
           // The question has been set from the tool call; do not send another message
           return;
         }
-        // Completed: clear it and allow a new message to start a new run
+        // Completed or expired: clear it and allow a new message to start a new run
         setActiveRunId(null);
+        setPendingToolCallId(null);
       }
 
       // If a tool call is pending, submit output instead of adding a new message
       if (pendingToolCallId && activeRunId) {
-        await callAssistant('submit_tool_outputs', {
-          threadId,
-          runId: activeRunId,
-          toolCallId: pendingToolCallId,
-          output: message
-        });
-
-        // Clear pending tool call and keep polling same run
-        setPendingToolCallId(null);
-        const outcome = await pollRunUntilActionOrComplete(activeRunId);
-        if (outcome === 'completed') {
-          const messagesResponse: any = await callAssistant('get_messages', { threadId });
-          console.log('Messages:', messagesResponse);
+        // Confirm run is still awaiting tool outputs before submitting
+        try {
+          const statusResponse: any = await callAssistant('get_run_status', { threadId, runId: activeRunId });
+          const status = statusResponse?.status || statusResponse?.openai?.status;
+          if (status !== 'requires_action') {
+            // Run is no longer accepting tool outputs. Clear and start a fresh run with user's message.
+            setPendingToolCallId(null);
+            setActiveRunId(null);
+          } else {
+            await callAssistant('submit_tool_outputs', {
+              threadId,
+              runId: activeRunId,
+              toolCallId: pendingToolCallId,
+              output: message
+            });
+            // Clear pending tool call and keep polling same run
+            setPendingToolCallId(null);
+            const outcome = await pollRunUntilActionOrComplete(activeRunId);
+            if (outcome === 'completed') {
+              const messagesResponse: any = await callAssistant('get_messages', { threadId });
+              console.log('Messages:', messagesResponse);
+            }
+            if (outcome !== 'requires_action') {
+              // Either completed or expired; if expired, allow caller to continue and start fresh on next send
+              return;
+            }
+            return;
+          }
+        } catch (submitErr: any) {
+          const msg = submitErr?.message || '';
+          if (msg.includes('expired') || msg.includes('do not accept tool outputs')) {
+            // Recovery path: clear active and pending to allow a new run
+            setPendingToolCallId(null);
+            setActiveRunId(null);
+          } else {
+            throw submitErr;
+          }
         }
-        return;
       }
 
       // Otherwise, add a message and start a new run
