@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,11 +18,8 @@ export const Auth = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  useEffect(() => {
-    if (user) {
-      navigate('/');
-    }
-  }, [user, navigate]);
+  // Do not auto-redirect away from the auth page when already signed in.
+  // This allows the "Sign in" link to work reliably even if a session is active.
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -112,6 +109,9 @@ export const Auth = () => {
                 <Button type="submit" className="w-full" disabled={isLoading}>
                   {isLoading ? 'Signing in...' : 'Sign In'}
                 </Button>
+                <div className="text-center text-xs text-muted-foreground">
+                  <Link to="/auth#signup" className="underline">Need an account? Create one</Link>
+                </div>
               </form>
             </TabsContent>
             
@@ -152,6 +152,9 @@ export const Auth = () => {
                 <Button type="submit" className="w-full" disabled={isLoading}>
                   {isLoading ? 'Creating account...' : 'Sign Up'}
                 </Button>
+                <div className="text-center text-xs text-muted-foreground">
+                  <Link to="/auth#signin" className="underline">Already have an account? Sign in</Link>
+                </div>
               </form>
             </TabsContent>
           </Tabs>
