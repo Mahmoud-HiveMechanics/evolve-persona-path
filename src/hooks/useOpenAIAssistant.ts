@@ -40,6 +40,21 @@ export const useOpenAIAssistant = ({ threadId }: UseOpenAIAssistantProps): UseOp
       });
 
       if (error) throw error;
+      
+      // Handle the new response format from our updated edge function
+      if (response && typeof response === 'object') {
+        // If the response has an 'ok' field (new format), check it
+        if ('ok' in response) {
+          if (!response.ok) {
+            throw new Error(response.error?.message || response.error || 'API call failed');
+          }
+          // Return the OpenAI data if available, otherwise the whole response
+          return response.openai || response;
+        }
+        // Old format or direct OpenAI response
+        return response;
+      }
+      
       return response;
     } catch (err) {
       console.error('Assistant API call error:', err);
