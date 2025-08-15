@@ -36,6 +36,7 @@ export const Assessment = () => {
   const [scaleValue, setScaleValue] = useState([5]);
   const [questionCount, setQuestionCount] = useState(0);
   const [totalQuestions, setTotalQuestions] = useState(10);
+  const [kickoffSent, setKickoffSent] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
   const { conversationId, threadId, createConversation, saveMessage, markConversationComplete } = useConversation();
@@ -127,67 +128,45 @@ export const Assessment = () => {
 
   const handleStart = async () => {
     setIsStarted(true);
-    
-    try {
-      await addMessage('bot', "I'm getting ready for you. Please wait a moment...");
-      
-      // Wait for threadId to be available (it might be created asynchronously)
-      let attempts = 0;
-      const maxAttempts = 10; // Increased attempts
-      while (!threadId && attempts < maxAttempts) {
-        console.log(`Waiting for thread ID... attempt ${attempts + 1}/${maxAttempts}`);
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        attempts++;
-      }
-      
-      if (!threadId) {
-        throw new Error('Thread ID not available after waiting');
-      }
+    setKickoffSent(false);
+    await addMessage('bot', "I'm getting ready for you. Please wait a moment...");
+  };
 
-      console.log('Thread ID available:', threadId);
-
-      // Initialize OpenAI assistant
-      if (!isInitialized) {
+  // Initialize assistant when start pressed and threadId becomes available
+  useEffect(() => {
+    const run = async () => {
+      if (!isStarted) return;
+      if (!threadId) return;
+      if (isInitialized) return;
+      try {
+        console.log('Thread ID available:', threadId);
         console.log('Initializing assistant...');
         await initializeAssistant();
+        console.log('Assistant initialized successfully');
+      } catch (error) {
+        console.error('Assistant initialization error:', error);
+        await addMessage('bot', "I apologize, but I'm having trouble starting up. Please refresh the page and try again.");
       }
-      
-      // Wait for assistant to be initialized
-      let assistantAttempts = 0;
-      while (!isInitialized && assistantAttempts < 5) {
-        console.log(`Waiting for assistant initialization... attempt ${assistantAttempts + 1}/5`);
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        assistantAttempts++;
-      }
+    };
+    run();
+  }, [isStarted, threadId, isInitialized]);
 
-      if (!isInitialized) {
-        throw new Error('Assistant initialization failed');
+  // Kick off conversation once assistant ready (only once)
+  useEffect(() => {
+    const kickOff = async () => {
+      if (!isStarted || !isInitialized || !threadId || kickoffSent) return;
+      try {
+        await createConversation();
+        await addMessage('bot', "Hi! I'm your leadership assessment guide. 👋");
+        await sendMessage("Please start the leadership assessment by asking me the first question.");
+        setKickoffSent(true);
+      } catch (error) {
+        console.error('Error sending initial message:', error);
+        await addMessage('bot', "I apologize, but I'm having trouble connecting. Please try refreshing the page and try again.");
       }
-
-      console.log('Assistant initialized successfully');
-      
-      // Create conversation record
-      await createConversation();
-      
-      // Welcome message
-      await addMessage('bot', "Hi! I'm your leadership assessment guide. 👋");
-      
-      // Wait a moment, then start the conversation
-      setTimeout(async () => {
-        try {
-          console.log('Sending initial message to assistant...');
-          await sendMessage("Please start the leadership assessment by asking me the first question.");
-        } catch (error) {
-          console.error('Error sending initial message:', error);
-          await addMessage('bot', "I apologize, but I'm having trouble connecting. Please try refreshing the page and try again.");
-        }
-      }, 2000); // Increased timeout
-      
-    } catch (error) {
-      console.error('Error initializing assistant:', error);
-      await addMessage('bot', "I apologize, but I'm having trouble starting up. Please refresh the page and try again.");
-    }
-  };
+    };
+    kickOff();
+  }, [isStarted, isInitialized, threadId, kickoffSent]);
 
   const handleMultipleChoiceAnswer = async (answer: string) => {
     await addMessage('user', answer);
