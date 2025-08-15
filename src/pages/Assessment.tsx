@@ -6,6 +6,7 @@ import { Progress } from '../components/ui/progress';
 import { Textarea } from '../components/ui/textarea';
 import { Slider } from '../components/ui/slider';
 import { ArrowRight, Send, User, Bot, CheckCircle2, Loader2, Mic, Square } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 import { useOpenAIAssistant } from '../hooks/useOpenAIAssistant';
 import { useConversation } from '../hooks/useConversation';
 import { useAuth } from '../hooks/useAuth';
@@ -412,14 +413,16 @@ export const Assessment = () => {
                                         });
 
                                         try {
-                                          const resp = await fetch('/functions/v1/chat-assistant', {
-                                            method: 'POST',
-                                            headers: { 'Content-Type': 'application/json' },
-                                            body: JSON.stringify({ action: 'transcribe_audio', audioBase64: base64, mimeType: 'audio/webm' })
+                                          const { data, error } = await supabase.functions.invoke('chat-assistant', {
+                                            body: {
+                                              action: 'transcribe_audio',
+                                              audioBase64: base64,
+                                              mimeType: 'audio/webm'
+                                            }
                                           });
-                                          const json = await resp.json();
-                                          if (resp.ok && json?.text) {
-                                            setOpenEndedResponse(prev => (prev ? prev + ' ' : '') + json.text);
+                                          if (error) throw error;
+                                          if (data?.text) {
+                                            setOpenEndedResponse(prev => (prev ? prev + ' ' : '') + data.text);
                                           }
                                         } catch (err) {
                                           console.error('Transcription error:', err);
