@@ -13,6 +13,10 @@ interface AssistantQuestion {
   };
 }
 
+interface UseOpenAIAssistantProps {
+  threadId: string | null;
+}
+
 interface UseOpenAIAssistantReturn {
   isInitialized: boolean;
   isLoading: boolean;
@@ -22,9 +26,8 @@ interface UseOpenAIAssistantReturn {
   initializeAssistant: () => Promise<void>;
 }
 
-export const useOpenAIAssistant = (): UseOpenAIAssistantReturn => {
+export const useOpenAIAssistant = ({ threadId }: UseOpenAIAssistantProps): UseOpenAIAssistantReturn => {
   const [assistantId, setAssistantId] = useState<string | null>(null);
-  const [threadId, setThreadId] = useState<string | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -49,19 +52,22 @@ export const useOpenAIAssistant = (): UseOpenAIAssistantReturn => {
     setError(null);
     
     try {
+      if (!threadId) {
+        throw new Error('No thread ID available. Please ensure user is signed up properly.');
+      }
+
       // Use existing assistant
       const EXISTING_ASSISTANT_ID = 'asst_0IGtbLANauxTpbn8rSj7MVy5';
-      const assistantResponse = await callAssistant('use_existing_assistant');
+      const assistantResponse = await callAssistant('use_existing_assistant', {
+        assistantId: EXISTING_ASSISTANT_ID
+      });
       console.log('Using existing assistant:', assistantResponse);
       setAssistantId(EXISTING_ASSISTANT_ID);
 
-      // Create thread
-      const threadResponse = await callAssistant('create_thread');
-      console.log('Thread created:', threadResponse);
-      setThreadId(threadResponse.id);
-
+      console.log('Using existing thread:', threadId);
       setIsInitialized(true);
     } catch (err) {
+      console.error('Assistant initialization error:', err);
       setError(err instanceof Error ? err.message : 'Failed to initialize assistant');
     } finally {
       setIsLoading(false);
@@ -70,13 +76,15 @@ export const useOpenAIAssistant = (): UseOpenAIAssistantReturn => {
 
   const sendMessage = async (message: string) => {
     if (!assistantId || !threadId) {
-      throw new Error('Assistant not initialized');
+      throw new Error('Assistant not initialized - missing assistant ID or thread ID');
     }
 
     setIsLoading(true);
     setError(null);
 
     try {
+      console.log('Sending message:', { message, threadId, assistantId });
+      
       // Send message and run assistant
       const runResponse = await callAssistant('send_message', {
         threadId,

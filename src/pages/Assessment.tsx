@@ -38,6 +38,8 @@ export const Assessment = () => {
   const [totalQuestions, setTotalQuestions] = useState(10);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
+  const { conversationId, threadId, createConversation, saveMessage, markConversationComplete } = useConversation();
+  
   const { 
     isInitialized, 
     isLoading: assistantLoading, 
@@ -45,9 +47,7 @@ export const Assessment = () => {
     currentQuestion, 
     sendMessage, 
     initializeAssistant 
-  } = useOpenAIAssistant();
-  
-  const { conversationId, createConversation, saveMessage, markConversationComplete } = useConversation();
+  } = useOpenAIAssistant({ threadId });
   const { user } = useAuth();
 
   const scrollToBottom = () => {
@@ -106,6 +106,21 @@ export const Assessment = () => {
     setIsStarted(true);
     
     try {
+      // Check if threadId is available
+      if (!threadId) {
+        await addMessage('bot', "I'm getting ready for you. Please wait a moment...");
+        // Wait for threadId to be available
+        let attempts = 0;
+        while (!threadId && attempts < 5) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          attempts++;
+        }
+        
+        if (!threadId) {
+          throw new Error('Thread ID not available after waiting');
+        }
+      }
+
       // Initialize OpenAI assistant first
       if (!isInitialized) {
         await initializeAssistant();
@@ -123,13 +138,13 @@ export const Assessment = () => {
           await sendMessage("Please start the leadership assessment by asking me the first question.");
         } catch (error) {
           console.error('Error sending initial message:', error);
-          await addMessage('bot', "I apologize, but I'm having trouble connecting. Please try refreshing the page.");
+          await addMessage('bot', "I apologize, but I'm having trouble connecting. Please try refreshing the page and try again.");
         }
       }, 1000);
       
     } catch (error) {
       console.error('Error initializing assistant:', error);
-      await addMessage('bot', "I apologize, but I'm having trouble starting up. Please try refreshing the page.");
+      await addMessage('bot', "I apologize, but I'm having trouble starting up. Please refresh the page and try again.");
     }
   };
 
