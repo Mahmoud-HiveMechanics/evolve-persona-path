@@ -26,13 +26,21 @@ export const Home = () => {
                 a more effective leader.
               </p>
               
-              <Link to="/assessment">
-                <button className="btn-assessment">
-                  <SpiralElement size="sm" />
-                  Take the free assessment
-                  <ArrowRight size={20} />
-                </button>
-              </Link>
+              <div className="space-y-4">
+                <Link to="/assessment">
+                  <button className="btn-assessment">
+                    <SpiralElement size="sm" />
+                    Take the free assessment
+                    <ArrowRight size={20} />
+                  </button>
+                </Link>
+                
+                <div className="text-center">
+                  <Link to="/auth" className="text-primary hover:underline text-sm">
+                    Already have an account? Sign in
+                  </Link>
+                </div>
+              </div>
               
               <div className="flex items-center gap-6 text-sm text-text-secondary">
                 <div className="flex items-center gap-2">
@@ -209,13 +217,21 @@ export const Home = () => {
             </p>
           </div>
           
-          <Link to="/assessment">
-            <button className="btn-assessment">
-              <SpiralElement size="sm" />
-              Take the free assessment
-              <ArrowRight size={20} />
-            </button>
-          </Link>
+          <div className="space-y-4">
+            <Link to="/assessment">
+              <button className="btn-assessment">
+                <SpiralElement size="sm" />
+                Take the free assessment
+                <ArrowRight size={20} />
+              </button>
+            </Link>
+            
+            <div className="text-center">
+              <Link to="/auth" className="text-primary hover:underline text-sm">
+                Already have an account? Sign in
+              </Link>
+            </div>
+          </div>
           
           <p className="text-sm text-text-secondary">
             Takes approximately 10 minutes • No credit card required

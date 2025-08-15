@@ -14,7 +14,116 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      conversations: {
+        Row: {
+          assessment_complete: boolean | null
+          assistant_id: string | null
+          completed_at: string | null
+          id: string
+          started_at: string
+          status: string | null
+          thread_id: string | null
+          user_id: string
+        }
+        Insert: {
+          assessment_complete?: boolean | null
+          assistant_id?: string | null
+          completed_at?: string | null
+          id?: string
+          started_at?: string
+          status?: string | null
+          thread_id?: string | null
+          user_id: string
+        }
+        Update: {
+          assessment_complete?: boolean | null
+          assistant_id?: string | null
+          completed_at?: string | null
+          id?: string
+          started_at?: string
+          status?: string | null
+          thread_id?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      messages: {
+        Row: {
+          content: string
+          conversation_id: string
+          created_at: string
+          id: string
+          message_type: string
+          question_options: Json | null
+          question_scale_labels: Json | null
+          question_scale_max: number | null
+          question_scale_min: number | null
+          question_type: string | null
+          user_id: string
+        }
+        Insert: {
+          content: string
+          conversation_id: string
+          created_at?: string
+          id?: string
+          message_type: string
+          question_options?: Json | null
+          question_scale_labels?: Json | null
+          question_scale_max?: number | null
+          question_scale_min?: number | null
+          question_type?: string | null
+          user_id: string
+        }
+        Update: {
+          content?: string
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          message_type?: string
+          question_options?: Json | null
+          question_scale_labels?: Json | null
+          question_scale_max?: number | null
+          question_scale_min?: number | null
+          question_type?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          email: string | null
+          full_name: string | null
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

@@ -7,6 +7,8 @@ import { Textarea } from '../components/ui/textarea';
 import { Slider } from '../components/ui/slider';
 import { ArrowRight, Send, User, Bot } from 'lucide-react';
 import { useOpenAIAssistant } from '../hooks/useOpenAIAssistant';
+import { useConversation } from '../hooks/useConversation';
+import { useAuth } from '../hooks/useAuth';
 
 interface ChatMessage {
   id: string;
@@ -44,6 +46,9 @@ export const Assessment = () => {
     sendMessage, 
     initializeAssistant 
   } = useOpenAIAssistant();
+  
+  const { conversationId, createConversation, saveMessage, markConversationComplete } = useConversation();
+  const { user } = useAuth();
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -53,7 +58,7 @@ export const Assessment = () => {
     scrollToBottom();
   }, [messages, assistantLoading]);
 
-  const addMessage = (type: 'bot' | 'user', content: string, questionData?: Partial<ChatMessage>) => {
+  const addMessage = async (type: 'bot' | 'user', content: string, questionData?: Partial<ChatMessage>) => {
     const newMessage: ChatMessage = {
       id: Date.now().toString(),
       type,
@@ -62,6 +67,17 @@ export const Assessment = () => {
       ...questionData
     };
     setMessages(prev => [...prev, newMessage]);
+    
+    // Save to database
+    await saveMessage({
+      type,
+      content,
+      questionType: questionData?.questionType,
+      options: questionData?.options,
+      scaleMin: questionData?.scaleInfo?.min,
+      scaleMax: questionData?.scaleInfo?.max,
+      scaleLabels: questionData?.scaleInfo ? [questionData.scaleInfo.min_label, questionData.scaleInfo.max_label] : undefined
+    });
   };
 
   // Handle OpenAI assistant questions
@@ -75,6 +91,14 @@ export const Assessment = () => {
       });
       setShowCurrentQuestion(true);
       setQuestionCount(prev => prev + 1);
+      
+      // Check if assessment is complete
+      if (currentQuestion.question?.includes('assessment is complete') || 
+          currentQuestion.question?.includes('completed') ||
+          currentQuestion.question?.includes('finished')) {
+        setIsComplete(true);
+        markConversationComplete();
+      }
     }
   }, [currentQuestion, showCurrentQuestion]);
 
@@ -82,13 +106,16 @@ export const Assessment = () => {
     setIsStarted(true);
     
     try {
-      // Welcome message
-      addMessage('bot', "Hi! I'm your leadership assessment guide. 👋");
-      
       // Initialize OpenAI assistant first
       if (!isInitialized) {
         await initializeAssistant();
       }
+      
+      // Create conversation record
+      await createConversation();
+      
+      // Welcome message
+      await addMessage('bot', "Hi! I'm your leadership assessment guide. 👋");
       
       // Wait a moment, then start the conversation
       setTimeout(async () => {
@@ -96,18 +123,18 @@ export const Assessment = () => {
           await sendMessage("Please start the leadership assessment by asking me the first question.");
         } catch (error) {
           console.error('Error sending initial message:', error);
-          addMessage('bot', "I apologize, but I'm having trouble connecting. Please try refreshing the page.");
+          await addMessage('bot', "I apologize, but I'm having trouble connecting. Please try refreshing the page.");
         }
       }, 1000);
       
     } catch (error) {
       console.error('Error initializing assistant:', error);
-      addMessage('bot', "I apologize, but I'm having trouble starting up. Please try refreshing the page.");
+      await addMessage('bot', "I apologize, but I'm having trouble starting up. Please try refreshing the page.");
     }
   };
 
   const handleMultipleChoiceAnswer = async (answer: string) => {
-    addMessage('user', answer);
+    await addMessage('user', answer);
     setShowCurrentQuestion(false);
     
     // Send response to OpenAI assistant
@@ -117,7 +144,7 @@ export const Assessment = () => {
   const handleOpenEndedSubmit = async () => {
     if (!openEndedResponse.trim()) return;
     
-    addMessage('user', openEndedResponse);
+    await addMessage('user', openEndedResponse);
     setShowCurrentQuestion(false);
     
     // Send response to OpenAI assistant
@@ -127,7 +154,7 @@ export const Assessment = () => {
 
   const handleScaleSubmit = async () => {
     const scaleResponse = `${scaleValue[0]} out of 10`;
-    addMessage('user', scaleResponse);
+    await addMessage('user', scaleResponse);
     setShowCurrentQuestion(false);
     
     // Send response to OpenAI assistant

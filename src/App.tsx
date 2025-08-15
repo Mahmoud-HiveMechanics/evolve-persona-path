@@ -7,7 +7,9 @@ import { Home } from "./pages/Home";
 import { Assessment } from "./pages/Assessment";
 import { Model } from "./pages/Model";
 import { About } from "./pages/About";
+import { Auth } from "./pages/Auth";
 import NotFound from "./pages/NotFound";
+import { ProtectedRoute } from "./components/ProtectedRoute";
 
 const queryClient = new QueryClient();
 
@@ -19,7 +21,12 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Home />} />
-          <Route path="/assessment" element={<Assessment />} />
+          <Route path="/auth" element={<Auth />} />
+          <Route path="/assessment" element={
+            <ProtectedRoute>
+              <Assessment />
+            </ProtectedRoute>
+          } />
           <Route path="/model" element={<Model />} />
           <Route path="/about" element={<About />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
