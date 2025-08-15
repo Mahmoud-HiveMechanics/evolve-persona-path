@@ -158,6 +158,7 @@ export const Assessment = () => {
       try {
         await createConversation();
         await addMessage('bot', "Hi! I'm your leadership assessment guide. 👋");
+        // Kick off the run; send the initial message once
         await sendMessage("Please start the leadership assessment by asking me the first question.");
         setKickoffSent(true);
       } catch (error) {

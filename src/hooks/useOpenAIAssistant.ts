@@ -32,6 +32,9 @@ export const useOpenAIAssistant = ({ threadId }: UseOpenAIAssistantProps): UseOp
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentQuestion, setCurrentQuestion] = useState<AssistantQuestion | null>(null);
+  // Track active run and pending tool call so we can submit outputs per OpenAI Assistants v2
+  const [activeRunId, setActiveRunId] = useState<string | null>(null);
+  const [pendingToolCallId, setPendingToolCallId] = useState<string | null>(null);
 
   const normalizeError = (err: any): string => {
     if (!err) return 'Unknown error';
@@ -64,13 +67,10 @@ export const useOpenAIAssistant = ({ threadId }: UseOpenAIAssistantProps): UseOp
       // Handle the new response format from our updated edge function
       if (response && typeof response === 'object') {
         // If the response has an 'ok' field (new format), check it
-        if ('ok' in response) {
-          if (!response.ok) {
-            throw new Error(
-              normalizeError(response.error) || 'API call failed'
-            );
+        if ('ok' in response || 'status' in response || 'error' in response) {
+          if (response.ok === false || response.status >= 400) {
+            throw new Error(normalizeError(response.error) || 'Edge function error');
           }
-          // Return the OpenAI data if available, otherwise the whole response
           return response.openai || response;
         }
         // Old format or direct OpenAI response
@@ -112,6 +112,47 @@ export const useOpenAIAssistant = ({ threadId }: UseOpenAIAssistantProps): UseOp
     }
   };
 
+  // Poll a run until it completes or requires action
+  const pollRunUntilActionOrComplete = async (runId: string): Promise<"completed" | "requires_action"> => {
+    let attempts = 0;
+    const maxAttempts = 60; // up to ~60s
+    while (attempts < maxAttempts) {
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      const statusResponse: any = await callAssistant('get_run_status', { threadId, runId });
+      const status = statusResponse?.status || statusResponse?.openai?.status;
+      console.log('Run status:', status);
+
+      if (status === 'completed') {
+        return 'completed';
+      }
+      if (status === 'requires_action') {
+        // Capture tool call id from required_action
+        const toolCalls =
+          statusResponse?.required_action?.submit_tool_outputs?.tool_calls ||
+          statusResponse?.openai?.required_action?.submit_tool_outputs?.tool_calls || [];
+        if (Array.isArray(toolCalls) && toolCalls.length > 0) {
+          const tc = toolCalls[0];
+          const fn = tc?.function;
+          if (fn?.name === 'ask_question') {
+            try {
+              const args = JSON.parse(fn.arguments || '{}');
+              setCurrentQuestion(args);
+            } catch (e) {
+              console.error('Failed to parse tool call args:', e);
+            }
+          }
+          const toolCallIdFromRun: string | null = tc?.id || tc?.tool_call_id || null;
+          setPendingToolCallId(toolCallIdFromRun);
+          setActiveRunId(runId);
+        }
+        return 'requires_action';
+      }
+
+      attempts += 1;
+    }
+    throw new Error('Assistant response timeout');
+  };
+
   const sendMessage = async (message: string) => {
     if (!assistantId || !threadId) {
       throw new Error('Assistant not initialized - missing assistant ID or thread ID');
@@ -122,112 +163,36 @@ export const useOpenAIAssistant = ({ threadId }: UseOpenAIAssistantProps): UseOp
 
     try {
       console.log('Sending message:', { message, threadId, assistantId });
-      
-      // Send message and run assistant
-      const runResponse: any = await callAssistant('send_message', {
-        threadId,
-        assistantId,
-        message
-      });
 
-      console.log('Run started:', runResponse);
-      const runId: string = runResponse?.id || runResponse?.runId;
-      if (!runId) {
-        throw new Error('Run ID missing from response');
-      }
-
-      // Poll for completion
-      let isComplete = false;
-      let attempts = 0;
-      const maxAttempts = 30;
-
-      while (!isComplete && attempts < maxAttempts) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        const statusResponse: any = await callAssistant('get_run_status', {
+      // If a tool call is pending, submit output instead of adding a new message
+      if (pendingToolCallId && activeRunId) {
+        await callAssistant('submit_tool_outputs', {
           threadId,
-          runId
+          runId: activeRunId,
+          toolCallId: pendingToolCallId,
+          output: message
         });
 
-        const status = statusResponse?.status || statusResponse?.openai?.status;
-        console.log('Run status:', status);
-
-        if (status === 'completed') {
-          isComplete = true;
-          
-          // Get messages
+        // Clear pending tool call and keep polling same run
+        setPendingToolCallId(null);
+        const outcome = await pollRunUntilActionOrComplete(activeRunId);
+        if (outcome === 'completed') {
           const messagesResponse: any = await callAssistant('get_messages', { threadId });
           console.log('Messages:', messagesResponse);
-          
-          // Process the latest assistant message for function calls
-          const latestMessage = messagesResponse?.data?.[0];
-          if (latestMessage && latestMessage.role === 'assistant') {
-            // Check for function calls in the message
-            if (latestMessage.tool_calls && latestMessage.tool_calls.length > 0) {
-              const functionCall = latestMessage.tool_calls[0];
-              if (functionCall.function.name === 'ask_question') {
-                const args = JSON.parse(functionCall.function.arguments);
-                setCurrentQuestion(args);
-              }
-            }
-          }
-        } else if (status === 'requires_action') {
-          // Prefer tool calls from the run's required_action (more reliable than messages)
-          const toolCalls =
-            statusResponse?.required_action?.submit_tool_outputs?.tool_calls ||
-            statusResponse?.openai?.required_action?.submit_tool_outputs?.tool_calls || [];
-
-          let handled = false;
-          if (Array.isArray(toolCalls) && toolCalls.length > 0) {
-            for (const tc of toolCalls) {
-              const fn = tc?.function;
-              if (fn?.name === 'ask_question') {
-                try {
-                  const args = JSON.parse(fn.arguments || '{}');
-                  setCurrentQuestion(args);
-                  handled = true;
-                  break;
-                } catch (e) {
-                  console.error('Failed to parse tool call arguments:', e);
-                }
-              }
-            }
-          }
-
-          // Fallback: read messages if tool_calls not surfaced on run
-          if (!handled) {
-            const messagesResponse: any = await callAssistant('get_messages', { threadId });
-            console.log('Messages (requires_action):', messagesResponse);
-            const latestMessage = messagesResponse?.data?.[0];
-            if (latestMessage && latestMessage.role === 'assistant') {
-              if (latestMessage.tool_calls && latestMessage.tool_calls.length > 0) {
-                const functionCall = latestMessage.tool_calls[0];
-                if (functionCall.function?.name === 'ask_question') {
-                  try {
-                    const args = JSON.parse(functionCall.function.arguments || '{}');
-                    setCurrentQuestion(args);
-                    handled = true;
-                  } catch (e) {
-                    console.error('Failed to parse function arguments:', e);
-                  }
-                }
-              }
-            }
-          }
-
-          if (handled) {
-            // We have our question; stop polling to avoid timeout
-            isComplete = true;
-          }
-        } else if (status === 'failed') {
-          throw new Error('Assistant run failed');
         }
-
-        attempts++;
+        return;
       }
 
-      if (!isComplete) {
-        throw new Error('Assistant response timeout');
+      // Otherwise, add a message and start a new run
+      const runResponse: any = await callAssistant('send_message', { threadId, assistantId, message });
+      console.log('Run started:', runResponse);
+      const newRunId: string = runResponse?.id || runResponse?.runId;
+      if (!newRunId) throw new Error('Run ID missing from response');
+      setActiveRunId(newRunId);
+      const outcome = await pollRunUntilActionOrComplete(newRunId);
+      if (outcome === 'completed') {
+        const messagesResponse: any = await callAssistant('get_messages', { threadId });
+        console.log('Messages:', messagesResponse);
       }
 
     } catch (err) {

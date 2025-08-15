@@ -20,30 +20,30 @@ serve(async (req) => {
     console.log("DEFAULT_ASSISTANT_ID:", !!DEFAULT_ASSISTANT_ID);
 
     if (!OPENAI_API_KEY) {
-      return new Response(JSON.stringify({ error: "OPENAI_API_KEY missing. Set the secret in Supabase dashboard." }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" }
-      });
+      return new Response(
+        JSON.stringify({ ok: false, status: 500, error: { message: "OPENAI_API_KEY missing. Set the secret in Supabase dashboard." } }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     let bodyJson = null;
     try {
       bodyJson = await req.json();
     } catch (e) {
-      return new Response(JSON.stringify({ error: "Invalid or missing JSON body" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" }
-      });
+      return new Response(
+        JSON.stringify({ ok: false, status: 400, error: { message: "Invalid or missing JSON body" } }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     const { action, threadId, message, assistantId, runId } = bodyJson ?? {};
     console.log("Request payload:", { action, threadId, assistantId, runId });
 
     if (!action) {
-      return new Response(JSON.stringify({ error: "Missing field: action" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" }
-      });
+      return new Response(
+        JSON.stringify({ ok: false, status: 400, error: { message: "Missing field: action" } }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     const openaiHeaders = {
@@ -77,22 +77,22 @@ serve(async (req) => {
       case "send_message": {
         const assistantIdToUse = assistantId || DEFAULT_ASSISTANT_ID;
         if (!threadId) {
-          return new Response(JSON.stringify({ error: "Missing threadId for send_message" }), {
-            status: 400,
-            headers: { ...corsHeaders, "Content-Type": "application/json" }
-          });
+          return new Response(
+            JSON.stringify({ ok: false, status: 400, error: { message: "Missing threadId for send_message" } }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
         }
         if (!message) {
-          return new Response(JSON.stringify({ error: "Missing message for send_message" }), {
-            status: 400,
-            headers: { ...corsHeaders, "Content-Type": "application/json" }
-          });
+          return new Response(
+            JSON.stringify({ ok: false, status: 400, error: { message: "Missing message for send_message" } }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
         }
         if (!assistantIdToUse) {
-          return new Response(JSON.stringify({ error: "No assistant id available, set ASSISTANT_ID secret or include assistantId in request" }), {
-            status: 400,
-            headers: { ...corsHeaders, "Content-Type": "application/json" }
-          });
+          return new Response(
+            JSON.stringify({ ok: false, status: 400, error: { message: "No assistant id available, set ASSISTANT_ID secret or include assistantId in request" } }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
         }
 
         // add user message to the thread
@@ -106,11 +106,11 @@ serve(async (req) => {
         });
 
         if (!addMsgRes.ok) {
-          const err = await addMsgRes.json().catch(() => ({ error: "failed to add message" }));
-          return new Response(JSON.stringify({ ok: false, step: "add_message", error: err }), {
-            status: addMsgRes.status || 500,
-            headers: { ...corsHeaders, "Content-Type": "application/json" }
-          });
+          const err = await addMsgRes.json().catch(() => ({ message: "failed to add message" }));
+          return new Response(
+            JSON.stringify({ ok: false, status: addMsgRes.status || 500, step: "add_message", error: err }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
         }
 
         // run the assistant on the thread
@@ -126,10 +126,10 @@ serve(async (req) => {
 
       case "get_run_status": {
         if (!threadId || !runId) {
-          return new Response(JSON.stringify({ error: "Missing threadId or runId for get_run_status" }), {
-            status: 400,
-            headers: { ...corsHeaders, "Content-Type": "application/json" }
-          });
+          return new Response(
+            JSON.stringify({ ok: false, status: 400, error: { message: "Missing threadId or runId for get_run_status" } }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
         }
         response = await fetch(`https://api.openai.com/v1/threads/${threadId}/runs/${runId}`, {
           method: "GET",
@@ -140,10 +140,10 @@ serve(async (req) => {
 
       case "get_messages": {
         if (!threadId) {
-          return new Response(JSON.stringify({ error: "Missing threadId for get_messages" }), {
-            status: 400,
-            headers: { ...corsHeaders, "Content-Type": "application/json" }
-          });
+          return new Response(
+            JSON.stringify({ ok: false, status: 400, error: { message: "Missing threadId for get_messages" } }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
         }
         response = await fetch(`https://api.openai.com/v1/threads/${threadId}/messages`, {
           method: "GET",
@@ -152,11 +152,60 @@ serve(async (req) => {
         break;
       }
 
-      default: {
-        return new Response(JSON.stringify({ error: `Unknown action: ${action}` }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" }
+      case "get_active_run": {
+        if (!threadId) {
+          return new Response(
+            JSON.stringify({ ok: false, status: 400, error: { message: "Missing threadId for get_active_run" } }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        // List runs and return the latest non-terminal run if any
+        const list = await fetch(`https://api.openai.com/v1/threads/${threadId}/runs`, {
+          method: "GET",
+          headers: openaiHeaders
         });
+        const listText = await list.text();
+        let listJson: any = null;
+        try { listJson = listText ? JSON.parse(listText) : null; } catch { /* ignore */ }
+        const runs = listJson?.data || [];
+        const active = runs.find((r: any) => !["completed","failed","cancelled","expired"].includes(r?.status));
+        return new Response(
+          JSON.stringify({ ok: true, status: 200, openai: active || null, run: active || null }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      case "submit_tool_outputs": {
+        if (!threadId || !runId) {
+          return new Response(
+            JSON.stringify({ ok: false, status: 400, error: { message: "Missing threadId or runId for submit_tool_outputs" } }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        const { toolCallId, output } = bodyJson ?? {};
+        if (!toolCallId) {
+          return new Response(
+            JSON.stringify({ ok: false, status: 400, error: { message: "Missing toolCallId for submit_tool_outputs" } }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        response = await fetch(`https://api.openai.com/v1/threads/${threadId}/runs/${runId}/submit_tool_outputs`, {
+          method: "POST",
+          headers: openaiHeaders,
+          body: JSON.stringify({
+            tool_outputs: [
+              { tool_call_id: toolCallId, output: String(output ?? "") }
+            ]
+          })
+        });
+        break;
+      }
+
+      default: {
+        return new Response(
+          JSON.stringify({ ok: false, status: 400, error: { message: `Unknown action: ${action}` } }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
       }
     }
 
@@ -166,10 +215,10 @@ serve(async (req) => {
     try {
       data = text ? JSON.parse(text) : null;
     } catch (e) {
-      return new Response(JSON.stringify({ ok: false, error: "Failed to parse OpenAI response", raw: text }), {
-        status: 502,
-        headers: { ...corsHeaders, "Content-Type": "application/json" }
-      });
+      return new Response(
+        JSON.stringify({ ok: false, status: 502, error: "Failed to parse OpenAI response", raw: text }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     // try to surface threadId and runId for convenience
@@ -178,10 +227,10 @@ serve(async (req) => {
 
     // if OpenAI returned an error object, forward it
     if (!response.ok) {
-      return new Response(JSON.stringify({ ok: false, status: response.status, error: data }), {
-        status: response.status,
-        headers: { ...corsHeaders, "Content-Type": "application/json" }
-      });
+      return new Response(
+        JSON.stringify({ ok: false, status: response.status, error: data }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     return new Response(JSON.stringify({ ok: true, status: response.status, threadId: threadIdOut, runId: runIdOut, openai: data }), {
@@ -190,9 +239,9 @@ serve(async (req) => {
 
   } catch (error) {
     console.error("Function error:", error);
-    return new Response(JSON.stringify({ error: String(error) }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" }
-    });
+    return new Response(
+      JSON.stringify({ ok: false, status: 500, error: { message: String(error) } }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
   }
 });
