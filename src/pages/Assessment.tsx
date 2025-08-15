@@ -5,7 +5,7 @@ import { Button } from '../components/ui/button';
 import { Progress } from '../components/ui/progress';
 import { Textarea } from '../components/ui/textarea';
 import { Slider } from '../components/ui/slider';
-import { ArrowRight, Send, User, Bot, CheckCircle2, Loader2, Mic, Square } from 'lucide-react';
+import { ArrowRight, Send, User, Bot, CheckCircle2, Loader2, Mic, Square, Check } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useOpenAIAssistant } from '../hooks/useOpenAIAssistant';
 import { useConversation } from '../hooks/useConversation';
@@ -41,6 +41,8 @@ export const Assessment = () => {
   const [recording, setRecording] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordedChunksRef = useRef<BlobPart[]>([]);
+  const [mcPending, setMcPending] = useState(false);
+  const [mcOtherValue, setMcOtherValue] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
   const { conversationId, threadId, createConversation, saveMessage, markConversationComplete } = useConversation();
@@ -155,7 +157,8 @@ export const Assessment = () => {
     run();
   }, [isStarted, threadId, isInitialized]);
 
-  // Kick off conversation once assistant ready (only once)
+  // Kick off conversation once assistant ready (only once).
+  // Guard against an already-active run by only kicking off when there is no active run.
   useEffect(() => {
     const kickOff = async () => {
       if (!isStarted || !isInitialized || !threadId || kickoffSent) return;
@@ -174,11 +177,14 @@ export const Assessment = () => {
   }, [isStarted, isInitialized, threadId, kickoffSent]);
 
   const handleMultipleChoiceAnswer = async (answer: string) => {
-    await addMessage('user', answer);
-    setShowCurrentQuestion(false);
-    
-    // Send response to OpenAI assistant
-    await sendMessage(answer);
+    setMcPending(true);
+    try {
+      await addMessage('user', answer);
+      setShowCurrentQuestion(false);
+      await sendMessage(answer);
+    } finally {
+      setMcPending(false);
+    }
   };
 
   const handleOpenEndedSubmit = async () => {
@@ -348,25 +354,44 @@ export const Assessment = () => {
                     {message.isQuestion && showCurrentQuestion && (
                       <div className="mt-4">
                         {message.questionType === 'multiple-choice' && message.options && (
-                          <div className="space-y-2">
+                          <div className="space-y-3">
                             {message.options.map((option, index) => (
                               <button
                                 key={index}
-                                onClick={() => handleMultipleChoiceAnswer(option)}
-                                className="group w-full text-left p-4 rounded-xl border-2 border-border hover:border-primary hover:bg-primary/5 transition-all duration-200 disabled:opacity-50"
-                                disabled={assistantLoading}
+                                onClick={() => option.toLowerCase() === 'other' ? null : handleMultipleChoiceAnswer(option)}
+                                className="group w-full text-left p-4 rounded-xl border-2 border-border hover:border-primary/70 hover:bg-primary/5 transition-all duration-200 disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                                disabled={assistantLoading || mcPending}
+                                aria-label={`Choose option ${option}`}
                                 data-focus-target={index === 0}
                               >
                                 <div className="flex items-center gap-3">
-                                  <div className="w-6 h-6 rounded-full border-2 border-border group-hover:border-primary group-hover:bg-primary/10 transition-colors flex items-center justify-center">
-                                    <span className="text-[10px] font-medium text-text-secondary group-hover:text-primary">
-                                      {String.fromCharCode(65 + index)}
-                                    </span>
+                                  <div className="w-6 h-6 rounded-full border-2 border-border group-hover:border-primary/70 group-hover:bg-primary/10 transition-colors grid place-items-center text-primary">
+                                    <Check size={14} className="opacity-0 group-hover:opacity-100 transition-opacity" />
                                   </div>
                                   <span className="text-sm font-medium group-hover:text-primary transition-colors">{option}</span>
                                 </div>
                               </button>
                             ))}
+                            {/* Optional Other input if the assistant provided an 'Other' choice */}
+                            {message.options.some(o => o.toLowerCase() === 'other') && (
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="text"
+                                  className="flex-1 h-10 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                                  placeholder="Other (please specify)"
+                                  value={mcOtherValue}
+                                  onChange={(e) => setMcOtherValue(e.target.value)}
+                                  disabled={assistantLoading || mcPending}
+                                />
+                                <Button
+                                  size="sm"
+                                  onClick={() => mcOtherValue.trim() && handleMultipleChoiceAnswer(mcOtherValue.trim())}
+                                  disabled={!mcOtherValue.trim() || assistantLoading || mcPending}
+                                >
+                                  Submit
+                                </Button>
+                              </div>
+                            )}
                             <div className="text-xs text-text-secondary mt-1">Tip: press 1-{Math.min(9, message.options.length)} to answer quickly</div>
                           </div>
                         )}
