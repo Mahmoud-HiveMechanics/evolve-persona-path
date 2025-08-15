@@ -5,7 +5,7 @@ import { Button } from '../components/ui/button';
 import { Progress } from '../components/ui/progress';
 import { Textarea } from '../components/ui/textarea';
 import { Slider } from '../components/ui/slider';
-import { ArrowRight, Send, User, Bot } from 'lucide-react';
+import { ArrowRight, Send, User, Bot, CheckCircle2, Loader2 } from 'lucide-react';
 import { useOpenAIAssistant } from '../hooks/useOpenAIAssistant';
 import { useConversation } from '../hooks/useConversation';
 import { useAuth } from '../hooks/useAuth';
@@ -58,6 +58,29 @@ export const Assessment = () => {
     scrollToBottom();
   }, [messages, assistantLoading]);
 
+  // Keyboard shortcuts for quicker interaction
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      // Submit open-ended on Cmd/Ctrl + Enter
+      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && openEndedResponse.trim()) {
+        e.preventDefault();
+        handleOpenEndedSubmit();
+      }
+
+      // Choose multiple choice with number keys 1-9
+      if (currentQuestion?.options && currentQuestion.options.length > 0 && showCurrentQuestion) {
+        const num = Number(e.key);
+        if (!Number.isNaN(num) && num >= 1 && num <= Math.min(9, currentQuestion.options.length)) {
+          const choice = currentQuestion.options[num - 1];
+          handleMultipleChoiceAnswer(choice);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [openEndedResponse, currentQuestion, showCurrentQuestion]);
+
   const addMessage = async (type: 'bot' | 'user', content: string, questionData?: Partial<ChatMessage>) => {
     const newMessage: ChatMessage = {
       id: Date.now().toString(),
@@ -106,25 +129,42 @@ export const Assessment = () => {
     setIsStarted(true);
     
     try {
-      // Check if threadId is available
+      await addMessage('bot', "I'm getting ready for you. Please wait a moment...");
+      
+      // Wait for threadId to be available (it might be created asynchronously)
+      let attempts = 0;
+      const maxAttempts = 10; // Increased attempts
+      while (!threadId && attempts < maxAttempts) {
+        console.log(`Waiting for thread ID... attempt ${attempts + 1}/${maxAttempts}`);
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        attempts++;
+      }
+      
       if (!threadId) {
-        await addMessage('bot', "I'm getting ready for you. Please wait a moment...");
-        // Wait for threadId to be available
-        let attempts = 0;
-        while (!threadId && attempts < 5) {
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          attempts++;
-        }
-        
-        if (!threadId) {
-          throw new Error('Thread ID not available after waiting');
-        }
+        throw new Error('Thread ID not available after waiting');
       }
 
-      // Initialize OpenAI assistant first
+      console.log('Thread ID available:', threadId);
+
+      // Initialize OpenAI assistant
       if (!isInitialized) {
+        console.log('Initializing assistant...');
         await initializeAssistant();
       }
+      
+      // Wait for assistant to be initialized
+      let assistantAttempts = 0;
+      while (!isInitialized && assistantAttempts < 5) {
+        console.log(`Waiting for assistant initialization... attempt ${assistantAttempts + 1}/5`);
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        assistantAttempts++;
+      }
+
+      if (!isInitialized) {
+        throw new Error('Assistant initialization failed');
+      }
+
+      console.log('Assistant initialized successfully');
       
       // Create conversation record
       await createConversation();
@@ -135,12 +175,13 @@ export const Assessment = () => {
       // Wait a moment, then start the conversation
       setTimeout(async () => {
         try {
+          console.log('Sending initial message to assistant...');
           await sendMessage("Please start the leadership assessment by asking me the first question.");
         } catch (error) {
           console.error('Error sending initial message:', error);
           await addMessage('bot', "I apologize, but I'm having trouble connecting. Please try refreshing the page and try again.");
         }
-      }, 1000);
+      }, 2000); // Increased timeout
       
     } catch (error) {
       console.error('Error initializing assistant:', error);
@@ -186,6 +227,10 @@ export const Assessment = () => {
   }, [assistantError]);
 
   const progress = Math.min((questionCount / totalQuestions) * 100, 100);
+  const milestones = [Math.round(totalQuestions / 3), Math.round((2 * totalQuestions) / 3)];
+  const assistantStatus: 'idle' | 'connecting' | 'ready' = assistantLoading
+    ? 'connecting'
+    : (isInitialized ? 'ready' : 'idle');
 
   if (!isStarted) {
     return (
@@ -247,21 +292,46 @@ export const Assessment = () => {
       <Header />
       
       <div className="max-w-4xl mx-auto px-6 py-6">
-        {/* Progress Bar */}
-        <div className="mb-6">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-text-secondary">
-                Question {questionCount} of ~{totalQuestions}
-              </span>
-              <span className="text-sm text-text-secondary">
-                {Math.round(progress)}% complete
-              </span>
+        {/* Progress & Status */}
+        <div className="mb-6 space-y-3">
+          {/* Status badges */}
+          <div className="flex flex-wrap gap-2">
+            <div className="inline-flex items-center gap-2 rounded-full border border-border bg-white px-3 py-1 text-xs">
+              <span className="text-text-secondary">Thread</span>
+              <span className={`h-2 w-2 rounded-full ${threadId ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+              <span className="text-text-primary">{threadId ? 'Ready' : 'Pending'}</span>
             </div>
-          <div className="progress-bar h-2">
-            <div 
-              className="progress-fill h-full" 
-              style={{ width: `${Math.min(progress, 100)}%` }}
-            />
+            <div className="inline-flex items-center gap-2 rounded-full border border-border bg-white px-3 py-1 text-xs">
+              <span className="text-text-secondary">Assistant</span>
+              {assistantStatus === 'ready' && <CheckCircle2 size={14} className="text-emerald-600" />}
+              {assistantStatus !== 'ready' && <Loader2 size={14} className="animate-spin text-amber-600" />}
+              <span className="text-text-primary capitalize">{assistantStatus}</span>
+            </div>
+            <div className="inline-flex items-center gap-2 rounded-full border border-border bg-white px-3 py-1 text-xs">
+              <span className="text-text-secondary">Progress</span>
+              <span className="text-text-primary font-medium">{Math.round(progress)}%</span>
+            </div>
+          </div>
+
+          {/* Progress bar with milestones */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm text-text-secondary">Question {questionCount} of ~{totalQuestions}</span>
+              <span className="text-sm text-text-secondary">{Math.round(progress)}% complete</span>
+            </div>
+            <div className="relative h-2 bg-primary/20 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-primary to-primary-light rounded-full transition-all duration-700 ease-out"
+                style={{ width: `${Math.min(progress, 100)}%` }}
+              />
+              {milestones.map((m) => (
+                <div
+                  key={m}
+                  className="absolute top-0 h-full w-0.5 bg-white/60"
+                  style={{ left: `${(m / totalQuestions) * 100}%` }}
+                />
+              ))}
+            </div>
           </div>
         </div>
 
@@ -299,12 +369,21 @@ export const Assessment = () => {
                               <button
                                 key={index}
                                 onClick={() => handleMultipleChoiceAnswer(option)}
-                                className="w-full text-left p-3 rounded-lg border border-border hover:border-primary hover:bg-primary/5 transition-smooth text-sm"
+                                className="group w-full text-left p-4 rounded-xl border-2 border-border hover:border-primary hover:bg-primary/5 transition-all duration-200 disabled:opacity-50"
                                 disabled={assistantLoading}
+                                data-focus-target={index === 0}
                               >
-                                {option}
+                                <div className="flex items-center gap-3">
+                                  <div className="w-6 h-6 rounded-full border-2 border-border group-hover:border-primary group-hover:bg-primary/10 transition-colors flex items-center justify-center">
+                                    <span className="text-[10px] font-medium text-text-secondary group-hover:text-primary">
+                                      {String.fromCharCode(65 + index)}
+                                    </span>
+                                  </div>
+                                  <span className="text-sm font-medium group-hover:text-primary transition-colors">{option}</span>
+                                </div>
                               </button>
                             ))}
+                            <div className="text-xs text-text-secondary mt-1">Tip: press 1-{Math.min(9, message.options.length)} to answer quickly</div>
                           </div>
                         )}
                         
@@ -347,10 +426,28 @@ export const Assessment = () => {
                               />
                               <div className="flex justify-between text-xs text-text-secondary mt-2">
                                 <span>{message.scaleInfo.min_label}</span>
-                                <span className="font-medium">{scaleValue[0]}</span>
+                                <span className="font-medium text-primary">{scaleValue[0]}</span>
                                 <span>{message.scaleInfo.max_label}</span>
                               </div>
                             </div>
+                            {(message.scaleInfo.max - message.scaleInfo.min) <= 10 && (
+                              <div className="flex flex-wrap gap-2">
+                                {Array.from({ length: message.scaleInfo.max - message.scaleInfo.min + 1 }, (_, i) => {
+                                  const val = message.scaleInfo!.min + i;
+                                  const selected = scaleValue[0] === val;
+                                  return (
+                                    <button
+                                      key={val}
+                                      onClick={() => setScaleValue([val])}
+                                      className={`w-9 h-9 rounded-full text-xs font-medium transition-all ${selected ? 'bg-primary text-white shadow' : 'bg-white border border-border text-text-secondary hover:bg-primary/5'}`}
+                                      aria-pressed={selected}
+                                    >
+                                      {val}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            )}
                             <Button
                               onClick={handleScaleSubmit}
                               disabled={assistantLoading}
