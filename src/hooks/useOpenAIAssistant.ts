@@ -35,6 +35,8 @@ export const useOpenAIAssistant = ({ threadId }: UseOpenAIAssistantProps): UseOp
   // Track active run and pending tool call so we can submit outputs per OpenAI Assistants v2
   const [activeRunId, setActiveRunId] = useState<string | null>(null);
   const [pendingToolCallId, setPendingToolCallId] = useState<string | null>(null);
+  // Track the last tool_call id we surfaced as a question to avoid duplicates
+  const [lastShownToolCallId, setLastShownToolCallId] = useState<string | null>(null);
 
   const normalizeError = (err: any): string => {
     if (!err) return 'Unknown error';
@@ -147,17 +149,19 @@ export const useOpenAIAssistant = ({ threadId }: UseOpenAIAssistantProps): UseOp
           statusResponse?.required_action?.submit_tool_outputs?.tool_calls ||
           statusResponse?.openai?.required_action?.submit_tool_outputs?.tool_calls || [];
         if (Array.isArray(toolCalls) && toolCalls.length > 0) {
-          const tc = toolCalls[0];
+          // Use the latest tool call in case multiple are present
+          const tc = toolCalls[toolCalls.length - 1];
           const fn = tc?.function;
-          if (fn?.name === 'ask_question') {
+          const toolCallIdFromRun: string | null = tc?.id || tc?.tool_call_id || null;
+          if (fn?.name === 'ask_question' && toolCallIdFromRun && toolCallIdFromRun !== lastShownToolCallId) {
             try {
               const args = JSON.parse(fn.arguments || '{}');
               setCurrentQuestion(args);
+              setLastShownToolCallId(toolCallIdFromRun);
             } catch (e) {
               console.error('Failed to parse tool call args:', e);
             }
           }
-          const toolCallIdFromRun: string | null = tc?.id || tc?.tool_call_id || null;
           setPendingToolCallId(toolCallIdFromRun);
           setActiveRunId(runId);
         }
