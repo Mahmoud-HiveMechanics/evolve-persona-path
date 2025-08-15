@@ -104,6 +104,22 @@ export const useOpenAIAssistant = ({ threadId }: UseOpenAIAssistantProps): UseOp
 
       console.log('Using existing thread:', threadId);
       setIsInitialized(true);
+
+      // Resume any active run from a previous session to avoid sending a new message
+      try {
+        const active: any = await callAssistant('get_active_run', { threadId });
+        const existingRunId: string | null = active?.id || active?.run?.id || null;
+        if (existingRunId) {
+          setActiveRunId(existingRunId);
+          const outcome = await pollRunUntilActionOrComplete(existingRunId);
+          if (outcome === 'completed') {
+            setActiveRunId(null);
+          }
+        }
+      } catch (resumeErr) {
+        // Non-fatal; just log
+        console.warn('No active run to resume or resume check failed:', resumeErr);
+      }
     } catch (err) {
       console.error('Assistant initialization error:', err);
       setError(err instanceof Error ? err.message : 'Failed to initialize assistant');
@@ -163,6 +179,17 @@ export const useOpenAIAssistant = ({ threadId }: UseOpenAIAssistantProps): UseOp
 
     try {
       console.log('Sending message:', { message, threadId, assistantId });
+
+      // If there is an in-progress run and no pending tool call, wait for the run
+      if (activeRunId && !pendingToolCallId) {
+        const outcome = await pollRunUntilActionOrComplete(activeRunId);
+        if (outcome === 'requires_action') {
+          // The question has been set from the tool call; do not send another message
+          return;
+        }
+        // Completed: clear it and allow a new message to start a new run
+        setActiveRunId(null);
+      }
 
       // If a tool call is pending, submit output instead of adding a new message
       if (pendingToolCallId && activeRunId) {
