@@ -10,7 +10,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { useOpenAIAssistant } from '../hooks/useOpenAIAssistant';
 import { useConversation } from '../hooks/useConversation';
 import { useAuth } from '../hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
 
 interface ChatMessage {
   id: string;
