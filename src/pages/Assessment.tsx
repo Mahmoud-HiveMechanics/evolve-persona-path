@@ -54,6 +54,9 @@ export const Assessment = () => {
   const [introRole, setIntroRole] = useState('');
   const [introTeamSize, setIntroTeamSize] = useState('');
   const [introMotivation, setIntroMotivation] = useState('');
+  // Finalization state
+  const [isSavingEvaluation, setIsSavingEvaluation] = useState(false);
+  const [hasNavigated, setHasNavigated] = useState(false);
   
   const { conversationId, threadId, createConversation, saveMessage, markConversationComplete } = useConversation();
   
@@ -128,7 +131,7 @@ export const Assessment = () => {
         setIsComplete(true);
         markConversationComplete();
         setShowCurrentQuestion(false);
-        navigate('/evaluation');
+        setIsSavingEvaluation(true);
         return;
       }
 
@@ -147,7 +150,7 @@ export const Assessment = () => {
           currentQuestion.question?.includes('finished')) {
         setIsComplete(true);
         markConversationComplete();
-        navigate('/evaluation');
+        setIsSavingEvaluation(true);
       }
     }
   }, [currentQuestion, showCurrentQuestion, questionCount, totalQuestions, navigate]);
@@ -207,7 +210,7 @@ export const Assessment = () => {
       if (questionCount >= totalQuestions) {
         setIsComplete(true);
         markConversationComplete();
-        navigate('/evaluation');
+        setIsSavingEvaluation(true);
       }
     } finally {
       setMcPending(false);
@@ -226,7 +229,7 @@ export const Assessment = () => {
     if (questionCount >= totalQuestions) {
       setIsComplete(true);
       markConversationComplete();
-      navigate('/evaluation');
+      setIsSavingEvaluation(true);
     }
   };
 
@@ -241,7 +244,7 @@ export const Assessment = () => {
     if (questionCount >= totalQuestions) {
       setIsComplete(true);
       markConversationComplete();
-      navigate('/evaluation');
+      setIsSavingEvaluation(true);
     }
   };
 
@@ -249,8 +252,9 @@ export const Assessment = () => {
   // Persist evaluation when complete (simple guard: when isComplete becomes true)
   useEffect(() => {
     (async () => {
-      if (!isComplete || !conversationId) return;
+      if (!isComplete || !conversationId || hasNavigated) return;
       try {
+        setIsSavingEvaluation(true);
         const { data: session } = await supabase.auth.getSession();
         const userId = session?.session?.user?.id;
         if (!userId) return;
@@ -281,7 +285,7 @@ export const Assessment = () => {
           ]
         };
 
-        await (supabase as any).from('evaluations').insert([
+        const { error: evalInsertError } = await (supabase as any).from('evaluations').insert([
           {
             user_id: userId,
             conversation_id: conversationId,
@@ -289,11 +293,20 @@ export const Assessment = () => {
             data: payload as any
           }
         ]);
+        if (evalInsertError) {
+          console.warn('Failed to insert evaluation', evalInsertError);
+        }
+        if (!hasNavigated) {
+          setHasNavigated(true);
+          navigate('/evaluation');
+        }
       } catch (e) {
         console.warn('Failed to persist evaluation', e);
+      } finally {
+        setIsSavingEvaluation(false);
       }
     })();
-  }, [isComplete, conversationId]);
+  }, [isComplete, conversationId, hasNavigated, navigate]);
 
   // Handle assistant errors
   useEffect(() => {
