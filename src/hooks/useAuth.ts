@@ -44,24 +44,48 @@ export const useAuth = () => {
     // Create OpenAI thread for new user after successful signup
     if (!error) {
       try {
-        const { data: threadData } = await supabase.functions.invoke('chat-assistant', {
+        console.log('Creating OpenAI thread for new user...');
+        const { data: response, error: functionError } = await supabase.functions.invoke('chat-assistant', {
           body: {
-            action: 'create_thread',
-            assistantId: 'asst_0IGtbLANauxTpbn8rSj7MVy5'
+            action: 'create_thread'
           }
         });
 
+        if (functionError) {
+          console.error('Function error:', functionError);
+          throw functionError;
+        }
+
+        console.log('Thread creation response:', response);
+        
+        // Handle the new response format from our updated edge function
+        let threadData = response;
+        if (response && typeof response === 'object' && 'openai' in response) {
+          threadData = response.openai;
+        }
+
         if (threadData?.id) {
-          // Wait a moment for the user to be created in auth.users
+          console.log('Thread created successfully:', threadData.id);
+          
+          // Wait for the user profile to be created by the trigger, then update it
           setTimeout(async () => {
             const { data: session } = await supabase.auth.getSession();
             if (session?.session?.user) {
-              await supabase
+              console.log('Updating profile with thread ID...');
+              const { error: updateError } = await supabase
                 .from('profiles')
                 .update({ thread_id: threadData.id })
                 .eq('user_id', session.session.user.id);
+              
+              if (updateError) {
+                console.error('Error updating profile with thread ID:', updateError);
+              } else {
+                console.log('Profile updated successfully with thread ID');
+              }
             }
-          }, 1000);
+          }, 2000); // Increased timeout to ensure profile is created
+        } else {
+          console.error('No thread ID returned from API');
         }
       } catch (threadError) {
         console.error('Error creating thread:', threadError);

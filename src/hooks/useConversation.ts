@@ -32,6 +32,10 @@ export const useConversation = () => {
 
         if (profile?.thread_id) {
           setThreadId(profile.thread_id);
+        } else {
+          // User exists but has no thread ID - create one
+          console.log('User has no thread ID, creating one...');
+          await createThreadForUser(user.id);
         }
       } catch (error) {
         console.error('Error fetching user thread:', error);
@@ -40,6 +44,51 @@ export const useConversation = () => {
 
     getUserThread();
   }, [user]);
+
+  const createThreadForUser = async (userId: string) => {
+    try {
+      console.log('Creating thread for existing user...');
+      const { data: response, error: functionError } = await supabase.functions.invoke('chat-assistant', {
+        body: {
+          action: 'create_thread'
+        }
+      });
+
+      if (functionError) {
+        console.error('Function error creating thread:', functionError);
+        return;
+      }
+
+      console.log('Thread creation response:', response);
+      
+      // Handle the new response format from our updated edge function
+      let threadData = response;
+      if (response && typeof response === 'object' && 'openai' in response) {
+        threadData = response.openai;
+      }
+
+      if (threadData?.id) {
+        console.log('Thread created successfully:', threadData.id);
+        
+        // Update the user's profile with the new thread ID
+        const { error: updateError } = await supabase
+          .from('profiles')
+          .update({ thread_id: threadData.id })
+          .eq('user_id', userId);
+        
+        if (updateError) {
+          console.error('Error updating profile with thread ID:', updateError);
+        } else {
+          console.log('Profile updated successfully with thread ID');
+          setThreadId(threadData.id);
+        }
+      } else {
+        console.error('No thread ID returned from API');
+      }
+    } catch (error) {
+      console.error('Error creating thread for user:', error);
+    }
+  };
 
   const createConversation = async (assistantId?: string) => {
     if (!user || !threadId) return null;
