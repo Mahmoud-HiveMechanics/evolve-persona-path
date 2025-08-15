@@ -10,6 +10,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useOpenAIAssistant } from '../hooks/useOpenAIAssistant';
 import { useConversation } from '../hooks/useConversation';
 import { useAuth } from '../hooks/useAuth';
+import { Input } from '../components/ui/input';
+import { useNavigate } from 'react-router-dom';
 
 interface ChatMessage {
   id: string;
@@ -29,6 +31,7 @@ interface ChatMessage {
 
 
 export const Assessment = () => {
+  const navigate = useNavigate();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isStarted, setIsStarted] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
@@ -44,6 +47,13 @@ export const Assessment = () => {
   const [mcPending, setMcPending] = useState(false);
   const [mcOtherValue, setMcOtherValue] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  
+  // Pre-assessment intro fields
+  const [introDone, setIntroDone] = useState(false);
+  const [introPosition, setIntroPosition] = useState('');
+  const [introRole, setIntroRole] = useState('');
+  const [introTeamSize, setIntroTeamSize] = useState('');
+  const [introMotivation, setIntroMotivation] = useState('');
   
   const { conversationId, threadId, createConversation, saveMessage, markConversationComplete } = useConversation();
   
@@ -110,9 +120,18 @@ export const Assessment = () => {
     });
   };
 
-  // Handle OpenAI assistant questions
+  // Handle OpenAI assistant questions with a hard cap of totalQuestions
   useEffect(() => {
     if (currentQuestion && !showCurrentQuestion) {
+      const nextCount = questionCount + 1;
+      if (nextCount > totalQuestions) {
+        setIsComplete(true);
+        markConversationComplete();
+        setShowCurrentQuestion(false);
+        navigate('/evaluation');
+        return;
+      }
+
       addMessage('bot', currentQuestion.question, {
         isQuestion: true,
         questionType: currentQuestion.type,
@@ -120,17 +139,18 @@ export const Assessment = () => {
         scaleInfo: currentQuestion.scale_info
       });
       setShowCurrentQuestion(true);
-      setQuestionCount(prev => prev + 1);
+      setQuestionCount(nextCount);
       
-      // Check if assessment is complete
+      // Check if assistant explicitly signals completion
       if (currentQuestion.question?.includes('assessment is complete') || 
           currentQuestion.question?.includes('completed') ||
           currentQuestion.question?.includes('finished')) {
         setIsComplete(true);
         markConversationComplete();
+        navigate('/evaluation');
       }
     }
-  }, [currentQuestion, showCurrentQuestion]);
+  }, [currentQuestion, showCurrentQuestion, questionCount, totalQuestions, navigate]);
 
   const handleStart = async () => {
     setIsStarted(true);
@@ -157,16 +177,17 @@ export const Assessment = () => {
     run();
   }, [isStarted, threadId, isInitialized]);
 
-  // Kick off conversation once assistant ready (only once).
+  // Kick off conversation once assistant ready and intro info collected (only once).
   // Guard against an already-active run by only kicking off when there is no active run.
   useEffect(() => {
     const kickOff = async () => {
-      if (!isStarted || !isInitialized || !threadId || kickoffSent) return;
+      if (!isStarted || !isInitialized || !threadId || kickoffSent || !introDone) return;
       try {
         await createConversation();
         await addMessage('bot', "Hi! I'm your leadership assessment guide. 👋");
-        // Kick off the run; send the initial message once
-        await sendMessage("Please start the leadership assessment by asking me the first question.");
+        // Kick off the run; send the initial message once with background context
+        const introSummary = `Before we begin, here is my background: Position: ${introPosition || 'N/A'}, Role: ${introRole || 'N/A'}, Team size: ${introTeamSize || 'N/A'}, Motivation: ${introMotivation || 'N/A'}.`;
+        await sendMessage(`${introSummary} Please start the leadership assessment by asking me the first question.`);
         setKickoffSent(true);
       } catch (error) {
         console.error('Error sending initial message:', error);
@@ -174,7 +195,7 @@ export const Assessment = () => {
       }
     };
     kickOff();
-  }, [isStarted, isInitialized, threadId, kickoffSent]);
+  }, [isStarted, isInitialized, threadId, kickoffSent, introDone, introPosition, introRole, introTeamSize, introMotivation]);
 
   const handleMultipleChoiceAnswer = async (answer: string) => {
     setMcPending(true);
@@ -182,6 +203,12 @@ export const Assessment = () => {
       await addMessage('user', answer);
       setShowCurrentQuestion(false);
       await sendMessage(answer);
+      // If we have answered the last question, finish immediately
+      if (questionCount >= totalQuestions) {
+        setIsComplete(true);
+        markConversationComplete();
+        navigate('/evaluation');
+      }
     } finally {
       setMcPending(false);
     }
@@ -196,6 +223,11 @@ export const Assessment = () => {
     // Send response to OpenAI assistant
     await sendMessage(openEndedResponse);
     setOpenEndedResponse('');
+    if (questionCount >= totalQuestions) {
+      setIsComplete(true);
+      markConversationComplete();
+      navigate('/evaluation');
+    }
   };
 
   const handleScaleSubmit = async () => {
@@ -206,6 +238,11 @@ export const Assessment = () => {
     // Send response to OpenAI assistant
     await sendMessage(scaleResponse);
     setScaleValue([5]); // Reset to middle value
+    if (questionCount >= totalQuestions) {
+      setIsComplete(true);
+      markConversationComplete();
+      navigate('/evaluation');
+    }
   };
 
 
@@ -244,12 +281,14 @@ export const Assessment = () => {
           ]
         };
 
-        await supabase.from('evaluations').insert({
-          user_id: userId,
-          conversation_id: conversationId,
-          summary: 'Leadership assessment evaluation',
-          data: payload as any
-        });
+        await (supabase as any).from('evaluations').insert([
+          {
+            user_id: userId,
+            conversation_id: conversationId,
+            summary: 'Leadership assessment evaluation',
+            data: payload as any
+          }
+        ]);
       } catch (e) {
         console.warn('Failed to persist evaluation', e);
       }
@@ -329,6 +368,35 @@ export const Assessment = () => {
       <Header />
       
       <div className="max-w-4xl mx-auto px-6 py-6">
+        {/* Intro form before assessment begins */}
+        {isStarted && !introDone && (
+          <div className="mb-6 border border-border rounded-xl p-4 bg-white">
+            <h3 className="font-semibold mb-3">Before we begin</h3>
+            <div className="grid md:grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs text-text-secondary">Position</label>
+                <Input value={introPosition} onChange={(e) => setIntroPosition(e.target.value)} placeholder="e.g., Director" />
+              </div>
+              <div>
+                <label className="text-xs text-text-secondary">Role in the company</label>
+                <Input value={introRole} onChange={(e) => setIntroRole(e.target.value)} placeholder="e.g., Operations" />
+              </div>
+              <div>
+                <label className="text-xs text-text-secondary">Team size</label>
+                <Input value={introTeamSize} onChange={(e) => setIntroTeamSize(e.target.value)} placeholder="e.g., 12" />
+              </div>
+              <div className="md:col-span-2">
+                <label className="text-xs text-text-secondary">Motivation for taking this assessment</label>
+                <Input value={introMotivation} onChange={(e) => setIntroMotivation(e.target.value)} placeholder="e.g., grow as a people leader" />
+              </div>
+            </div>
+            <div className="flex justify-end mt-3">
+              <Button onClick={() => setIntroDone(true)} disabled={kickoffSent}>
+                Continue
+              </Button>
+            </div>
+          </div>
+        )}
         {/* Progress & Status */}
         <div className="mb-6 space-y-3">
           {/* Status badges */}
