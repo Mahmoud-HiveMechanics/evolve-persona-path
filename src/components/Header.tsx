@@ -1,8 +1,10 @@
 import { SpiralElement } from './SpiralElement';
 import { Link, useLocation } from 'react-router-dom';
+import { useAuth } from '@/hooks/useAuth';
 
 export const Header = () => {
   const location = useLocation();
+  const { user } = useAuth();
   
   const isActive = (path: string) => location.pathname === path;
   
@@ -44,6 +46,16 @@ export const Header = () => {
           >
             About us
           </Link>
+          {user && (
+            <Link 
+              to="/evaluation" 
+              className={`text-sm font-medium transition-smooth ${
+                isActive('/evaluation') ? 'text-primary' : 'text-text-secondary hover:text-primary'
+              }`}
+            >
+              My Evaluation
+            </Link>
+          )}
         </nav>
       </div>
     </header>
