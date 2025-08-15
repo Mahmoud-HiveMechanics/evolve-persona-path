@@ -33,20 +33,42 @@ export const useOpenAIAssistant = ({ threadId }: UseOpenAIAssistantProps): UseOp
   const [error, setError] = useState<string | null>(null);
   const [currentQuestion, setCurrentQuestion] = useState<AssistantQuestion | null>(null);
 
+  const normalizeError = (err: any): string => {
+    if (!err) return 'Unknown error';
+    if (typeof err === 'string') return err;
+    if (err instanceof Error) return err.message;
+    // Supabase Functions error shape
+    const msg =
+      err?.message ||
+      err?.error?.message ||
+      err?.context?.response?.error?.message ||
+      err?.statusText ||
+      err?.name;
+    try {
+      return msg || JSON.stringify(err);
+    } catch {
+      return 'Unexpected error';
+    }
+  };
+
   const callAssistant = async (action: string, data: any = {}) => {
     try {
       const { data: response, error } = await supabase.functions.invoke('chat-assistant', {
         body: { action, ...data }
       });
 
-      if (error) throw error;
+      if (error) {
+        throw new Error(normalizeError(error));
+      }
       
       // Handle the new response format from our updated edge function
       if (response && typeof response === 'object') {
         // If the response has an 'ok' field (new format), check it
         if ('ok' in response) {
           if (!response.ok) {
-            throw new Error(response.error?.message || response.error || 'API call failed');
+            throw new Error(
+              normalizeError(response.error) || 'API call failed'
+            );
           }
           // Return the OpenAI data if available, otherwise the whole response
           return response.openai || response;
@@ -57,8 +79,9 @@ export const useOpenAIAssistant = ({ threadId }: UseOpenAIAssistantProps): UseOp
       
       return response;
     } catch (err) {
-      console.error('Assistant API call error:', err);
-      throw err;
+      const friendly = normalizeError(err);
+      console.error('Assistant API call error:', friendly, err);
+      throw new Error(friendly);
     }
   };
 
@@ -101,14 +124,17 @@ export const useOpenAIAssistant = ({ threadId }: UseOpenAIAssistantProps): UseOp
       console.log('Sending message:', { message, threadId, assistantId });
       
       // Send message and run assistant
-      const runResponse = await callAssistant('send_message', {
+      const runResponse: any = await callAssistant('send_message', {
         threadId,
         assistantId,
         message
       });
 
       console.log('Run started:', runResponse);
-      const runId = runResponse.id;
+      const runId: string = runResponse?.id || runResponse?.runId;
+      if (!runId) {
+        throw new Error('Run ID missing from response');
+      }
 
       // Poll for completion
       let isComplete = false;
@@ -118,22 +144,23 @@ export const useOpenAIAssistant = ({ threadId }: UseOpenAIAssistantProps): UseOp
       while (!isComplete && attempts < maxAttempts) {
         await new Promise(resolve => setTimeout(resolve, 1000));
         
-        const statusResponse = await callAssistant('get_run_status', {
+        const statusResponse: any = await callAssistant('get_run_status', {
           threadId,
           runId
         });
 
-        console.log('Run status:', statusResponse.status);
+        const status = statusResponse?.status || statusResponse?.openai?.status;
+        console.log('Run status:', status);
 
-        if (statusResponse.status === 'completed') {
+        if (status === 'completed') {
           isComplete = true;
           
           // Get messages
-          const messagesResponse = await callAssistant('get_messages', { threadId });
+          const messagesResponse: any = await callAssistant('get_messages', { threadId });
           console.log('Messages:', messagesResponse);
           
           // Process the latest assistant message for function calls
-          const latestMessage = messagesResponse.data[0];
+          const latestMessage = messagesResponse?.data?.[0];
           if (latestMessage && latestMessage.role === 'assistant') {
             // Check for function calls in the message
             if (latestMessage.tool_calls && latestMessage.tool_calls.length > 0) {
@@ -144,7 +171,7 @@ export const useOpenAIAssistant = ({ threadId }: UseOpenAIAssistantProps): UseOp
               }
             }
           }
-        } else if (statusResponse.status === 'failed') {
+        } else if (status === 'failed') {
           throw new Error('Assistant run failed');
         }
 
