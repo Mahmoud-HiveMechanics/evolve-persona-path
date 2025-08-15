@@ -171,6 +171,26 @@ export const useOpenAIAssistant = ({ threadId }: UseOpenAIAssistantProps): UseOp
               }
             }
           }
+        } else if (status === 'requires_action') {
+          // Assistant is asking us to call a tool. Fetch latest messages and extract the tool call
+          const messagesResponse: any = await callAssistant('get_messages', { threadId });
+          console.log('Messages (requires_action):', messagesResponse);
+          const latestMessage = messagesResponse?.data?.[0];
+          if (latestMessage && latestMessage.role === 'assistant') {
+            if (latestMessage.tool_calls && latestMessage.tool_calls.length > 0) {
+              const functionCall = latestMessage.tool_calls[0];
+              if (functionCall.function?.name === 'ask_question') {
+                try {
+                  const args = JSON.parse(functionCall.function.arguments || '{}');
+                  setCurrentQuestion(args);
+                  // We have our question; stop polling to avoid timeout
+                  isComplete = true;
+                } catch (e) {
+                  console.error('Failed to parse function arguments:', e);
+                }
+              }
+            }
+          }
         } else if (status === 'failed') {
           throw new Error('Assistant run failed');
         }
