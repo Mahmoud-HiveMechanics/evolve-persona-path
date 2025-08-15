@@ -172,24 +172,52 @@ export const useOpenAIAssistant = ({ threadId }: UseOpenAIAssistantProps): UseOp
             }
           }
         } else if (status === 'requires_action') {
-          // Assistant is asking us to call a tool. Fetch latest messages and extract the tool call
-          const messagesResponse: any = await callAssistant('get_messages', { threadId });
-          console.log('Messages (requires_action):', messagesResponse);
-          const latestMessage = messagesResponse?.data?.[0];
-          if (latestMessage && latestMessage.role === 'assistant') {
-            if (latestMessage.tool_calls && latestMessage.tool_calls.length > 0) {
-              const functionCall = latestMessage.tool_calls[0];
-              if (functionCall.function?.name === 'ask_question') {
+          // Prefer tool calls from the run's required_action (more reliable than messages)
+          const toolCalls =
+            statusResponse?.required_action?.submit_tool_outputs?.tool_calls ||
+            statusResponse?.openai?.required_action?.submit_tool_outputs?.tool_calls || [];
+
+          let handled = false;
+          if (Array.isArray(toolCalls) && toolCalls.length > 0) {
+            for (const tc of toolCalls) {
+              const fn = tc?.function;
+              if (fn?.name === 'ask_question') {
                 try {
-                  const args = JSON.parse(functionCall.function.arguments || '{}');
+                  const args = JSON.parse(fn.arguments || '{}');
                   setCurrentQuestion(args);
-                  // We have our question; stop polling to avoid timeout
-                  isComplete = true;
+                  handled = true;
+                  break;
                 } catch (e) {
-                  console.error('Failed to parse function arguments:', e);
+                  console.error('Failed to parse tool call arguments:', e);
                 }
               }
             }
+          }
+
+          // Fallback: read messages if tool_calls not surfaced on run
+          if (!handled) {
+            const messagesResponse: any = await callAssistant('get_messages', { threadId });
+            console.log('Messages (requires_action):', messagesResponse);
+            const latestMessage = messagesResponse?.data?.[0];
+            if (latestMessage && latestMessage.role === 'assistant') {
+              if (latestMessage.tool_calls && latestMessage.tool_calls.length > 0) {
+                const functionCall = latestMessage.tool_calls[0];
+                if (functionCall.function?.name === 'ask_question') {
+                  try {
+                    const args = JSON.parse(functionCall.function.arguments || '{}');
+                    setCurrentQuestion(args);
+                    handled = true;
+                  } catch (e) {
+                    console.error('Failed to parse function arguments:', e);
+                  }
+                }
+              }
+            }
+          }
+
+          if (handled) {
+            // We have our question; stop polling to avoid timeout
+            isComplete = true;
           }
         } else if (status === 'failed') {
           throw new Error('Assistant run failed');
