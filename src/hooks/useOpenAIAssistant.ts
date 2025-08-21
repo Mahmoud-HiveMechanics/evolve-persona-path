@@ -1,17 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-
-interface AssistantQuestion {
-  question: string;
-  type: 'multiple-choice' | 'open-ended' | 'scale';
-  options?: string[];
-  scale_info?: {
-    min: number;
-    max: number;
-    min_label: string;
-    max_label: string;
-  };
-}
+import { AssistantQuestion, toErrorWithMessage } from '@/types/shared';
+import { env } from '@/config/env';
 
 interface UseOpenAIAssistantProps {
   threadId: string | null;
@@ -24,6 +14,7 @@ interface UseOpenAIAssistantReturn {
   currentQuestion: AssistantQuestion | null;
   sendMessage: (message: string) => Promise<void>;
   initializeAssistant: () => Promise<void>;
+  hasActiveRun: () => boolean;
 }
 
 export const useOpenAIAssistant = ({ threadId }: UseOpenAIAssistantProps): UseOpenAIAssistantReturn => {
@@ -37,28 +28,16 @@ export const useOpenAIAssistant = ({ threadId }: UseOpenAIAssistantProps): UseOp
   const [pendingToolCallId, setPendingToolCallId] = useState<string | null>(null);
   // Track the last tool_call id we surfaced as a question to avoid duplicates
   const [lastShownToolCallId, setLastShownToolCallId] = useState<string | null>(null);
-  // Expose a quick probe to let the page decide whether to kick off a new run
-  (useOpenAIAssistant as any).__hasActiveRun = () => Boolean(activeRunId);
+  
+  // Expose a proper function to check if there's an active run
+  const hasActiveRun = () => Boolean(activeRunId);
 
-  const normalizeError = (err: any): string => {
-    if (!err) return 'Unknown error';
-    if (typeof err === 'string') return err;
-    if (err instanceof Error) return err.message;
-    // Supabase Functions error shape
-    const msg =
-      err?.message ||
-      err?.error?.message ||
-      err?.context?.response?.error?.message ||
-      err?.statusText ||
-      err?.name;
-    try {
-      return msg || JSON.stringify(err);
-    } catch {
-      return 'Unexpected error';
-    }
+  const normalizeError = (err: unknown): string => {
+    const errorWithMessage = toErrorWithMessage(err);
+    return errorWithMessage.message;
   };
 
-  const callAssistant = async (action: string, data: any = {}) => {
+  const callAssistant = async (action: string, data: Record<string, unknown> = {}): Promise<unknown> => {
     try {
       const { data: response, error } = await supabase.functions.invoke('chat-assistant', {
         body: { action, ...data }
@@ -98,8 +77,8 @@ export const useOpenAIAssistant = ({ threadId }: UseOpenAIAssistantProps): UseOp
         throw new Error('No thread ID available. Please ensure user is signed up properly.');
       }
 
-      // Use existing assistant
-      const EXISTING_ASSISTANT_ID = 'asst_0IGtbLANauxTpbn8rSj7MVy5';
+      // Use existing assistant from environment configuration
+      const EXISTING_ASSISTANT_ID = env.OPENAI_ASSISTANT_ID;
       const assistantResponse = await callAssistant('use_existing_assistant', {
         assistantId: EXISTING_ASSISTANT_ID
       });
@@ -110,7 +89,7 @@ export const useOpenAIAssistant = ({ threadId }: UseOpenAIAssistantProps): UseOp
 
       // Resume any active run from a previous session to avoid sending a new message
       try {
-        const active: any = await callAssistant('get_active_run', { threadId });
+        const active = await callAssistant('get_active_run', { threadId }) as { id?: string; run?: { id?: string } };
         const existingRunId: string | null = active?.id || active?.run?.id || null;
         if (existingRunId) {
           setActiveRunId(existingRunId);
@@ -140,7 +119,36 @@ export const useOpenAIAssistant = ({ threadId }: UseOpenAIAssistantProps): UseOp
     const maxAttempts = 60; // up to ~60s
     while (attempts < maxAttempts) {
       await new Promise((resolve) => setTimeout(resolve, 1000));
-      const statusResponse: any = await callAssistant('get_run_status', { threadId, runId });
+      const statusResponse = await callAssistant('get_run_status', { threadId, runId }) as {
+      status?: string;
+      openai?: { 
+        status?: string;
+        required_action?: {
+          submit_tool_outputs?: {
+            tool_calls?: Array<{
+              id?: string;
+              tool_call_id?: string;
+              function?: {
+                name?: string;
+                arguments?: string;
+              };
+            }>;
+          };
+        };
+      };
+      required_action?: {
+        submit_tool_outputs?: {
+          tool_calls?: Array<{
+            id?: string;
+            tool_call_id?: string;
+            function?: {
+              name?: string;
+              arguments?: string;
+            };
+          }>;
+        };
+      };
+    };
       const status = statusResponse?.status || statusResponse?.openai?.status;
       console.log('Run status:', status);
 
@@ -207,7 +215,10 @@ export const useOpenAIAssistant = ({ threadId }: UseOpenAIAssistantProps): UseOp
       if (pendingToolCallId && activeRunId) {
         // Confirm run is still awaiting tool outputs before submitting
         try {
-          const statusResponse: any = await callAssistant('get_run_status', { threadId, runId: activeRunId });
+          const statusResponse = await callAssistant('get_run_status', { threadId, runId: activeRunId }) as {
+            status?: string;
+            openai?: { status?: string };
+          };
           const status = statusResponse?.status || statusResponse?.openai?.status;
           if (status !== 'requires_action') {
             // Run is no longer accepting tool outputs. Clear and start a fresh run with user's message.
@@ -224,7 +235,7 @@ export const useOpenAIAssistant = ({ threadId }: UseOpenAIAssistantProps): UseOp
             setPendingToolCallId(null);
             const outcome = await pollRunUntilActionOrComplete(activeRunId);
             if (outcome === 'completed') {
-              const messagesResponse: any = await callAssistant('get_messages', { threadId });
+              const messagesResponse = await callAssistant('get_messages', { threadId });
               console.log('Messages:', messagesResponse);
             }
             if (outcome !== 'requires_action') {
@@ -233,8 +244,8 @@ export const useOpenAIAssistant = ({ threadId }: UseOpenAIAssistantProps): UseOp
             }
             return;
           }
-        } catch (submitErr: any) {
-          const msg = submitErr?.message || '';
+        } catch (submitErr: unknown) {
+          const msg = toErrorWithMessage(submitErr).message;
           if (msg.includes('expired') || msg.includes('do not accept tool outputs')) {
             // Recovery path: clear active and pending to allow a new run
             setPendingToolCallId(null);
@@ -246,14 +257,17 @@ export const useOpenAIAssistant = ({ threadId }: UseOpenAIAssistantProps): UseOp
       }
 
       // Otherwise, add a message and start a new run
-      const runResponse: any = await callAssistant('send_message', { threadId, assistantId, message });
+      const runResponse = await callAssistant('send_message', { threadId, assistantId, message }) as {
+        id?: string;
+        runId?: string;
+      };
       console.log('Run started:', runResponse);
-      const newRunId: string = runResponse?.id || runResponse?.runId;
+      const newRunId: string = runResponse?.id || runResponse?.runId || '';
       if (!newRunId) throw new Error('Run ID missing from response');
       setActiveRunId(newRunId);
       const outcome = await pollRunUntilActionOrComplete(newRunId);
       if (outcome === 'completed') {
-        const messagesResponse: any = await callAssistant('get_messages', { threadId });
+        const messagesResponse = await callAssistant('get_messages', { threadId });
         console.log('Messages:', messagesResponse);
       }
 
@@ -270,6 +284,7 @@ export const useOpenAIAssistant = ({ threadId }: UseOpenAIAssistantProps): UseOp
     error,
     currentQuestion,
     sendMessage,
-    initializeAssistant
+    initializeAssistant,
+    hasActiveRun
   };
 };

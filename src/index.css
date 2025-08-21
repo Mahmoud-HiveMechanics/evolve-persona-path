@@ -150,7 +150,12 @@ All colors MUST be HSL.
 
   /* Assessment Button Variant */
   .btn-assessment {
-    @apply bg-white border-2 border-primary text-primary font-semibold px-8 py-4 rounded-xl hover:bg-primary hover:text-white transition-smooth flex items-center gap-3;
+    @apply bg-white border-2 border-primary text-primary font-semibold px-8 py-4 rounded-xl hover:bg-primary hover:text-white transition-all duration-300 flex items-center gap-3 hover:shadow-lg active:scale-95;
+  }
+
+  /* Enhanced Button Styles */
+  .btn-assessment.bg-gradient-to-r {
+    @apply border-none text-white;
   }
 
   /* Progress Bar */
@@ -160,5 +165,45 @@ All colors MUST be HSL.
 
   .progress-fill {
     @apply bg-primary rounded-full transition-all duration-500 ease-out;
+  }
+
+  /* Enhanced Shadow Utilities */
+  .shadow-3xl {
+    box-shadow: 0 35px 60px -12px rgba(0, 0, 0, 0.25);
+  }
+
+  /* Smooth Animations */
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
+  }
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-20px); }
+  }
+
+  /* Glass Effect */
+  .glass {
+    backdrop-filter: blur(16px) saturate(180%);
+    background-color: rgba(255, 255, 255, 0.75);
+    border: 1px solid rgba(209, 213, 219, 0.3);
+  }
+
+  /* Improved Spiral Element */
+  .spiral-element {
+    background: var(--gradient-spiral);
+    @apply rounded-full relative;
+  }
+
+  .spiral-element::before {
+    content: '';
+    @apply absolute inset-0 rounded-full opacity-30;
+    background: conic-gradient(from 0deg, transparent, hsl(var(--primary)), transparent);
+    animation: rotate 8s linear infinite;
+  }
+
+  @keyframes rotate {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
   }
 }

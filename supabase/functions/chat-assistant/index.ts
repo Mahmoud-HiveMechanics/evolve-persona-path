@@ -1,13 +1,75 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS"
+// Type definitions
+interface RequestBody {
+  action: string;
+  threadId?: string;
+  message?: string;
+  assistantId?: string;
+  runId?: string;
+  toolCallId?: string;
+  output?: string;
+  audioBase64?: string;
+  mimeType?: string;
+}
+
+interface OpenAIRun {
+  id?: string;
+  status?: string;
+  required_action?: {
+    submit_tool_outputs?: {
+      tool_calls?: Array<{
+        id?: string;
+        tool_call_id?: string;
+        function?: {
+          name?: string;
+          arguments?: string;
+        };
+      }>;
+    };
+  };
+}
+
+interface ApiResponse {
+  ok: boolean;
+  status: number;
+  error?: { message: string };
+  openai?: unknown;
+  threadId?: string;
+  runId?: string;
+}
+
+// More restrictive CORS - allow specific origins in production
+const getAllowedOrigin = (origin: string | null): string => {
+  const allowedOrigins = [
+    'http://localhost:3000',
+    'http://localhost:5173',
+    'https://your-domain.com', // Replace with your actual domain
+  ];
+  
+  if (origin && allowedOrigins.includes(origin)) {
+    return origin;
+  }
+  
+  // Fallback for development - in production, remove this
+  if (Deno.env.get('DENO_ENV') === 'development') {
+    return origin || '*';
+  }
+  
+  return allowedOrigins[0]; // Default to first allowed origin
 };
 
+const getCorsHeaders = (origin: string | null) => ({
+  "Access-Control-Allow-Origin": getAllowedOrigin(origin),
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Credentials": "true"
+});
+
 serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req.headers.get('origin'));
+  
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -26,10 +88,10 @@ serve(async (req) => {
       );
     }
 
-    let bodyJson = null;
+    let bodyJson: RequestBody | null = null;
     try {
-      bodyJson = await req.json();
-    } catch (e) {
+      bodyJson = await req.json() as RequestBody;
+    } catch (_e) {
       return new Response(
         JSON.stringify({ ok: false, status: 400, error: { message: "Invalid or missing JSON body" } }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -169,10 +231,14 @@ serve(async (req) => {
           headers: openaiHeaders
         });
         const listText = await list.text();
-        let listJson: any = null;
-        try { listJson = listText ? JSON.parse(listText) : null; } catch { /* ignore */ }
+        let listJson: { data?: OpenAIRun[] } | null = null;
+        try { 
+          listJson = listText ? JSON.parse(listText) as { data?: OpenAIRun[] } : null; 
+        } catch { 
+          /* ignore parse errors */ 
+        }
         const runs = listJson?.data || [];
-        const active = runs.find((r: any) => !["completed","failed","cancelled","expired"].includes(r?.status));
+        const active = runs.find((r: OpenAIRun) => !["completed","failed","cancelled","expired"].includes(r?.status || ""));
         return new Response(
           JSON.stringify({ ok: true, status: 200, openai: active || null, run: active || null }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -231,8 +297,12 @@ serve(async (req) => {
             body: form
           });
           const txt = await resp.text();
-          let json: any = null;
-          try { json = txt ? JSON.parse(txt) : null; } catch (_) {}
+          let json: { text?: string } | null = null;
+          try { 
+            json = txt ? JSON.parse(txt) as { text?: string } : null; 
+          } catch (_) {
+            // ignore parse errors
+          }
 
           if (!resp.ok) {
             return new Response(
@@ -263,10 +333,10 @@ serve(async (req) => {
 
     // handle response
     const text = await response.text().catch(() => null);
-    let data;
+    let data: unknown;
     try {
       data = text ? JSON.parse(text) : null;
-    } catch (e) {
+    } catch (_e) {
       return new Response(
         JSON.stringify({ ok: false, status: 502, error: "Failed to parse OpenAI response", raw: text }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -274,8 +344,14 @@ serve(async (req) => {
     }
 
     // try to surface threadId and runId for convenience
-    const threadIdOut = data?.id || data?.thread?.id || data?.result?.id || data?.data?.id || null;
-    const runIdOut = data?.id || data?.run?.id || data?.result?.run_id || null;
+    const dataObj = data as Record<string, unknown> | null;
+    const threadIdOut = dataObj?.id || 
+                       (dataObj?.thread as Record<string, unknown>)?.id || 
+                       (dataObj?.result as Record<string, unknown>)?.id || 
+                       (dataObj?.data as Record<string, unknown>)?.id || null;
+    const runIdOut = dataObj?.id || 
+                    (dataObj?.run as Record<string, unknown>)?.id || 
+                    (dataObj?.result as Record<string, unknown>)?.run_id || null;
 
     // if OpenAI returned an error object, forward it
     if (!response.ok) {

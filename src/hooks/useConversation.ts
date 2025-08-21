@@ -1,16 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
-
-interface ChatMessage {
-  type: 'user' | 'bot';
-  content: string;
-  questionType?: 'multiple-choice' | 'open-ended' | 'scale';
-  options?: string[];
-  scaleMin?: number;
-  scaleMax?: number;
-  scaleLabels?: string[];
-}
+import { ChatMessage } from '@/types/shared';
 
 export const useConversation = () => {
   const { user } = useAuth();
