@@ -7,7 +7,7 @@ export const useConversation = () => {
   const { user } = useAuth();
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [threadId, setThreadId] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading] = useState(false);
 
   // Get user's threadId from profile
   useEffect(() => {

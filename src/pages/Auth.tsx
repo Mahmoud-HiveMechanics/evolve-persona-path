@@ -14,7 +14,7 @@ export const Auth = () => {
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { signIn, signUp, user } = useAuth();
+  const { signIn, signUp } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
 
