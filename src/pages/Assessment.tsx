@@ -1,33 +1,15 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Header } from '../components/Header';
-import { SpiralElement } from '../components/SpiralElement';
 import { Button } from '../components/ui/button';
-import { Progress } from '../components/ui/progress';
 import { Textarea } from '../components/ui/textarea';
 import { Slider } from '../components/ui/slider';
-import { ArrowRight, Send, User, Bot, CheckCircle2, Loader2, Mic, Square, Check } from 'lucide-react';
+import { ArrowRight, Send, User, Bot, Mic, Square, Check } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { useOpenAIAssistant } from '../hooks/useOpenAIAssistant';
+
 import { useConversation } from '../hooks/useConversation';
-import { useAuth } from '../hooks/useAuth';
 import { Input } from '../components/ui/input';
 import { useNavigate } from 'react-router-dom';
-
-interface ChatMessage {
-  id: string;
-  type: 'bot' | 'user';
-  content: string;
-  timestamp: Date;
-  questionType?: 'multiple-choice' | 'open-ended' | 'scale';
-  options?: string[];
-  scaleInfo?: {
-    min: number;
-    max: number;
-    min_label: string;
-    max_label: string;
-  };
-  isQuestion?: boolean;
-}
+import { ChatMessage } from '@/types/shared';
 
 
 export const Assessment = () => {
@@ -39,7 +21,7 @@ export const Assessment = () => {
   const [openEndedResponse, setOpenEndedResponse] = useState('');
   const [scaleValue, setScaleValue] = useState([5]);
   const [questionCount, setQuestionCount] = useState(0);
-  const [totalQuestions, setTotalQuestions] = useState(10);
+  const totalQuestions = 10;
   const [kickoffSent, setKickoffSent] = useState(false);
   const [recording, setRecording] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -55,20 +37,12 @@ export const Assessment = () => {
   const [introTeamSize, setIntroTeamSize] = useState('');
   const [introMotivation, setIntroMotivation] = useState('');
   // Finalization state
-  const [isSavingEvaluation, setIsSavingEvaluation] = useState(false);
   const [hasNavigated, setHasNavigated] = useState(false);
   
-  const { conversationId, threadId, createConversation, saveMessage, markConversationComplete } = useConversation();
+  const { conversationId, createConversation, saveMessage, markConversationComplete } = useConversation();
   
-  const { 
-    isInitialized, 
-    isLoading: assistantLoading, 
-    error: assistantError, 
-    currentQuestion, 
-    sendMessage, 
-    initializeAssistant 
-  } = useOpenAIAssistant({ threadId });
-  const { user } = useAuth();
+  // OpenAI assistant not needed for predefined questions
+  const [currentQuestion, setCurrentQuestion] = useState<any>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -76,7 +50,20 @@ export const Assessment = () => {
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages, assistantLoading]);
+  }, [messages]);
+
+  // Cleanup MediaRecorder and streams on unmount
+  useEffect(() => {
+    return () => {
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+        mediaRecorderRef.current.stop();
+      }
+      // Clean up any remaining media streams
+      if (mediaRecorderRef.current?.stream) {
+        mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, []);
 
   // Keyboard shortcuts for quicker interaction
   useEffect(() => {
@@ -111,19 +98,25 @@ export const Assessment = () => {
     };
     setMessages(prev => [...prev, newMessage]);
     
-    // Save to database
-    await saveMessage({
+    // Save to database - create a proper message object
+    const messageToSave: ChatMessage = {
+      id: newMessage.id,
       type,
       content,
+      timestamp: newMessage.timestamp,
       questionType: questionData?.questionType,
       options: questionData?.options,
-      scaleMin: questionData?.scaleInfo?.min,
-      scaleMax: questionData?.scaleInfo?.max,
-      scaleLabels: questionData?.scaleInfo ? [questionData.scaleInfo.min_label, questionData.scaleInfo.max_label] : undefined
-    });
+      scaleInfo: questionData?.scaleInfo ? {
+        min: questionData.scaleInfo.min,
+        max: questionData.scaleInfo.max,
+        min_label: questionData.scaleInfo.min_label,
+        max_label: questionData.scaleInfo.max_label
+      } : undefined
+    };
+    await saveMessage(messageToSave);
   };
 
-  // Handle OpenAI assistant questions with a hard cap of totalQuestions
+  // Handle predefined questions
   useEffect(() => {
     if (currentQuestion && !showCurrentQuestion) {
       const nextCount = questionCount + 1;
@@ -131,7 +124,6 @@ export const Assessment = () => {
         setIsComplete(true);
         markConversationComplete();
         setShowCurrentQuestion(false);
-        setIsSavingEvaluation(true);
         return;
       }
 
@@ -143,74 +135,75 @@ export const Assessment = () => {
       });
       setShowCurrentQuestion(true);
       setQuestionCount(nextCount);
-      
-      // Check if assistant explicitly signals completion
-      if (currentQuestion.question?.includes('assessment is complete') || 
-          currentQuestion.question?.includes('completed') ||
-          currentQuestion.question?.includes('finished')) {
-        setIsComplete(true);
-        markConversationComplete();
-        setIsSavingEvaluation(true);
-      }
     }
   }, [currentQuestion, showCurrentQuestion, questionCount, totalQuestions, navigate]);
 
   const handleStart = async () => {
     setIsStarted(true);
     setKickoffSent(false);
-    await addMessage('bot', "I'm getting ready for you. Please wait a moment...");
   };
 
   // Initialize assistant when start pressed and threadId becomes available
-  useEffect(() => {
-    const run = async () => {
-      if (!isStarted) return;
-      if (!threadId) return;
-      if (isInitialized) return;
-      try {
-        console.log('Thread ID available:', threadId);
-        console.log('Initializing assistant...');
-        await initializeAssistant();
-        console.log('Assistant initialized successfully');
-      } catch (error) {
-        console.error('Assistant initialization error:', error);
-        await addMessage('bot', "I apologize, but I'm having trouble starting up. Please refresh the page and try again.");
-      }
-    };
-    run();
-  }, [isStarted, threadId, isInitialized]);
+  // No OpenAI assistant initialization needed for predefined questions
 
-  // Kick off conversation once assistant ready and intro info collected (only once).
-  // Guard against an already-active run by only kicking off when there is no active run.
+  // Simple predefined questions - no OpenAI dependency for now
+  const assessmentQuestions = [
+    { question: "What leadership challenges are you currently facing in your role?", type: 'open-ended' as const },
+    { question: "How do you typically handle conflict within your team?", type: 'open-ended' as const },
+    { question: "Describe a time when you had to make a difficult decision as a leader.", type: 'open-ended' as const },
+    { question: "What motivates you most as a leader?", type: 'open-ended' as const },
+    { question: "How do you measure your effectiveness as a leader?", type: 'open-ended' as const },
+    { question: "What leadership skills do you feel you need to develop further?", type: 'open-ended' as const },
+    { question: "How do you handle giving feedback to team members?", type: 'open-ended' as const },
+    { question: "Describe your approach to building trust with your team.", type: 'open-ended' as const },
+    { question: "What role does emotional intelligence play in your leadership style?", type: 'open-ended' as const },
+    { question: "How do you adapt your leadership approach for different team members?", type: 'open-ended' as const }
+  ];
+
+  // Kick off conversation once intro info collected
   useEffect(() => {
     const kickOff = async () => {
-      if (!isStarted || !isInitialized || !threadId || kickoffSent || !introDone) return;
+      if (!isStarted || kickoffSent || !introDone) return;
+      
       try {
         await createConversation();
-        await addMessage('bot', "Hi! I'm your leadership assessment guide. 👋");
-        // Kick off the run; send the initial message once with background context
-        const introSummary = `Before we begin, here is my background: Position: ${introPosition || 'N/A'}, Role: ${introRole || 'N/A'}, Team size: ${introTeamSize || 'N/A'}, Motivation: ${introMotivation || 'N/A'}.`;
-        await sendMessage(`${introSummary} Please start the leadership assessment by asking me the first question.`);
+        await addMessage('bot', "Hi! I'm your leadership assessment guide. Let's begin! 👋");
+        
         setKickoffSent(true);
+        
+        // Start with first question immediately
+        setTimeout(() => {
+          const firstQuestion = assessmentQuestions[0];
+          setCurrentQuestion(firstQuestion);
+        }, 1000);
+        
       } catch (error) {
-        console.error('Error sending initial message:', error);
+        console.error('Error in kickoff:', error);
         await addMessage('bot', "I apologize, but I'm having trouble connecting. Please try refreshing the page and try again.");
       }
     };
     kickOff();
-  }, [isStarted, isInitialized, threadId, kickoffSent, introDone, introPosition, introRole, introTeamSize, introMotivation]);
+  }, [isStarted, kickoffSent, introDone]);
 
   const handleMultipleChoiceAnswer = async (answer: string) => {
     setMcPending(true);
     try {
       await addMessage('user', answer);
       setShowCurrentQuestion(false);
-      await sendMessage(answer);
-      // If we have answered the last question, finish immediately
-      if (questionCount >= totalQuestions) {
+      
+      // Clear current question first to ensure clean state
+      setCurrentQuestion(null);
+      
+      // Move to next question
+      const nextQuestionIndex = questionCount;
+      if (nextQuestionIndex < assessmentQuestions.length) {
+        setTimeout(() => {
+          const nextQuestion = assessmentQuestions[nextQuestionIndex];
+          setCurrentQuestion(nextQuestion);
+        }, 1500);
+      } else {
         setIsComplete(true);
         markConversationComplete();
-        setIsSavingEvaluation(true);
       }
     } finally {
       setMcPending(false);
@@ -222,14 +215,27 @@ export const Assessment = () => {
     
     await addMessage('user', openEndedResponse);
     setShowCurrentQuestion(false);
-    
-    // Send response to OpenAI assistant
-    await sendMessage(openEndedResponse);
     setOpenEndedResponse('');
-    if (questionCount >= totalQuestions) {
+    
+    // Clear current question first to ensure clean state
+    setCurrentQuestion(null);
+    
+    // questionCount represents the number of questions already displayed
+    // So the next question index should be questionCount (0-based indexing)
+    const nextQuestionIndex = questionCount;
+    console.log('Current questionCount:', questionCount, 'Next question index:', nextQuestionIndex);
+    console.log('Next question will be:', assessmentQuestions[nextQuestionIndex]?.question);
+    
+    if (nextQuestionIndex < assessmentQuestions.length) {
+      setTimeout(() => {
+        const nextQuestion = assessmentQuestions[nextQuestionIndex];
+        console.log('Setting next question:', nextQuestion.question);
+        setCurrentQuestion(nextQuestion);
+      }, 1500);
+    } else {
+      console.log('Assessment complete - no more questions');
       setIsComplete(true);
       markConversationComplete();
-      setIsSavingEvaluation(true);
     }
   };
 
@@ -237,14 +243,21 @@ export const Assessment = () => {
     const scaleResponse = `${scaleValue[0]} out of 10`;
     await addMessage('user', scaleResponse);
     setShowCurrentQuestion(false);
-    
-    // Send response to OpenAI assistant
-    await sendMessage(scaleResponse);
     setScaleValue([5]); // Reset to middle value
-    if (questionCount >= totalQuestions) {
+    
+    // Clear current question first to ensure clean state
+    setCurrentQuestion(null);
+    
+    // Move to next question
+    const nextQuestionIndex = questionCount;
+    if (nextQuestionIndex < assessmentQuestions.length) {
+      setTimeout(() => {
+        const nextQuestion = assessmentQuestions[nextQuestionIndex];
+        setCurrentQuestion(nextQuestion);
+      }, 1500);
+    } else {
       setIsComplete(true);
       markConversationComplete();
-      setIsSavingEvaluation(true);
     }
   };
 
@@ -254,18 +267,12 @@ export const Assessment = () => {
     (async () => {
       if (!isComplete || !conversationId || hasNavigated) return;
       try {
-        setIsSavingEvaluation(true);
         const { data: session } = await supabase.auth.getSession();
         const userId = session?.session?.user?.id;
         if (!userId) return;
 
-        // Aggregate a minimal payload from messages in this conversation
-        // (In a real flow, the assistant would return the 12-framework scoring JSON; here we stub from messages.)
-        const { data: msgs } = await supabase
-          .from('messages')
-          .select('content, message_type, created_at')
-          .eq('conversation_id', conversationId)
-          .order('created_at', { ascending: true });
+        // Create evaluation payload (in a real flow, the assistant would return detailed scoring)
+        // For now, we create a basic structure
 
         const payload = {
           overall: { summary: 'Assessment completed. Detailed scoring will be generated by the assistant.' },
@@ -285,90 +292,80 @@ export const Assessment = () => {
           ]
         };
 
-        const { error: evalInsertError } = await (supabase as any).from('evaluations').insert([
-          {
-            user_id: userId,
-            conversation_id: conversationId,
-            summary: 'Leadership assessment evaluation',
-            data: payload as any
-          }
-        ]);
+        const { error: evalInsertError } = await supabase
+          .from('evaluations' as any)
+          .insert([
+            {
+              user_id: userId,
+              conversation_id: conversationId,
+              summary: 'Leadership assessment evaluation',
+              data: payload
+            }
+          ]);
         if (evalInsertError) {
           console.warn('Failed to insert evaluation', evalInsertError);
         }
-        if (!hasNavigated) {
-          setHasNavigated(true);
-          navigate('/evaluation');
-        }
+        // Don't auto-navigate anymore - let user choose their path
+        setHasNavigated(true);
       } catch (e) {
         console.warn('Failed to persist evaluation', e);
-      } finally {
-        setIsSavingEvaluation(false);
       }
     })();
-  }, [isComplete, conversationId, hasNavigated, navigate]);
+  }, [isComplete, conversationId, hasNavigated]);
 
-  // Handle assistant errors
-  useEffect(() => {
-    if (assistantError) {
-      addMessage('bot', `I apologize, but I encountered an issue: ${assistantError}. Please try refreshing the page.`);
-    }
-  }, [assistantError]);
+  // No assistant error handling needed for predefined questions
 
-  const progress = Math.min((questionCount / totalQuestions) * 100, 100);
-  const milestones = [Math.round(totalQuestions / 3), Math.round((2 * totalQuestions) / 3)];
-  const assistantStatus: 'idle' | 'connecting' | 'ready' = assistantLoading
-    ? 'connecting'
-    : (isInitialized ? 'ready' : 'idle');
+  // Assessment progress calculations (currently unused but available for future use)
+  // const progress = Math.min((questionCount / totalQuestions) * 100, 100);
+  // const milestones = [Math.round(totalQuestions / 3), Math.round((2 * totalQuestions) / 3)];
 
   if (!isStarted) {
     return (
-      <div className="min-h-screen bg-white">
+      <div className="min-h-screen bg-gradient-to-br from-primary/5 via-white to-muted/20">
         <Header />
         
-        <div className="min-h-[calc(100vh-80px)] flex items-center justify-center px-6">
-          <div className="max-w-2xl mx-auto text-center space-y-8">
-            <SpiralElement size="lg" className="mx-auto" />
+        <div className="min-h-[calc(100vh-80px)] flex items-center justify-center px-6 py-12">
+          <div className="max-w-3xl mx-auto text-center space-y-12">
+
             
-            <div className="space-y-4">
-              <h1 className="text-4xl font-bold text-text-primary">
-                Leadership Assessment
+            <div className="space-y-6">
+              <h1 className="text-5xl lg:text-6xl font-bold text-text-primary leading-tight">
+                Leadership <span className="text-primary">Assessment</span>
               </h1>
-              <p className="text-lg text-text-secondary">
+              <p className="text-xl text-text-secondary leading-relaxed max-w-2xl mx-auto">
                 Welcome! I'm your leadership assessment guide. I'll ask you some questions 
                 to understand your leadership style and help you discover your leadership persona.
               </p>
             </div>
             
-            <div className="bg-muted/30 rounded-xl p-6 space-y-4">
-              <h3 className="font-semibold text-text-primary">What to expect:</h3>
-              <div className="grid md:grid-cols-2 gap-4 text-sm text-text-secondary">
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 bg-primary rounded-full"></div>
-                  <span>5 thoughtful questions</span>
+            <div className="bg-white/60 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-primary/10 space-y-6">
+              <h3 className="text-2xl font-bold text-text-primary">What to <span className="text-primary">expect</span>:</h3>
+              <div className="grid md:grid-cols-2 gap-6">
+                <div className="flex items-center gap-4 p-4 rounded-xl bg-primary/5">
+                  <div className="w-4 h-4 bg-primary rounded-full flex-shrink-0"></div>
+                  <span className="font-medium text-text-primary">5 thoughtful questions</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 bg-primary rounded-full"></div>
-                  <span>Takes about 10 minutes</span>
+                <div className="flex items-center gap-4 p-4 rounded-xl bg-primary/5">
+                  <div className="w-4 h-4 bg-primary rounded-full flex-shrink-0"></div>
+                  <span className="font-medium text-text-primary">Takes about 10 minutes</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 bg-primary rounded-full"></div>
-                  <span>Conversational interface</span>
+                <div className="flex items-center gap-4 p-4 rounded-xl bg-primary/5">
+                  <div className="w-4 h-4 bg-primary rounded-full flex-shrink-0"></div>
+                  <span className="font-medium text-text-primary">Conversational interface</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 bg-primary rounded-full"></div>
-                  <span>Personalized insights at the end</span>
+                <div className="flex items-center gap-4 p-4 rounded-xl bg-primary/5">
+                  <div className="w-4 h-4 bg-primary rounded-full flex-shrink-0"></div>
+                  <span className="font-medium text-text-primary">Personalized insights at the end</span>
                 </div>
               </div>
             </div>
             
             <Button 
               onClick={handleStart}
-              className="btn-assessment"
+              className="btn-assessment text-xl px-12 py-6 shadow-2xl hover:shadow-3xl transition-all duration-500 hover:scale-105 bg-gradient-to-r from-primary to-primary/90"
             >
-              <SpiralElement size="sm" />
               Start Assessment
-              <ArrowRight size={20} />
+              <ArrowRight size={24} />
             </Button>
           </div>
         </div>
@@ -376,95 +373,97 @@ export const Assessment = () => {
     );
   }
 
-  return (
-    <div className="min-h-screen bg-white">
-      <Header />
-      
-      <div className="max-w-4xl mx-auto px-6 py-6">
-        {/* Intro form before assessment begins */}
-        {isStarted && !introDone && (
-          <div className="mb-6 border border-border rounded-xl p-4 bg-white">
-            <h3 className="font-semibold mb-3">Before we begin</h3>
-            <div className="grid md:grid-cols-2 gap-3">
-              <div>
-                <label className="text-xs text-text-secondary">Position</label>
-                <Input value={introPosition} onChange={(e) => setIntroPosition(e.target.value)} placeholder="e.g., Director" />
+  // Show intro form if assessment started but intro not done
+  if (isStarted && !introDone) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-primary/5 via-white to-muted/20">
+        <Header />
+        
+        <div className="min-h-[calc(100vh-80px)] flex items-center justify-center px-6 py-12">
+          <div className="max-w-3xl mx-auto">
+            <div className="bg-white/80 backdrop-blur-sm border border-primary/20 rounded-2xl p-8 shadow-lg">
+              <div className="space-y-8">
+                <div className="text-center space-y-4">
+                  <h2 className="text-4xl font-bold text-text-primary">Before we <span className="text-primary">begin</span></h2>
+                  <p className="text-xl text-text-secondary">Help us personalize your assessment experience</p>
+                </div>
+                
+                <div className="grid md:grid-cols-2 gap-6">
+                  <div className="space-y-3">
+                    <label className="text-sm font-medium text-text-primary">Position</label>
+                    <Input 
+                      value={introPosition} 
+                      onChange={(e) => setIntroPosition(e.target.value)} 
+                      placeholder="e.g., Director" 
+                      className="h-12"
+                    />
+                  </div>
+                  <div className="space-y-3">
+                    <label className="text-sm font-medium text-text-primary">Role in the company</label>
+                    <Input 
+                      value={introRole} 
+                      onChange={(e) => setIntroRole(e.target.value)} 
+                      placeholder="e.g., Operations" 
+                      className="h-12"
+                    />
+                  </div>
+                  <div className="space-y-3">
+                    <label className="text-sm font-medium text-text-primary">Team size</label>
+                    <Input 
+                      value={introTeamSize} 
+                      onChange={(e) => setIntroTeamSize(e.target.value)} 
+                      placeholder="e.g., 12" 
+                      className="h-12"
+                    />
+                  </div>
+                  <div className="space-y-3">
+                    <label className="text-sm font-medium text-text-primary">Motivation for taking this assessment</label>
+                    <Input 
+                      value={introMotivation} 
+                      onChange={(e) => setIntroMotivation(e.target.value)} 
+                      placeholder="e.g., grow as a people leader" 
+                      className="h-12"
+                    />
+                  </div>
+                </div>
+                
+                <div className="text-center pt-6">
+                  <Button 
+                    onClick={() => setIntroDone(true)} 
+                    disabled={kickoffSent}
+                    className="btn-assessment text-xl px-12 py-4 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105"
+                  >
+                    Continue to Assessment
+                    <ArrowRight size={24} />
+                  </Button>
+                </div>
               </div>
-              <div>
-                <label className="text-xs text-text-secondary">Role in the company</label>
-                <Input value={introRole} onChange={(e) => setIntroRole(e.target.value)} placeholder="e.g., Operations" />
-              </div>
-              <div>
-                <label className="text-xs text-text-secondary">Team size</label>
-                <Input value={introTeamSize} onChange={(e) => setIntroTeamSize(e.target.value)} placeholder="e.g., 12" />
-              </div>
-              <div className="md:col-span-2">
-                <label className="text-xs text-text-secondary">Motivation for taking this assessment</label>
-                <Input value={introMotivation} onChange={(e) => setIntroMotivation(e.target.value)} placeholder="e.g., grow as a people leader" />
-              </div>
-            </div>
-            <div className="flex justify-end mt-3">
-              <Button onClick={() => setIntroDone(true)} disabled={kickoffSent}>
-                Continue
-              </Button>
-            </div>
-          </div>
-        )}
-        {/* Progress & Status */}
-        <div className="mb-6 space-y-3">
-          {/* Status badges */}
-          <div className="flex flex-wrap gap-2">
-            <div className="inline-flex items-center gap-2 rounded-full border border-border bg-white px-3 py-1 text-xs">
-              <span className="text-text-secondary">Thread</span>
-              <span className={`h-2 w-2 rounded-full ${threadId ? 'bg-emerald-500' : 'bg-amber-500'}`} />
-              <span className="text-text-primary">{threadId ? 'Ready' : 'Pending'}</span>
-            </div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-border bg-white px-3 py-1 text-xs">
-              <span className="text-text-secondary">Assistant</span>
-              {assistantStatus === 'ready' && <CheckCircle2 size={14} className="text-emerald-600" />}
-              {assistantStatus !== 'ready' && <Loader2 size={14} className="animate-spin text-amber-600" />}
-              <span className="text-text-primary capitalize">{assistantStatus}</span>
-            </div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-border bg-white px-3 py-1 text-xs">
-              <span className="text-text-secondary">Progress</span>
-              <span className="text-text-primary font-medium">{Math.round(progress)}%</span>
-            </div>
-          </div>
-
-          {/* Progress bar with milestones */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-text-secondary">Question {questionCount} of ~{totalQuestions}</span>
-              <span className="text-sm text-text-secondary">{Math.round(progress)}% complete</span>
-            </div>
-            <div className="relative h-2 bg-primary/20 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-gradient-to-r from-primary to-primary-light rounded-full transition-all duration-700 ease-out"
-                style={{ width: `${Math.min(progress, 100)}%` }}
-              />
-              {milestones.map((m) => (
-                <div
-                  key={m}
-                  className="absolute top-0 h-full w-0.5 bg-white/60"
-                  style={{ left: `${(m / totalQuestions) * 100}%` }}
-                />
-              ))}
             </div>
           </div>
         </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-muted/10 via-white to-primary/5">
+      <Header />
+      
+      <div className="max-w-5xl mx-auto px-6 py-8">
+
 
         {/* Chat Container */}
-        <div className="bg-muted/10 rounded-xl border border-border min-h-[600px] flex flex-col">
+        <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-primary/10 h-[700px] flex flex-col shadow-lg">
           {/* Chat Messages */}
-          <div className="flex-1 p-6 overflow-y-auto space-y-4">
+          <div className="flex-1 p-8 overflow-y-auto space-y-6 max-h-full">
             {messages.map((message) => (
               <div
                 key={message.id}
                 className={`flex gap-3 ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
               >
                 {message.type === 'bot' && (
-                  <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center flex-shrink-0">
-                    <Bot size={20} className="text-white" />
+                  <div className="w-12 h-12 bg-gradient-to-br from-primary to-primary/80 rounded-full flex items-center justify-center flex-shrink-0 shadow-lg">
+                    <Bot size={22} className="text-white" />
                   </div>
                 )}
                 
@@ -478,8 +477,8 @@ export const Assessment = () => {
                   >
                     <p className="text-sm leading-relaxed">{message.content}</p>
                     
-                    {/* Dynamic Question UI based on type */}
-                    {message.isQuestion && showCurrentQuestion && (
+                    {/* Dynamic Question UI based on type - only show for the current active question */}
+                    {message.isQuestion && showCurrentQuestion && currentQuestion && message.content === currentQuestion.question && (
                       <div className="mt-4">
                         {message.questionType === 'multiple-choice' && message.options && (
                           <div className="space-y-3">
@@ -488,7 +487,7 @@ export const Assessment = () => {
                                 key={index}
                                 onClick={() => option.toLowerCase() === 'other' ? null : handleMultipleChoiceAnswer(option)}
                                 className="group w-full text-left p-4 rounded-xl border-2 border-border hover:border-primary/70 hover:bg-primary/5 transition-all duration-200 disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                                disabled={assistantLoading || mcPending}
+                                disabled={false || mcPending}
                                 aria-label={`Choose option ${option}`}
                                 data-focus-target={index === 0}
                               >
@@ -509,12 +508,12 @@ export const Assessment = () => {
                                   placeholder="Other (please specify)"
                                   value={mcOtherValue}
                                   onChange={(e) => setMcOtherValue(e.target.value)}
-                                  disabled={assistantLoading || mcPending}
+                                  disabled={false || mcPending}
                                 />
                                 <Button
                                   size="sm"
                                   onClick={() => mcOtherValue.trim() && handleMultipleChoiceAnswer(mcOtherValue.trim())}
-                                  disabled={!mcOtherValue.trim() || assistantLoading || mcPending}
+                                  disabled={!mcOtherValue.trim() || false || mcPending}
                                 >
                                   Submit
                                 </Button>
@@ -531,7 +530,7 @@ export const Assessment = () => {
                               onChange={(e) => setOpenEndedResponse(e.target.value)}
                               placeholder="Share your thoughts here... (2-3 sentences)"
                               className="min-h-[100px]"
-                              disabled={assistantLoading}
+                              disabled={false}
                             />
                             <div className="flex justify-between items-center gap-2">
                               <span className="text-xs text-text-secondary">
@@ -599,7 +598,7 @@ export const Assessment = () => {
                                 </Button>
                                 <Button
                                   onClick={handleOpenEndedSubmit}
-                                  disabled={!openEndedResponse.trim() || assistantLoading}
+                                  disabled={!openEndedResponse.trim() || false}
                                   size="sm"
                                 >
                                   <Send size={16} />
@@ -620,7 +619,7 @@ export const Assessment = () => {
                                 max={message.scaleInfo.max}
                                 step={1}
                                 className="w-full"
-                                disabled={assistantLoading}
+                                disabled={false}
                               />
                               <div className="flex justify-between text-xs text-text-secondary mt-2">
                                 <span>{message.scaleInfo.min_label}</span>
@@ -648,7 +647,7 @@ export const Assessment = () => {
                             )}
                             <Button
                               onClick={handleScaleSubmit}
-                              disabled={assistantLoading}
+                              disabled={false}
                               size="sm"
                               className="w-full"
                             >
@@ -665,48 +664,117 @@ export const Assessment = () => {
                 </div>
                 
                 {message.type === 'user' && (
-                  <div className="w-10 h-10 bg-text-secondary rounded-full flex items-center justify-center flex-shrink-0">
-                    <User size={20} className="text-white" />
+                  <div className="w-12 h-12 bg-gradient-to-br from-text-secondary to-text-secondary/80 rounded-full flex items-center justify-center flex-shrink-0 shadow-lg">
+                    <User size={22} className="text-white" />
                   </div>
                 )}
               </div>
             ))}
             
             {/* Loading Indicator */}
-            {assistantLoading && (
-              <div className="flex gap-3 justify-start">
-                <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center flex-shrink-0">
-                  <Bot size={20} className="text-white" />
+            {false && (
+              <div className="flex gap-4 justify-start">
+                <div className="w-12 h-12 bg-gradient-to-br from-primary to-primary/80 rounded-full flex items-center justify-center flex-shrink-0 shadow-lg">
+                  <Bot size={22} className="text-white" />
                 </div>
-                <div className="bg-white border border-border rounded-xl p-4">
-                  <div className="flex gap-1">
-                    <div className="w-2 h-2 bg-text-secondary rounded-full animate-bounce"></div>
-                    <div className="w-2 h-2 bg-text-secondary rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                    <div className="w-2 h-2 bg-text-secondary rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                <div className="bg-white/90 backdrop-blur-sm border border-primary/10 rounded-xl p-6 shadow-sm">
+                  <div className="flex gap-2">
+                    <div className="w-3 h-3 bg-primary rounded-full animate-bounce"></div>
+                    <div className="w-3 h-3 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                    <div className="w-3 h-3 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
                   </div>
                 </div>
               </div>
             )}
             
             
-            {/* Email Capture Form */}
+            {/* Assessment Complete - WhatsApp Conversion */}
             {isComplete && (
-              <div className="bg-primary/5 rounded-xl p-6 border border-primary/20">
-                <div className="space-y-4">
-                  <h3 className="font-semibold text-text-primary">Get Your Leadership Profile</h3>
-                  <input 
-                    type="email" 
-                    placeholder="Enter your email address"
-                    className="w-full px-4 py-3 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20"
-                  />
-                  <Button className="btn-assessment w-full">
-                    <SpiralElement size="sm" />
-                    Get My Results
-                    <ArrowRight size={20} />
-                  </Button>
-                  <p className="text-xs text-text-secondary text-center">
-                    Your information is secure and will only be used to send your results.
-                  </p>
+              <div className="bg-gradient-to-br from-primary/10 via-primary/5 to-white rounded-2xl p-8 border border-primary/20 shadow-lg">
+                <div className="space-y-6 text-center">
+                  <div className="space-y-3">
+                    <div className="w-16 h-16 bg-gradient-to-r from-green-500 to-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893A11.821 11.821 0 0020.885 3.488"/>
+                      </svg>
+                    </div>
+                    <h3 className="text-3xl font-bold text-text-primary">Assessment <span className="text-primary">Complete!</span></h3>
+                    <p className="text-xl text-text-secondary">Choose how you'd like to continue your leadership journey</p>
+                  </div>
+                  
+                  <div className="grid md:grid-cols-2 gap-4">
+                    {/* WhatsApp Option */}
+                    <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 border border-green-200 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center">
+                          <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893A11.821 11.821 0 0020.885 3.488"/>
+                          </svg>
+                        </div>
+                        <div className="text-left">
+                          <h4 className="font-bold text-text-primary text-lg">Get Personal Coaching</h4>
+                          <p className="text-sm text-text-secondary">Recommended</p>
+                        </div>
+                      </div>
+                      <p className="text-sm text-text-secondary mb-4 text-left">
+                        Continue with our AI leadership coach on WhatsApp for personalized guidance, weekly check-ins, and actionable development plans.
+                      </p>
+                      <button
+                        onClick={() => {
+                          const message = encodeURIComponent(`Hi! I just completed the EVOLVE Leadership Assessment and I'm interested in personal coaching to develop my leadership skills further. Can you help me get started?`);
+                          window.open(`https://wa.me/1234567890?text=${message}`, '_blank');
+                        }}
+                        className="w-full bg-green-500 hover:bg-green-600 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-300 flex items-center justify-center gap-2"
+                      >
+                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893A11.821 11.821 0 0020.885 3.488"/>
+                        </svg>
+                        Start Coaching on WhatsApp
+                      </button>
+                      <div className="flex items-center justify-center gap-2 mt-3">
+                        <div className="flex text-yellow-400">
+                          {'★'.repeat(5)}
+                        </div>
+                        <span className="text-xs text-text-secondary">Trusted by 500+ leaders</span>
+                      </div>
+                    </div>
+
+                    {/* View Report Option */}
+                    <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 border border-primary/20 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="w-12 h-12 bg-gradient-to-r from-primary to-primary/80 rounded-full flex items-center justify-center">
+                          <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
+                        </div>
+                        <div className="text-left">
+                          <h4 className="font-bold text-text-primary text-lg">View Full Report</h4>
+                          <p className="text-sm text-text-secondary">Self-guided</p>
+                        </div>
+                      </div>
+                      <p className="text-sm text-text-secondary mb-4 text-left">
+                        Access your detailed leadership evaluation, framework scores, and personalized growth recommendations.
+                      </p>
+                      <button
+                        onClick={() => navigate('/evaluation')}
+                        className="w-full bg-gradient-to-r from-primary to-primary/90 hover:shadow-lg text-white font-semibold py-3 px-6 rounded-xl transition-all duration-300 flex items-center justify-center gap-2"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        View My Report
+                      </button>
+                      <p className="text-xs text-text-secondary mt-3 text-center">
+                        💡 You can always get coaching later
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div className="text-center pt-4">
+                    <p className="text-sm text-text-secondary">
+                      🔒 Your data is secure and will only be used to provide your personalized coaching experience.
+                    </p>
+                  </div>
                 </div>
               </div>
             )}

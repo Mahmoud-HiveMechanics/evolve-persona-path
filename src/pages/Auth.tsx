@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { useEffect } from 'react';
+import { toErrorWithMessage } from '@/types/shared';
 
 export const Auth = () => {
   const [email, setEmail] = useState('');
@@ -28,9 +28,10 @@ export const Auth = () => {
     const { error } = await signIn(email, password);
     
     if (error) {
+      const errorMessage = toErrorWithMessage(error);
       toast({
         title: "Sign in failed",
-        description: error.message,
+        description: errorMessage.message,
         variant: "destructive"
       });
     } else {
@@ -51,9 +52,10 @@ export const Auth = () => {
     const { error } = await signUp(email, password, fullName);
     
     if (error) {
+      const errorMessage = toErrorWithMessage(error);
       toast({
         title: "Sign up failed",
-        description: error.message,
+        description: errorMessage.message,
         variant: "destructive"
       });
     } else {
