@@ -1,7 +1,6 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Header } from '../components/Header';
 import { supabase } from '@/integrations/supabase/client';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip } from 'recharts';
 import { FrameworkScore, EvaluationData, toErrorWithMessage } from '@/types/shared';
@@ -27,24 +26,21 @@ export default function Evaluation() {
         // Since there's no evaluations table, derive evaluation from messages
         let payload: EvaluationData | null = null;
 
-        // If no payload or scores look empty, derive a basic scoring from the latest conversation
-        const allZero = !payload || !payload.frameworks || payload.frameworks.every(f => (f.score ?? 0) === 0);
-        if (allZero) {
-          const { data: conv } = await supabase
-            .from('conversations')
-            .select('id')
-            .eq('user_id', userId)
-            .order('started_at', { ascending: false })
-            .limit(1)
-            .single();
-          if (conv?.id) {
-            const { data: msgs } = await supabase
-              .from('messages')
-              .select('message_type, content, question_type, created_at')
-              .eq('conversation_id', conv.id)
-              .order('created_at', { ascending: true });
-            payload = deriveEvaluationFromMessages(msgs || []);
-          }
+        // Always derive evaluation from messages since we don't have an evaluations table
+        const { data: conv } = await supabase
+          .from('conversations')
+          .select('id')
+          .eq('user_id', userId)
+          .order('started_at', { ascending: false })
+          .limit(1)
+          .single();
+        if (conv?.id) {
+          const { data: msgs } = await supabase
+            .from('messages')
+            .select('message_type, content, question_type, created_at')
+            .eq('conversation_id', conv.id)
+            .order('created_at', { ascending: true });
+          payload = deriveEvaluationFromMessages(msgs || []);
         }
 
         setData(payload);
@@ -163,7 +159,7 @@ export default function Evaluation() {
 
             {/* Framework Scores Grid */}
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
-              {frameworks.map((fr, index) => {
+              {frameworks.map((fr) => {
                 const score = Math.round(fr.score);
                 const isHighScore = score >= 80;
                 const isMediumScore = score >= 60;
@@ -368,37 +364,25 @@ const FRAMEWORKS = [
   { key: 'stewardship', label: 'Social & Ethical Stewardship' }
 ];
 
-const KEYWORDS: Record<string, string[]> = {
-  self_awareness: ['self-awareness', 'reflect', 'reflection', 'strength', 'weakness'],
-  self_responsibility: ['responsibility', 'accountability', 'ownership'],
-  growth: ['growth', 'learn', 'learning', 'develop'],
-  psych_safety: ['psychological', 'safety', 'trust', 'safe space'],
-  empathy: ['empathy', 'others', 'listening', 'listen'],
-  shared_resp: ['shared', 'empowered', 'delegat'],
-  purpose: ['purpose', 'vision', 'outcome', 'goal'],
-  culture: ['culture', 'values', 'norms'],
-  tensions: ['tension', 'conflict', 'collaboration', 'challenge'],
-  stakeholders: ['stakeholder', 'impact', 'community', 'customer'],
-  change: ['change', 'innovation', 'experiment', 'iterate'],
-  stewardship: ['social', 'ethical', 'stewardship', 'responsible']
-};
+// KEYWORDS constant moved to getFrameworkIndicators function for better organization
 
-function mapQuestionToFramework(questionText: string): string | null {
-  const q = (questionText || '').toLowerCase();
-  for (const fw of FRAMEWORKS) {
-    const keys = KEYWORDS[fw.key] || [];
-    if (keys.some(k => q.includes(k))) return fw.key;
-  }
-  return null;
-}
+// Legacy functions - kept for potential future use
+// function mapQuestionToFramework(questionText: string): string | null {
+//   const q = (questionText || '').toLowerCase();
+//   for (const fw of FRAMEWORKS) {
+//     const keys = KEYWORDS[fw.key] || [];
+//     if (keys.some(k => q.includes(k))) return fw.key;
+//   }
+//   return null;
+// }
 
-function parseScaleAnswer(content: string): number | null {
-  const m = content?.match(/(\d{1,2})\s*out\s*of\s*10/i);
-  if (!m) return null;
-  const raw = parseInt(m[1], 10);
-  if (Number.isNaN(raw)) return null;
-  return Math.max(0, Math.min(100, Math.round((raw / 10) * 100)));
-}
+// function parseScaleAnswer(content: string): number | null {
+//   const m = content?.match(/(\d{1,2})\s*out\s*of\s*10/i);
+//   if (!m) return null;
+//   const raw = parseInt(m[1], 10);
+//   if (Number.isNaN(raw)) return null;
+//   return Math.max(0, Math.min(100, Math.round((raw / 10) * 100)));
+// }
 
 function deriveEvaluationFromMessages(msgs: Array<{ message_type: string; content: string; question_type: string | null; created_at: string }>): EvaluationData {
   // Extract user responses and basic info
@@ -447,50 +431,83 @@ function extractBasicInfo(msgs: Array<{ message_type: string; content: string; q
 }
 
 function calculateFrameworkScore(frameworkKey: string, responses: string[], basicInfo: any): number {
-  let baseScore = 50; // Start with neutral
-  let responseCount = 0;
+  // Start with 0 baseline - scores must be earned
+  let totalScore = 0;
+  let validResponseCount = 0;
   
   // Analyze each response for framework-specific indicators
   responses.forEach(response => {
-    if (response.length < 10) return; // Skip very short responses
+    const trimmedResponse = response.trim();
     
-    responseCount++;
+    // Severe penalties for non-answers
+    if (trimmedResponse.length <= 2 || /^[xX]+$/.test(trimmedResponse) || trimmedResponse === 'x' || trimmedResponse === 'X') {
+      totalScore += 0; // No score for "X" or single character answers
+      validResponseCount++;
+      return;
+    }
+    
+    // Skip very short responses (less than 5 characters)
+    if (trimmedResponse.length < 5) {
+      totalScore += 5; // Very low score for minimal effort
+      validResponseCount++;
+      return;
+    }
+    
+    validResponseCount++;
     const indicators = getFrameworkIndicators(frameworkKey);
-    let responseScore = 50;
+    let responseScore = 0; // Start from 0, not 50
     
-    // Positive indicators
+    // Scale-based answers (high confidence signals)
+    const scaleMatch = extractScaleRating(trimmedResponse);
+    if (scaleMatch !== null) {
+      responseScore = Math.max(responseScore, scaleMatch * 10); // Convert 1-10 to 10-100
+    }
+    
+    // Positive behavioral indicators (weighted by specificity)
     indicators.positive.forEach(indicator => {
-      if (response.includes(indicator.toLowerCase())) {
-        responseScore += indicator.length > 8 ? 15 : 10; // Longer phrases = higher weight
+      if (trimmedResponse.includes(indicator.toLowerCase())) {
+        const weight = indicator.length > 10 ? 20 : indicator.length > 6 ? 15 : 10;
+        responseScore += weight;
       }
     });
     
-    // Negative indicators
+    // Negative indicators (significant penalties)
     indicators.negative.forEach(indicator => {
-      if (response.includes(indicator.toLowerCase())) {
-        responseScore -= 10;
+      if (trimmedResponse.includes(indicator.toLowerCase())) {
+        responseScore -= 15;
       }
     });
     
-    // Response quality bonus
-    if (response.length > 100) responseScore += 5; // Detailed responses
-    if (response.split(' ').length > 20) responseScore += 5; // Thoughtful responses
+    // Response quality and depth bonuses
+    const wordCount = trimmedResponse.split(/\s+/).length;
+    if (wordCount > 30) responseScore += 15; // Very detailed responses
+    else if (wordCount > 15) responseScore += 10; // Detailed responses
+    else if (wordCount > 8) responseScore += 5; // Adequate responses
     
-    baseScore = (baseScore + responseScore) / 2; // Average with existing
+    // Reflection and self-awareness bonuses
+    if (includesReflectiveLanguage(trimmedResponse)) responseScore += 10;
+    if (includesSpecificExamples(trimmedResponse)) responseScore += 10;
+    if (includesGrowthMindset(trimmedResponse)) responseScore += 8;
+    
+    // Defensive or evasive language penalties
+    if (includesDefensiveLanguage(trimmedResponse)) responseScore -= 10;
+    
+    totalScore += Math.max(0, responseScore); // Never negative individual scores
   });
   
-  // Experience modifier based on basic info
-  baseScore += getExperienceModifier(frameworkKey, basicInfo);
+  if (validResponseCount === 0) return 0;
   
-  // Team size modifier
-  baseScore += getTeamSizeModifier(frameworkKey, basicInfo.teamSize);
+  let averageScore = totalScore / validResponseCount;
   
-  // Role modifier  
-  baseScore += getRoleModifier(frameworkKey, basicInfo.role);
+  // Apply experience, team size, and role modifiers (but limited impact)
+  const experienceBonus = Math.min(10, getExperienceModifier(frameworkKey, basicInfo));
+  const teamSizeBonus = Math.min(8, getTeamSizeModifier(frameworkKey, basicInfo.teamSize));
+  const roleBonus = Math.min(5, getRoleModifier(frameworkKey, basicInfo.role));
   
-  // Ensure score is within bounds and add some realistic variance
-  const finalScore = Math.max(25, Math.min(95, baseScore + (Math.random() * 10 - 5)));
-  return finalScore;
+  averageScore += experienceBonus + teamSizeBonus + roleBonus;
+  
+  // Final bounds checking - realistic leadership assessment ranges
+  return Math.max(0, Math.min(95, Math.round(averageScore)));
 }
 
 function getFrameworkIndicators(frameworkKey: string) {
@@ -548,8 +565,63 @@ function getFrameworkIndicators(frameworkKey: string) {
   return indicators[frameworkKey] || { positive: [], negative: [] };
 }
 
-function getExperienceModifier(frameworkKey: string, basicInfo: any): number {
-  const position = basicInfo.position.toLowerCase();
+// Helper functions for advanced response analysis
+function extractScaleRating(response: string): number | null {
+  // Match patterns like "8 out of 10", "7/10", "I'd rate myself a 6", etc.
+  const patterns = [
+    /(\d{1,2})\s*out\s*of\s*10/i,
+    /(\d{1,2})\s*\/\s*10/i,
+    /rate.*?(\d{1,2})/i,
+    /(\d{1,2})\s*on\s*a\s*scale/i,
+    /score.*?(\d{1,2})/i
+  ];
+  
+  for (const pattern of patterns) {
+    const match = response.match(pattern);
+    if (match) {
+      const rating = parseInt(match[1], 10);
+      if (rating >= 1 && rating <= 10) {
+        return rating;
+      }
+    }
+  }
+  return null;
+}
+
+function includesReflectiveLanguage(response: string): boolean {
+  const reflectiveTerms = [
+    'i realize', 'i learned', 'i discovered', 'i found that', 'looking back',
+    'in hindsight', 'i understand now', 'i see that', 'reflection', 'introspection'
+  ];
+  return reflectiveTerms.some(term => response.includes(term));
+}
+
+function includesSpecificExamples(response: string): boolean {
+  const exampleIndicators = [
+    'for example', 'for instance', 'such as', 'like when', 'recently',
+    'last week', 'last month', 'in my current role', 'at my company'
+  ];
+  return exampleIndicators.some(indicator => response.includes(indicator));
+}
+
+function includesGrowthMindset(response: string): boolean {
+  const growthTerms = [
+    'i want to improve', 'i\'m working on', 'i plan to', 'my goal is',
+    'i\'m learning', 'i\'m developing', 'i need to get better', 'room for improvement'
+  ];
+  return growthTerms.some(term => response.includes(term));
+}
+
+function includesDefensiveLanguage(response: string): boolean {
+  const defensiveTerms = [
+    'not my fault', 'can\'t help', 'impossible to', 'not my responsibility',
+    'blame others', 'not up to me', 'no way to control'
+  ];
+  return defensiveTerms.some(term => response.includes(term));
+}
+
+function getExperienceModifier(_frameworkKey: string, basicInfo: any): number {
+  const position = basicInfo.position?.toLowerCase() || '';
   const isLeader = position.includes('director') || position.includes('manager') || position.includes('lead') || position.includes('head');
   const isSenior = position.includes('senior') || position.includes('principal') || position.includes('chief');
   
@@ -563,24 +635,24 @@ function getTeamSizeModifier(frameworkKey: string, teamSize: string): number {
   const leadershipFrameworks = ['shared_resp', 'psych_safety', 'culture', 'tensions'];
   
   if (leadershipFrameworks.includes(frameworkKey)) {
-    if (size > 20) return 10; // Large teams = more experience with these
-    if (size > 10) return 5;
-    if (size > 5) return 2;
-    if (size < 3) return -5; // Small teams = less experience
+    if (size > 20) return 6; // Reduced modifiers for more realistic scoring
+    if (size > 10) return 3;
+    if (size > 5) return 1;
+    if (size < 3) return -2; // Smaller penalty
   }
   
   return 0;
 }
 
 function getRoleModifier(frameworkKey: string, role: string): number {
-  const roleStr = role.toLowerCase();
+  const roleStr = (role || '').toLowerCase();
   const modifiers: Record<string, Record<string, number>> = {
-    operations: { self_responsibility: 5, purpose: 5, stakeholders: 3 },
-    engineering: { growth: 5, change: 8, tensions: 3 },
-    hr: { empathy: 8, psych_safety: 8, culture: 8 },
-    sales: { stakeholders: 8, empathy: 5, purpose: 3 },
-    marketing: { stakeholders: 5, purpose: 5, change: 5 },
-    finance: { self_responsibility: 5, stewardship: 5, purpose: 3 }
+    operations: { self_responsibility: 3, purpose: 3, stakeholders: 2 },
+    engineering: { growth: 3, change: 4, tensions: 2 },
+    hr: { empathy: 4, psych_safety: 4, culture: 4 },
+    sales: { stakeholders: 4, empathy: 3, purpose: 2 },
+    marketing: { stakeholders: 3, purpose: 3, change: 3 },
+    finance: { self_responsibility: 3, stewardship: 3, purpose: 2 }
   };
   
   for (const [roleKey, frameworkMods] of Object.entries(modifiers)) {
@@ -592,7 +664,7 @@ function getRoleModifier(frameworkKey: string, role: string): number {
   return 0;
 }
 
-function generateFrameworkSummary(frameworkKey: string, score: number, responses: string[], basicInfo: any): string {
+function generateFrameworkSummary(frameworkKey: string, score: number, _responses: string[], _basicInfo: any): string {
   const templates: Record<string, { high: string, medium: string, low: string }> = {
     self_awareness: {
       high: "You demonstrate strong self-awareness, regularly reflecting on your strengths and areas for growth. This foundation enables authentic leadership.",
@@ -615,7 +687,7 @@ function generateFrameworkSummary(frameworkKey: string, score: number, responses
   return template.low;
 }
 
-function generatePersonalizedSummary(frameworks: FrameworkScore[], basicInfo: any, responses: string[]): { persona: string, summary: string } {
+function generatePersonalizedSummary(frameworks: FrameworkScore[], basicInfo: any, _responses: string[]): { persona: string, summary: string } {
   // Find top 3 frameworks
   const sortedFrameworks = [...frameworks].sort((a, b) => b.score - a.score);
   const top3 = sortedFrameworks.slice(0, 3);
@@ -643,7 +715,7 @@ function generatePersonalizedSummary(frameworks: FrameworkScore[], basicInfo: an
   return { persona, summary };
 }
 
-function generatePersona(topFramework: FrameworkScore, basicInfo: any): string {
+function generatePersona(topFramework: FrameworkScore, _basicInfo: any): string {
   const personaMap: Record<string, string> = {
     self_awareness: "Reflective Leader",
     self_responsibility: "Accountable Leader", 
