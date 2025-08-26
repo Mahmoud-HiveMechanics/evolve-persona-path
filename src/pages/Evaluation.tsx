@@ -38,14 +38,8 @@ export default function Evaluation() {
           setLoading(false);
           return;
         }
-        const { data: evalRows, error: evalErr } = await supabase
-          .from('evaluations')
-          .select('data')
-          .eq('user_id', userId)
-          .order('created_at', { ascending: false })
-          .limit(1);
-        if (evalErr) throw evalErr;
-        let payload = (evalRows?.[0]?.data as EvaluationData) || null;
+        // Since there's no evaluations table, derive evaluation from messages
+        let payload: EvaluationData | null = null;
 
         // If no payload or scores look empty, derive a basic scoring from the latest conversation
         const allZero = !payload || !payload.frameworks || payload.frameworks.every(f => (f.score ?? 0) === 0);
