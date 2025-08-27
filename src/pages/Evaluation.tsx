@@ -23,24 +23,45 @@ export default function Evaluation() {
           setLoading(false);
           return;
         }
-        // Since there's no evaluations table, derive evaluation from messages
+        // Try to get evaluation from evaluations table with proper error handling
         let payload: EvaluationData | null = null;
-
-        // Always derive evaluation from messages since we don't have an evaluations table
-        const { data: conv } = await supabase
-          .from('conversations')
-          .select('id')
-          .eq('user_id', userId)
-          .order('started_at', { ascending: false })
-          .limit(1)
-          .single();
-        if (conv?.id) {
-          const { data: msgs } = await supabase
-            .from('messages')
-            .select('message_type, content, question_type, created_at')
-            .eq('conversation_id', conv.id)
-            .order('created_at', { ascending: true });
-          payload = deriveEvaluationFromMessages(msgs || []);
+        
+        try {
+          const response = await fetch(`https://apidixbcujmqhxicjqut.supabase.co/rest/v1/evaluations?user_id=eq.${userId}&order=created_at.desc&limit=1`, {
+            headers: {
+              'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFwaWRpeGJjdWptcWh4aWNqcXV0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUxNjEyMjgsImV4cCI6MjA3MDczNzIyOH0.K-fiCGGx5E6YEXXrqwt7GY2-w2acEzRDDY0lELbxlQ4',
+              'Authorization': `Bearer ${session?.session?.access_token}`,
+              'Content-Type': 'application/json'
+            }
+          });
+          
+          if (response.ok) {
+            const evaluations = await response.json();
+            if (evaluations && evaluations.length > 0 && evaluations[0].data) {
+              payload = evaluations[0].data as EvaluationData;
+            }
+          }
+        } catch (evalError) {
+          console.log('Error fetching evaluation:', evalError);
+        }
+        
+        // Fallback: derive evaluation from messages if no evaluation exists
+        if (!payload) {
+          const { data: conv } = await supabase
+            .from('conversations')
+            .select('id')
+            .eq('user_id', userId)
+            .order('started_at', { ascending: false })
+            .limit(1)
+            .single();
+          if (conv?.id) {
+            const { data: msgs } = await supabase
+              .from('messages')
+              .select('message_type, content, question_type, created_at')
+              .eq('conversation_id', conv.id)
+              .order('created_at', { ascending: true });
+            payload = deriveEvaluationFromMessages(msgs || []);
+          }
         }
 
         setData(payload);
