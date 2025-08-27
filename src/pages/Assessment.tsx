@@ -11,6 +11,81 @@ import { Input } from '../components/ui/input';
 import { useNavigate } from 'react-router-dom';
 import { ChatMessage } from '@/types/shared';
 
+// Robust evaluation scoring function
+const generateRobustEvaluation = (responses: string[]) => {
+  // Leadership principles with scoring criteria
+  const frameworks = [
+    { key: 'self_awareness', label: 'Self‑Awareness', keywords: ['reflect', 'aware', 'understand myself', 'self-reflection', 'introspect', 'feedback', 'strengths', 'weaknesses'] },
+    { key: 'self_responsibility', label: 'Self‑Responsibility', keywords: ['accountable', 'responsible', 'own', 'take charge', 'ownership', 'initiative', 'proactive'] },
+    { key: 'growth', label: 'Continuous Personal Growth', keywords: ['learn', 'develop', 'improve', 'grow', 'evolve', 'adapt', 'skills', 'knowledge', 'better'] },
+    { key: 'psych_safety', label: 'Trust & Psychological Safety', keywords: ['trust', 'safe', 'support', 'open', 'honest', 'comfortable', 'respect', 'listen'] },
+    { key: 'empathy', label: 'Empathy & Awareness of Others', keywords: ['understand', 'empathy', 'perspective', 'feelings', 'others', 'compassion', 'care', 'considerate'] },
+    { key: 'shared_resp', label: 'Empowered & Shared Responsibility', keywords: ['team', 'collaborate', 'delegate', 'empower', 'share', 'together', 'collective', 'involve'] },
+    { key: 'purpose', label: 'Purpose, Vision & Outcomes', keywords: ['purpose', 'vision', 'goals', 'mission', 'direction', 'objective', 'results', 'impact'] },
+    { key: 'culture', label: 'Culture of Leadership', keywords: ['culture', 'values', 'lead by example', 'inspire', 'motivate', 'influence', 'role model'] },
+    { key: 'tensions', label: 'Harnessing Tensions for Collaboration', keywords: ['conflict', 'tension', 'resolve', 'mediate', 'balance', 'navigate', 'compromise', 'consensus'] },
+    { key: 'stakeholders', label: 'Positive Impact on Stakeholders', keywords: ['stakeholders', 'impact', 'community', 'customers', 'value', 'benefit', 'serve', 'contribute'] },
+    { key: 'change', label: 'Embracing Change & Innovation', keywords: ['change', 'innovation', 'adapt', 'flexible', 'creative', 'new', 'transform', 'evolve'] },
+    { key: 'stewardship', label: 'Social & Ethical Stewardship', keywords: ['ethical', 'responsible', 'stewardship', 'society', 'environment', 'sustainable', 'moral', 'right'] }
+  ];
+
+  // Calculate scores for each framework
+  const scoredFrameworks = frameworks.map(framework => {
+    let score = 0;
+    const responseText = responses.join(' ').toLowerCase();
+    
+    // Check for "X" responses (automatic 0%)
+    const xResponses = responses.filter(r => r.trim().toLowerCase() === 'x').length;
+    if (xResponses > responses.length * 0.3) { // If more than 30% are X responses
+      score = 0;
+    } else {
+      // Keyword matching with advanced scoring
+      let keywordMatches = 0;
+      framework.keywords.forEach(keyword => {
+        if (responseText.includes(keyword)) {
+          keywordMatches++;
+        }
+      });
+      
+      // Base score from keyword density
+      const keywordDensity = keywordMatches / framework.keywords.length;
+      score = Math.min(keywordDensity * 100, 85); // Cap at 85% for keyword matching
+      
+      // Bonus for thoughtful responses (longer, detailed answers)
+      const avgResponseLength = responses.reduce((sum, r) => sum + r.length, 0) / responses.length;
+      if (avgResponseLength > 50) score += 10; // Bonus for detailed responses
+      if (avgResponseLength > 100) score += 5; // Additional bonus for very detailed responses
+      
+      // Ensure score is between 0 and 100
+      score = Math.max(0, Math.min(100, score));
+    }
+    
+    return { ...framework, score: Math.round(score) };
+  });
+
+  // Generate overall summary
+  const averageScore = scoredFrameworks.reduce((sum, f) => sum + f.score, 0) / scoredFrameworks.length;
+  let summaryText = '';
+  
+  if (averageScore >= 80) {
+    summaryText = 'Exceptional leadership profile with strong competencies across all key areas. You demonstrate advanced leadership capabilities and self-awareness.';
+  } else if (averageScore >= 65) {
+    summaryText = 'Strong leadership foundation with good competencies in most areas. Continue developing your skills to reach the next level.';
+  } else if (averageScore >= 50) {
+    summaryText = 'Developing leadership skills with room for growth in several key areas. Focus on strengthening your leadership foundations.';
+  } else {
+    summaryText = 'Early stage leadership development needed. Consider focusing on building fundamental leadership competencies through training and practice.';
+  }
+
+  return {
+    overall: { 
+      summary: summaryText,
+      averageScore: Math.round(averageScore)
+    },
+    frameworks: scoredFrameworks
+  };
+};
+
 
 export const Assessment = () => {
   const navigate = useNavigate();
@@ -39,7 +114,7 @@ export const Assessment = () => {
   // Finalization state
   const [hasNavigated, setHasNavigated] = useState(false);
   
-  const { conversationId, createConversation, saveMessage, markConversationComplete } = useConversation();
+  const { saveMessage, markConversationComplete } = useConversation();
   
   // OpenAI assistant not needed for predefined questions
   const [currentQuestion, setCurrentQuestion] = useState<any>(null);
@@ -166,7 +241,21 @@ export const Assessment = () => {
       if (!isStarted || kickoffSent || !introDone) return;
       
       try {
-        await createConversation();
+        // Create conversation without edge function dependency
+        const { data: session } = await supabase.auth.getSession();
+        const userId = session?.session?.user?.id;
+        if (!userId) return;
+        
+        const { error } = await supabase
+          .from('conversations')
+          .insert([{ user_id: userId }]);
+          
+        if (error) {
+          console.error('Error creating conversation:', error);
+          return;
+        }
+        
+        // Conversation created successfully
         await addMessage('bot', "Hi! I'm your leadership assessment guide. Let's begin! 👋");
         
         setKickoffSent(true);
@@ -262,56 +351,67 @@ export const Assessment = () => {
   };
 
 
-  // Persist evaluation when complete (simple guard: when isComplete becomes true)
+  // Persist evaluation when complete using robust scoring logic
   useEffect(() => {
-    (async () => {
-      if (!isComplete || !conversationId || hasNavigated) return;
+    const generateEvaluation = async () => {
+      if (!isComplete || hasNavigated) return;
       try {
         const { data: session } = await supabase.auth.getSession();
         const userId = session?.session?.user?.id;
         if (!userId) return;
 
-        // Create evaluation payload (in a real flow, the assistant would return detailed scoring)
-        // For now, we create a basic structure
+        // Get conversation ID from most recent conversation
+        const { data: conv } = await supabase
+          .from('conversations')
+          .select('id')
+          .eq('user_id', userId)
+          .order('started_at', { ascending: false })
+          .limit(1)
+          .single();
+          
+        if (!conv?.id) return;
+        
+        // Get all user messages (responses) for scoring
+        const { data: msgs } = await supabase
+          .from('messages')
+          .select('content, message_type')
+          .eq('conversation_id', conv.id)
+          .eq('message_type', 'user')
+          .order('created_at', { ascending: true });
+          
+        if (!msgs || msgs.length === 0) return;
 
-        const payload = {
-          overall: { summary: 'Assessment completed. Detailed scoring will be generated by the assistant.' },
-          frameworks: [
-            { key: 'self_awareness', label: 'Self‑Awareness', score: 0 },
-            { key: 'self_responsibility', label: 'Self‑Responsibility', score: 0 },
-            { key: 'growth', label: 'Continuous Personal Growth', score: 0 },
-            { key: 'psych_safety', label: 'Trust & Psychological Safety', score: 0 },
-            { key: 'empathy', label: 'Empathy & Awareness of Others', score: 0 },
-            { key: 'shared_resp', label: 'Empowered & Shared Responsibility', score: 0 },
-            { key: 'purpose', label: 'Purpose, Vision & Outcomes', score: 0 },
-            { key: 'culture', label: 'Culture of Leadership', score: 0 },
-            { key: 'tensions', label: 'Harnessing Tensions for Collaboration', score: 0 },
-            { key: 'stakeholders', label: 'Positive Impact on Stakeholders', score: 0 },
-            { key: 'change', label: 'Embracing Change & Innovation', score: 0 },
-            { key: 'stewardship', label: 'Social & Ethical Stewardship', score: 0 }
-          ]
-        };
+        // Generate evaluation using robust scoring logic
+        const userResponses = msgs.map(m => m.content);
+        const evaluationData = generateRobustEvaluation(userResponses);
 
-        const { error: evalInsertError } = await supabase
-          .from('evaluations' as any)
-          .insert([
-            {
+        // Insert evaluation using direct insert (bypassing TypeScript types)
+        try {
+          const { error: evalInsertError } = await supabase
+            .from('evaluations' as any)
+            .insert([{
               user_id: userId,
-              conversation_id: conversationId,
-              summary: 'Leadership assessment evaluation',
-              data: payload
-            }
-          ]);
-        if (evalInsertError) {
-          console.warn('Failed to insert evaluation', evalInsertError);
+              conversation_id: conv.id,
+              summary: evaluationData.overall.summary,
+              data: evaluationData
+            }]);
+            
+          if (evalInsertError) {
+            console.error('Failed to insert evaluation', evalInsertError);
+          } else {
+            console.log('Evaluation saved successfully');
+          }
+        } catch (insertError) {
+          console.error('Error inserting evaluation:', insertError);
         }
-        // Don't auto-navigate anymore - let user choose their path
+        
         setHasNavigated(true);
       } catch (e) {
-        console.warn('Failed to persist evaluation', e);
+        console.error('Failed to persist evaluation', e);
       }
-    })();
-  }, [isComplete, conversationId, hasNavigated]);
+    };
+    generateEvaluation();
+  }, [isComplete, hasNavigated]);
 
   // No assistant error handling needed for predefined questions
 
