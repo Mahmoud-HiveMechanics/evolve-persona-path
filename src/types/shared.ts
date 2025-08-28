@@ -36,6 +36,8 @@ export interface FrameworkScore {
   label: string;
   score: number; // 0-100
   summary?: string;
+  confidence?: number; // 0-1 confidence level
+  level?: number; // 1-5 leadership level
 }
 
 export interface EvaluationData {
