@@ -125,7 +125,7 @@ export const Assessment = () => {
 
   // Follow-ups handled by AI; local flags removed
 
-  const { conversationId, createConversation, saveMessage } = useConversation();
+  const { conversationId, createConversation, saveMessage, markConversationComplete } = useConversation();
 
   // OpenAI assistant not needed for predefined questions
   const [currentQuestion, setCurrentQuestion] = useState<any>(null);
@@ -290,22 +290,8 @@ export const Assessment = () => {
     };
     setMessages(prev => [...prev, newMessage]);
 
-    // Save to database - create a proper message object
-    const messageToSave: ChatMessage = {
-      id: newMessage.id,
-      type,
-      content,
-      timestamp: newMessage.timestamp,
-      questionType: questionData?.questionType,
-      options: questionData?.options,
-      scaleInfo: questionData?.scaleInfo ? {
-        min: questionData.scaleInfo.min,
-        max: questionData.scaleInfo.max,
-        min_label: questionData.scaleInfo.min_label,
-        max_label: questionData.scaleInfo.max_label
-      } : undefined
-    };
-    await saveMessage(messageToSave);
+    // Save message to database
+    await saveMessage(newMessage);
   };
 
   // When a new currentQuestion is set, show it and increment display counter
@@ -453,7 +439,7 @@ export const Assessment = () => {
   };
 
 
-  // Persist evaluation when complete (simple guard: when isComplete becomes true)
+  // Persist evaluation when complete and mark conversation as complete
   useEffect(() => {
     (async () => {
       if (!isComplete || !conversationId || hasNavigated) return;
@@ -503,6 +489,9 @@ export const Assessment = () => {
         } else {
           console.log('Evaluation generated and saved successfully');
         }
+
+        // Mark conversation as complete
+        await markConversationComplete();
 
         setHasNavigated(true);
       } catch (e) {
