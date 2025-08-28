@@ -487,7 +487,7 @@ export const Assessment = () => {
         const evaluationData = generateEvaluationFromResponses(userResponses);
         console.log('Generated evaluation:', evaluationData);
 
-        const { error: evalInsertError } = await supabase
+        const { error: evalInsertError } = await (supabase as any)
           .from('evaluations')
           .insert([
             {

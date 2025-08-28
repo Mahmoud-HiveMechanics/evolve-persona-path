@@ -46,12 +46,12 @@ export const assessmentSections: AssessmentSection[] = [
   }
 ];
 
-export const matchesTargeting = (profile: Profile, targeting: any): boolean => {
+export const matchesTargeting = (_profile: Profile, _targeting: any): boolean => {
   // Simple implementation - always return true for now
   return true;
 };
 
-export const renderTemplate = (template: string, profile: Profile): string => {
+export const renderTemplate = (template: string, _profile: Profile): string => {
   // Simple implementation - return template as is for now
   return template;
 };
