@@ -21,7 +21,7 @@ export const ASSESSMENT_FRAMEWORK: FrameworkQuestion[] = [
     title: 'Leadership Foundation',
     assesses: ['Self-Awareness', 'Self-Responsibility'],
     type: 'multiple-choice',
-    text: 'When you face a significant leadership challenge, what best describes your typical first response?',
+    text: 'When you face a significant challenge, what best describes your typical first response?',
     options: [
       'I seek input from trusted advisors and reflect on my past performance in similar situations',
       'I analyze what I might have contributed to the situation and take ownership of my role',
@@ -139,7 +139,7 @@ export const ASSESSMENT_FRAMEWORK: FrameworkQuestion[] = [
     title: 'Self-Leadership Evidence',
     assesses: ['Self-Awareness', 'Continuous Growth'],
     type: 'open-ended',
-    text: 'Tell me about a leadership mistake you made in the past year that taught you something important about yourself.',
+    text: 'Tell me about a mistake you made in the past year that taught you something important about yourself.',
     followups: {
       insufficient: 'That example feels pretty safe. I\'m looking for something that genuinely surprised you about your own behavior or blind spots. What\'s a time when you really got it wrong?',
       alt: 'You described what happened, but what did you discover about yourself? How has that insight changed how you lead since then?'
