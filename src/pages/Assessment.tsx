@@ -39,7 +39,12 @@ export const Assessment = () => {
   // Finalization state
   const [hasNavigated, setHasNavigated] = useState(false);
   
-  const { conversationId, createConversation, saveMessage, markConversationComplete } = useConversation();
+  // Follow-up question state
+  const [isFollowUp, setIsFollowUp] = useState(false);
+  const [followUpCount, setFollowUpCount] = useState(0);
+  const maxFollowUps = 3; // Limit follow-ups to keep assessment reasonable
+  
+  const { conversationId, threadId, createConversation, saveMessage, markConversationComplete } = useConversation();
   
   // OpenAI assistant not needed for predefined questions
   const [currentQuestion, setCurrentQuestion] = useState<any>(null);
@@ -116,11 +121,13 @@ export const Assessment = () => {
     await saveMessage(messageToSave);
   };
 
-  // Handle predefined questions
+  // Handle predefined questions and follow-ups
   useEffect(() => {
     if (currentQuestion && !showCurrentQuestion) {
-      const nextCount = questionCount + 1;
-      if (nextCount > totalQuestions) {
+      // For follow-up questions, don't increment the main question count
+      const nextCount = isFollowUp ? questionCount : questionCount + 1;
+      
+      if (!isFollowUp && nextCount > totalQuestions) {
         setIsComplete(true);
         markConversationComplete();
         setShowCurrentQuestion(false);
@@ -134,9 +141,13 @@ export const Assessment = () => {
         scaleInfo: currentQuestion.scale_info
       });
       setShowCurrentQuestion(true);
-      setQuestionCount(nextCount);
+      
+      // Only increment question count for main questions, not follow-ups
+      if (!isFollowUp) {
+        setQuestionCount(nextCount);
+      }
     }
-  }, [currentQuestion, showCurrentQuestion, questionCount, totalQuestions, navigate]);
+  }, [currentQuestion, showCurrentQuestion, questionCount, totalQuestions, isFollowUp, navigate]);
 
   const handleStart = async () => {
     setIsStarted(true);
@@ -146,19 +157,117 @@ export const Assessment = () => {
   // Initialize assistant when start pressed and threadId becomes available
   // No OpenAI assistant initialization needed for predefined questions
 
-  // Simple predefined questions - no OpenAI dependency for now
+  // Mixed question types - 8 open-ended, 2 multiple choice
+  // Reordered so multiple-choice questions appear first
   const assessmentQuestions = [
+    {
+      question: "What motivates you most as a leader?",
+      type: 'multiple-choice' as const,
+      options: [
+        "Seeing my team members grow and succeed",
+        "Achieving challenging goals and targets",
+        "Creating positive change in the organization",
+        "Building strong relationships and trust",
+        "Solving complex problems and making strategic decisions"
+      ]
+    },
+    {
+      question: "When making important decisions, what approach do you typically take?",
+      type: 'multiple-choice' as const,
+      options: [
+        "Gather input from my team and decide collaboratively",
+        "Analyze data thoroughly before making a decision",
+        "Trust my instincts and experience to guide me",
+        "Consult with mentors or senior leadership first",
+        "Consider the long-term impact on all stakeholders"
+      ]
+    },
     { question: "What leadership challenges are you currently facing in your role?", type: 'open-ended' as const },
     { question: "How do you typically handle conflict within your team?", type: 'open-ended' as const },
     { question: "Describe a time when you had to make a difficult decision as a leader.", type: 'open-ended' as const },
-    { question: "What motivates you most as a leader?", type: 'open-ended' as const },
     { question: "How do you measure your effectiveness as a leader?", type: 'open-ended' as const },
     { question: "What leadership skills do you feel you need to develop further?", type: 'open-ended' as const },
     { question: "How do you handle giving feedback to team members?", type: 'open-ended' as const },
-    { question: "Describe your approach to building trust with your team.", type: 'open-ended' as const },
     { question: "What role does emotional intelligence play in your leadership style?", type: 'open-ended' as const },
     { question: "How do you adapt your leadership approach for different team members?", type: 'open-ended' as const }
   ];
+
+  // Function to decide when to ask follow-up questions
+  const decideShouldFollowUp = (response: string, currentQuestionIndex: number): boolean => {
+    console.log('🔥 SIMPLE CHECK - Question:', currentQuestionIndex, 'Response:', response.substring(0, 30));
+    
+    // FORCE follow-ups on questions 1, 3, 6, 9
+    const followUpQuestions = [1, 3, 6, 9];
+    const shouldFollowUp = followUpQuestions.includes(currentQuestionIndex);
+    
+    console.log('🔥 Should follow up?', shouldFollowUp, 'for question', currentQuestionIndex);
+    return shouldFollowUp;
+  };
+
+  // Function to generate follow-up questions using OpenAI
+  const generateFollowUpQuestion = async (userResponse: string, questionIndex: number): Promise<string | null> => {
+    console.log('🤖 Generating follow-up for:', userResponse.substring(0, 50));
+    
+    try {
+      const originalQuestion = assessmentQuestions[questionIndex - 1]?.question || 'the previous question';
+      
+      const prompt = `You are an expert leadership assessment interviewer. Based on this response to "${originalQuestion}":
+
+"${userResponse}"
+
+Generate a natural, conversational follow-up question that:
+1. Digs deeper into their specific situation
+2. Asks for concrete examples or details
+3. Explores the impact or outcome
+4. Is different from "Can you tell me more about that?"
+5. Feels like a natural conversation, not an interrogation
+
+Respond with just the follow-up question, no explanation. Keep it under 20 words.`;
+
+      console.log('🔥 About to call supabase function...');
+
+      const response = await supabase.functions.invoke('chat-assistant', {
+        body: {
+          action: 'direct_completion',
+          prompt: prompt
+        }
+      });
+
+      console.log('🔥 FULL RESPONSE:', JSON.stringify(response, null, 2));
+
+      if (response.error) {
+        console.error('❌ Supabase function error:', response.error);
+        // Show user-friendly error
+        alert(`OpenAI Error: ${JSON.stringify(response.error)}`);
+        return null;
+      }
+
+      if (!response.data) {
+        console.error('❌ No data in response');
+        alert('No data returned from OpenAI function');
+        return null;
+      }
+
+      const followUpQuestion = response.data?.response?.trim();
+      console.log('✅ Generated follow-up question:', followUpQuestion);
+      
+      if (!followUpQuestion) {
+        console.log('❌ Empty follow-up question');
+        alert('OpenAI returned empty response');
+        return null;
+      }
+      
+      return followUpQuestion;
+    } catch (error) {
+      console.error('❌ Exception in generateFollowUpQuestion:', error);
+      alert(`Exception: ${error}`);
+      return null;
+    }
+  };
+
+
+
+
 
   // Kick off conversation once intro info collected
   useEffect(() => {
@@ -215,13 +324,65 @@ export const Assessment = () => {
     
     await addMessage('user', openEndedResponse);
     setShowCurrentQuestion(false);
+    const currentResponse = openEndedResponse;
     setOpenEndedResponse('');
     
     // Clear current question first to ensure clean state
     setCurrentQuestion(null);
     
-    // questionCount represents the number of questions already displayed
-    // So the next question index should be questionCount (0-based indexing)
+    // Don't ask follow-up to a follow-up - only ask follow-ups to main questions
+    if (isFollowUp) {
+      console.log('This was a follow-up response, moving to next main question');
+      setIsFollowUp(false); // Reset follow-up state
+      // Continue to normal flow after follow-up
+    }
+    
+    // Decide if we should ask a follow-up question (only for main questions)
+    const shouldAskFollowUp = !isFollowUp && decideShouldFollowUp(currentResponse, questionCount);
+    
+    console.log('🔍 DETAILED Follow-up check:', {
+      shouldAskFollowUp, 
+      followUpCount, 
+      maxFollowUps, 
+      isFollowUp, 
+      questionCount,
+      currentResponse: currentResponse.substring(0, 50),
+      hasThreadId: !!threadId
+    });
+    
+    if (shouldAskFollowUp && followUpCount < maxFollowUps) {
+      console.log('✅ Generating follow-up question based on response:', currentResponse);
+      
+      try {
+        const followUpQuestion = await generateFollowUpQuestion(currentResponse, questionCount);
+        console.log('Generated follow-up question:', followUpQuestion);
+        if (followUpQuestion) {
+          setIsFollowUp(true);
+          setFollowUpCount(prev => prev + 1);
+          setTimeout(() => {
+            setCurrentQuestion({
+              question: followUpQuestion,
+              type: 'open-ended' as const
+            });
+          }, 1000); // Brief delay for smooth transition
+          return;
+        } else {
+          console.log('❌ No follow-up question generated, continuing with normal flow');
+        }
+      } catch (error) {
+        console.error('❌ Error generating follow-up question:', error);
+        // Fall through to normal question flow if follow-up fails
+      }
+    } else {
+      console.log('❌ Follow-up conditions not met:', {
+        shouldAskFollowUp, 
+        followUpCountOk: followUpCount < maxFollowUps,
+        currentFollowUpCount: followUpCount
+      });
+    }
+    
+    // Normal question flow
+    setIsFollowUp(false);
     const nextQuestionIndex = questionCount;
     console.log('Current questionCount:', questionCount, 'Next question index:', nextQuestionIndex);
     console.log('Next question will be:', assessmentQuestions[nextQuestionIndex]?.question);
@@ -271,26 +432,89 @@ export const Assessment = () => {
         const userId = session?.session?.user?.id;
         if (!userId) return;
 
-        // Create evaluation payload (in a real flow, the assistant would return detailed scoring)
-        // For now, we create a basic structure
+        console.log('Assessment complete, generating evaluation...');
+        
+        // Get all messages from the conversation
+        const { data: messages, error: msgError } = await supabase
+          .from('messages')
+          .select('message_type, content, question_type, created_at')
+          .eq('conversation_id', conversationId)
+          .order('created_at', { ascending: true });
 
-        const payload = {
-          overall: { summary: 'Assessment completed. Detailed scoring will be generated by the assistant.' },
-          frameworks: [
-            { key: 'self_awareness', label: 'Self‑Awareness', score: 0 },
-            { key: 'self_responsibility', label: 'Self‑Responsibility', score: 0 },
-            { key: 'growth', label: 'Continuous Personal Growth', score: 0 },
-            { key: 'psych_safety', label: 'Trust & Psychological Safety', score: 0 },
-            { key: 'empathy', label: 'Empathy & Awareness of Others', score: 0 },
-            { key: 'shared_resp', label: 'Empowered & Shared Responsibility', score: 0 },
-            { key: 'purpose', label: 'Purpose, Vision & Outcomes', score: 0 },
-            { key: 'culture', label: 'Culture of Leadership', score: 0 },
-            { key: 'tensions', label: 'Harnessing Tensions for Collaboration', score: 0 },
-            { key: 'stakeholders', label: 'Positive Impact on Stakeholders', score: 0 },
-            { key: 'change', label: 'Embracing Change & Innovation', score: 0 },
-            { key: 'stewardship', label: 'Social & Ethical Stewardship', score: 0 }
-          ]
-        };
+        if (msgError) {
+          console.error('Error fetching messages:', msgError);
+          return;
+        }
+
+        // Generate evaluation using OpenAI
+        const userResponses = messages
+          ?.filter(msg => msg.message_type === 'user')
+          .map(msg => msg.content)
+          .join('\n\n') || '';
+
+        const evaluationPrompt = `Analyze these leadership assessment responses and provide scores (0-100) for each framework:
+
+Responses:
+${userResponses}
+
+Rate the person on these 12 leadership frameworks:
+1. Self-Awareness
+2. Emotional Intelligence  
+3. Communication
+4. Decision Making
+5. Team Building
+6. Conflict Resolution
+7. Adaptability
+8. Strategic Thinking
+9. Coaching & Development
+10. Accountability
+11. Innovation
+12. Resilience
+
+Respond with a JSON object with this structure:
+{
+  "frameworks": [
+    {"key": "self_awareness", "label": "Self-Awareness", "score": 75, "summary": "Shows good self-reflection..."},
+    ...
+  ],
+  "overall": {
+    "persona": "The Collaborative Leader",
+    "summary": "You demonstrate strong collaborative skills..."
+  }
+}`;
+
+        const evalResponse = await supabase.functions.invoke('chat-assistant', {
+          body: {
+            action: 'direct_completion',
+            prompt: evaluationPrompt
+          }
+        });
+
+        let evaluationData;
+        if (evalResponse.data?.response) {
+          try {
+            evaluationData = JSON.parse(evalResponse.data.response);
+          } catch (parseError) {
+            console.error('Error parsing evaluation JSON:', parseError);
+            // Fallback to placeholder
+            evaluationData = {
+              overall: { 
+                persona: "Leadership Assessment Complete",
+                summary: 'Your assessment has been completed. View your detailed evaluation for personalized insights.' 
+              },
+              frameworks: []
+            };
+          }
+        } else {
+          // Fallback evaluation
+          evaluationData = {
+            overall: { 
+              persona: "Leadership Assessment Complete",
+              summary: 'Your assessment has been completed. View your detailed evaluation for personalized insights.' 
+            },
+            frameworks: []
+          };
+        }
 
         const { error: evalInsertError } = await supabase
           .from('evaluations' as any)
@@ -298,14 +522,17 @@ export const Assessment = () => {
             {
               user_id: userId,
               conversation_id: conversationId,
-              summary: 'Leadership assessment evaluation',
-              data: payload
+              summary: evaluationData.overall?.summary || 'Leadership assessment completed',
+              data: evaluationData
             }
           ]);
+        
         if (evalInsertError) {
           console.warn('Failed to insert evaluation', evalInsertError);
+        } else {
+          console.log('Evaluation generated and saved successfully');
         }
-        // Don't auto-navigate anymore - let user choose their path
+        
         setHasNavigated(true);
       } catch (e) {
         console.warn('Failed to persist evaluation', e);
@@ -333,8 +560,8 @@ export const Assessment = () => {
                 Leadership <span className="text-primary">Assessment</span>
               </h1>
               <p className="text-xl text-text-secondary leading-relaxed max-w-2xl mx-auto">
-                Welcome! I'm your leadership assessment guide. I'll ask you some questions 
-                to understand your leadership style and help you discover your leadership persona.
+                Welcome! I'm your leadership assessment guide. I'll ask you thoughtful questions 
+                and personalized follow-ups to deeply understand your leadership style and help you discover your leadership persona.
               </p>
             </div>
             
@@ -343,7 +570,7 @@ export const Assessment = () => {
               <div className="grid md:grid-cols-2 gap-6">
                 <div className="flex items-center gap-4 p-4 rounded-xl bg-primary/5">
                   <div className="w-4 h-4 bg-primary rounded-full flex-shrink-0"></div>
-                  <span className="font-medium text-text-primary">5 thoughtful questions</span>
+                  <span className="font-medium text-text-primary">10 thoughtful questions + personalized follow-ups</span>
                 </div>
                 <div className="flex items-center gap-4 p-4 rounded-xl bg-primary/5">
                   <div className="w-4 h-4 bg-primary rounded-full flex-shrink-0"></div>

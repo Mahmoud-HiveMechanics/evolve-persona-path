@@ -1,5 +1,16 @@
+// @ts-nocheck
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+
+// Deno global declarations
+declare const Deno: {
+  env: {
+    get(key: string): string | undefined;
+  };
+};
+
+// Type declaration for serve function
+declare const serve: (handler: (request: Request) => Response | Promise<Response>) => void;
 
 // Type definitions
 interface RequestBody {
@@ -12,6 +23,7 @@ interface RequestBody {
   output?: string;
   audioBase64?: string;
   mimeType?: string;
+  prompt?: string; // Add prompt field for direct_completion
 }
 
 interface OpenAIRun {
@@ -43,7 +55,7 @@ interface ApiResponse {
 // More restrictive CORS - allow specific origins in production
 const getAllowedOrigin = (origin: string | null): string => {
   const allowedOrigins = [
-    'http://localhost:3000',
+    'http://localhost:8080',
     'http://localhost:5173',
     'https://your-domain.com', // Replace with your actual domain
   ];
@@ -121,6 +133,60 @@ serve(async (req) => {
     let response;
 
     switch (action) {
+      case "direct_completion": {
+        // Direct completion without threads for simple follow-up questions
+        const { prompt } = bodyJson;
+        if (!prompt) {
+          return new Response(
+            JSON.stringify({ ok: false, status: 400, error: { message: "Missing prompt for direct_completion" } }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        
+        response = await fetch("https://api.openai.com/v1/chat/completions", {
+          method: "POST",
+          headers: openaiHeaders,
+          body: JSON.stringify({
+            model: "gpt-4o-mini",
+            messages: [
+              {
+                role: "system",
+                content: "You are an expert leadership assessment interviewer. Generate natural, conversational follow-up questions."
+              },
+              {
+                role: "user", 
+                content: prompt
+              }
+            ],
+            max_tokens: 50,
+            temperature: 0.7
+          })
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          const followUpQuestion = data.choices?.[0]?.message?.content?.trim();
+          return new Response(
+            JSON.stringify({ ok: true, response: followUpQuestion }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        } else {
+          // Handle OpenAI API errors properly
+          const errorData = await response.json();
+          console.error("OpenAI API error:", errorData);
+          return new Response(
+            JSON.stringify({ 
+              ok: false, 
+              status: response.status, 
+              error: { 
+                message: `OpenAI API error: ${errorData.error?.message || 'Unknown error'}` 
+              } 
+            }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+      }
+
       case "use_existing_assistant": {
         // fetch assistant metadata for the default assistant id
         response = await fetch(`https://api.openai.com/v1/assistants/${DEFAULT_ASSISTANT_ID}`, {
