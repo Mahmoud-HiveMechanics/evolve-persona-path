@@ -10,6 +10,8 @@ import { useConversation } from '../hooks/useConversation';
 import { Input } from '../components/ui/input';
 import { useNavigate } from 'react-router-dom';
 import { ChatMessage } from '@/types/shared';
+import { buildPersonalizedQuestions } from '@/lib/personalize';
+import type { Profile } from '@/config/assessment';
 
 
 export const Assessment = () => {
@@ -21,7 +23,9 @@ export const Assessment = () => {
   const [openEndedResponse, setOpenEndedResponse] = useState('');
   const [scaleValue, setScaleValue] = useState([5]);
   const [questionCount, setQuestionCount] = useState(0);
-  const totalQuestions = 10;
+  const [questions, setQuestions] = useState<any[]>([]);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const totalQuestions = questions.length;
   const [kickoffSent, setKickoffSent] = useState(false);
   const [recording, setRecording] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -157,40 +161,39 @@ export const Assessment = () => {
   // Initialize assistant when start pressed and threadId becomes available
   // No OpenAI assistant initialization needed for predefined questions
 
-  // Mixed question types - 8 open-ended, 2 multiple choice
-  // Reordered so multiple-choice questions appear first
-  const assessmentQuestions = [
-    {
-      question: "What motivates you most as a leader?",
-      type: 'multiple-choice' as const,
-      options: [
-        "Seeing my team members grow and succeed",
-        "Achieving challenging goals and targets",
-        "Creating positive change in the organization",
-        "Building strong relationships and trust",
-        "Solving complex problems and making strategic decisions"
-      ]
-    },
-    {
-      question: "When making important decisions, what approach do you typically take?",
-      type: 'multiple-choice' as const,
-      options: [
-        "Gather input from my team and decide collaboratively",
-        "Analyze data thoroughly before making a decision",
-        "Trust my instincts and experience to guide me",
-        "Consult with mentors or senior leadership first",
-        "Consider the long-term impact on all stakeholders"
-      ]
-    },
-    { question: "What leadership challenges are you currently facing in your role?", type: 'open-ended' as const },
-    { question: "How do you typically handle conflict within your team?", type: 'open-ended' as const },
-    { question: "Describe a time when you had to make a difficult decision as a leader.", type: 'open-ended' as const },
-    { question: "How do you measure your effectiveness as a leader?", type: 'open-ended' as const },
-    { question: "What leadership skills do you feel you need to develop further?", type: 'open-ended' as const },
-    { question: "How do you handle giving feedback to team members?", type: 'open-ended' as const },
-    { question: "What role does emotional intelligence play in your leadership style?", type: 'open-ended' as const },
-    { question: "How do you adapt your leadership approach for different team members?", type: 'open-ended' as const }
-  ];
+  // Build personalized questions once intro is completed
+  useEffect(() => {
+    if (!isStarted || !introDone) return;
+    const profile: Profile = {
+      position: (introPosition || '').trim(),
+      role: (introRole || '').trim(),
+      teamSize: Number(introTeamSize || 0),
+      motivation: (introMotivation || '').trim(),
+    };
+    const personalized = buildPersonalizedQuestions(profile);
+    setQuestions(personalized);
+    setProfile(profile);
+  }, [isStarted, introDone, introPosition, introRole, introTeamSize, introMotivation]);
+
+  const rewriteQuestionIfNeeded = async (q: any): Promise<any> => {
+    if (!q?.aiRewrite || !profile) return q;
+    try {
+      const context = `position=${profile.position || 'N/A'}, role=${profile.role || 'N/A'}, teamSize=${profile.teamSize || 0}, motivation=${profile.motivation || ''}`;
+      const prompt = `Rewrite this question to be specific to the user's context. Keep meaning intact and under 25 words.\n\nBase question: "${q.question}"\nContext: ${context}`;
+      const { data, error } = await supabase.functions.invoke('chat-assistant', {
+        body: { action: 'direct_completion', prompt }
+      });
+      if (!error && data?.response) {
+        const rewritten = String(data.response).trim();
+        if (rewritten) {
+          return { ...q, question: rewritten };
+        }
+      }
+      return q;
+    } catch (_e) {
+      return q;
+    }
+  };
 
   // Function to decide when to ask follow-up questions
   const decideShouldFollowUp = (response: string, currentQuestionIndex: number): boolean => {
@@ -209,7 +212,7 @@ export const Assessment = () => {
     console.log('🤖 Generating follow-up for:', userResponse.substring(0, 50));
     
     try {
-      const originalQuestion = assessmentQuestions[questionIndex - 1]?.question || 'the previous question';
+      const originalQuestion = questions[questionIndex - 1]?.question || 'the previous question';
       
       const prompt = `You are an expert leadership assessment interviewer. Based on this response to "${originalQuestion}":
 
@@ -281,8 +284,8 @@ Respond with just the follow-up question, no explanation. Keep it under 20 words
         setKickoffSent(true);
         
         // Start with first question immediately
-        setTimeout(() => {
-          const firstQuestion = assessmentQuestions[0];
+        setTimeout(async () => {
+          const firstQuestion = await rewriteQuestionIfNeeded(questions[0]);
           setCurrentQuestion(firstQuestion);
         }, 1000);
         
@@ -305,9 +308,9 @@ Respond with just the follow-up question, no explanation. Keep it under 20 words
       
       // Move to next question
       const nextQuestionIndex = questionCount;
-      if (nextQuestionIndex < assessmentQuestions.length) {
-        setTimeout(() => {
-          const nextQuestion = assessmentQuestions[nextQuestionIndex];
+      if (nextQuestionIndex < questions.length) {
+        setTimeout(async () => {
+          const nextQuestion = await rewriteQuestionIfNeeded(questions[nextQuestionIndex]);
           setCurrentQuestion(nextQuestion);
         }, 1500);
       } else {
@@ -385,11 +388,11 @@ Respond with just the follow-up question, no explanation. Keep it under 20 words
     setIsFollowUp(false);
     const nextQuestionIndex = questionCount;
     console.log('Current questionCount:', questionCount, 'Next question index:', nextQuestionIndex);
-    console.log('Next question will be:', assessmentQuestions[nextQuestionIndex]?.question);
+    console.log('Next question will be:', questions[nextQuestionIndex]?.question);
     
-    if (nextQuestionIndex < assessmentQuestions.length) {
+    if (nextQuestionIndex < questions.length) {
       setTimeout(() => {
-        const nextQuestion = assessmentQuestions[nextQuestionIndex];
+        const nextQuestion = questions[nextQuestionIndex];
         console.log('Setting next question:', nextQuestion.question);
         setCurrentQuestion(nextQuestion);
       }, 1500);
@@ -411,9 +414,9 @@ Respond with just the follow-up question, no explanation. Keep it under 20 words
     
     // Move to next question
     const nextQuestionIndex = questionCount;
-    if (nextQuestionIndex < assessmentQuestions.length) {
+    if (nextQuestionIndex < questions.length) {
       setTimeout(() => {
-        const nextQuestion = assessmentQuestions[nextQuestionIndex];
+        const nextQuestion = questions[nextQuestionIndex];
         setCurrentQuestion(nextQuestion);
       }, 1500);
     } else {
