@@ -13,6 +13,7 @@ import { ChatMessage } from '@/types/shared';
 import type { Profile } from '@/config/assessment';
 import { ASSESSMENT_SYSTEM_PROMPT } from '@/config/assistantPrompt';
 import { ASSESSMENT_FRAMEWORK } from '@/config/assessmentFramework';
+import { generateEvaluationFromResponses } from '@/lib/evaluationGenerator';
 
 
 export const Assessment = () => {
@@ -475,78 +476,19 @@ export const Assessment = () => {
           return;
         }
 
-        // Generate evaluation using OpenAI
+        // Generate evaluation based on user responses
         const userResponses = messages
           ?.filter(msg => msg.message_type === 'user')
-          .map(msg => msg.content)
-          .join('\n\n') || '';
+          .map(msg => msg.content) || [];
 
-        const evaluationPrompt = `Analyze these leadership assessment responses and provide scores (0-100) for each framework:
+        console.log('User responses:', userResponses);
 
-Responses:
-${userResponses}
-
-Rate the person on these 12 leadership frameworks:
-1. Self-Awareness
-2. Emotional Intelligence
-3. Communication
-4. Decision Making
-5. Team Building
-6. Conflict Resolution
-7. Adaptability
-8. Strategic Thinking
-9. Coaching & Development
-10. Accountability
-11. Innovation
-12. Resilience
-
-Respond with a JSON object with this structure:
-{
-  "frameworks": [
-    {"key": "self_awareness", "label": "Self-Awareness", "score": 75, "summary": "Shows good self-reflection..."},
-    ...
-  ],
-  "overall": {
-    "persona": "The Collaborative Leader",
-    "summary": "You demonstrate strong collaborative skills..."
-  }
-}`;
-
-        const evalResponse = await supabase.functions.invoke('chat-assistant', {
-          body: {
-            action: 'direct_completion',
-            prompt: evaluationPrompt
-          }
-        });
-
-        let evaluationData;
-        if (evalResponse.data?.response) {
-          try {
-            evaluationData = JSON.parse(evalResponse.data.response);
-          } catch (parseError) {
-            console.error('Error parsing evaluation JSON:', parseError);
-            // Fallback to placeholder
-            evaluationData = {
-              overall: {
-                persona: "Leadership Assessment Complete",
-                summary: 'Your assessment has been completed. View your detailed evaluation for personalized insights.'
-              },
-              frameworks: []
-            };
-          }
-        } else {
-          // Fallback evaluation
-          evaluationData = {
-            overall: {
-              persona: "Leadership Assessment Complete",
-              summary: 'Your assessment has been completed. View your detailed evaluation for personalized insights.'
-            },
-            frameworks: []
-          };
-        }
+        // Create a robust evaluation based on responses
+        const evaluationData = generateEvaluationFromResponses(userResponses);
+        console.log('Generated evaluation:', evaluationData);
 
         const { error: evalInsertError } = await supabase
-          .from('evaluations' as any)
+          .from('evaluations')
           .insert([
             {
               user_id: userId,
@@ -557,14 +499,14 @@ Respond with a JSON object with this structure:
           ]);
 
         if (evalInsertError) {
-          console.warn('Failed to insert evaluation', evalInsertError);
+          console.error('Failed to insert evaluation', evalInsertError);
         } else {
           console.log('Evaluation generated and saved successfully');
         }
 
         setHasNavigated(true);
       } catch (e) {
-        console.warn('Failed to persist evaluation', e);
+        console.error('Failed to persist evaluation', e);
       }
     })();
   }, [isComplete, conversationId, hasNavigated]);
