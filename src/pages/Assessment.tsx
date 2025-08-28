@@ -10,10 +10,14 @@ import { useConversation } from '../hooks/useConversation';
 import { Input } from '../components/ui/input';
 import { useNavigate } from 'react-router-dom';
 import { ChatMessage } from '@/types/shared';
+import type { Profile } from '@/config/assessment';
+import { ASSESSMENT_SYSTEM_PROMPT } from '@/config/assistantPrompt';
+import { ASSESSMENT_FRAMEWORK } from '@/config/assessmentFramework';
 
 
 export const Assessment = () => {
   const navigate = useNavigate();
+  const MIN_QUESTIONS = 15;
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isStarted, setIsStarted] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
@@ -21,7 +25,7 @@ export const Assessment = () => {
   const [openEndedResponse, setOpenEndedResponse] = useState('');
   const [scaleValue, setScaleValue] = useState([5]);
   const [questionCount, setQuestionCount] = useState(0);
-  const totalQuestions = 10;
+  const [profile, setProfile] = useState<Profile | null>(null);
   const [kickoffSent, setKickoffSent] = useState(false);
   const [recording, setRecording] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -29,7 +33,86 @@ export const Assessment = () => {
   const [mcPending, setMcPending] = useState(false);
   const [mcOtherValue, setMcOtherValue] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  
+  // Track last shown question to prevent duplicates and count MC in opening phase
+  // Remove unused lastQuestionText to satisfy linter
+  const askedQuestionsRef = useRef<Set<string>>(new Set());
+  const [mcAskedCount, setMcAskedCount] = useState(0);
+  const askedNormalizedRef = useRef<Set<string>>(new Set());
+  const normalizeQuestion = (s: string) =>
+    s
+      .toLowerCase()
+      .replace(/\(next\)/g, '')
+      .replace(/\(alt.*?\)/g, '')
+      .replace(/[^a-z0-9\s]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  const ensureUniqueQuestion = (baseText: string, isMc: boolean): string => {
+    let text = baseText;
+    let norm = normalizeQuestion(text);
+    if (!askedNormalizedRef.current.has(norm)) return text;
+    const pool = isMc ? MC_FALLBACK_TEXTS : OPEN_FALLBACK_TEXTS;
+    for (const candidate of pool) {
+      const n = normalizeQuestion(candidate);
+      if (!askedNormalizedRef.current.has(n)) return candidate;
+    }
+    // As a last resort, append numbered variant until normalization differs
+    let idx = 2;
+    while (askedNormalizedRef.current.has(norm)) {
+      text = `${baseText} (alt ${idx})`;
+      norm = normalizeQuestion(text);
+      idx += 1;
+    }
+    return text;
+  };
+  // pickUnique no longer used; uniqueness handled by ensureUniqueQuestion
+  const MC_FALLBACK_TEXTS = [
+    'Which statement best reflects you right now?',
+    'Pick the statement that best fits you right now',
+    'Choose the statement that sounds most like you today',
+    'Which option describes your current leadership approach best?'
+  ];
+  const OPEN_FALLBACK_TEXTS = [
+    'What leadership challenge is most present for you right now?',
+    'What feels hardest about leading your team this week?',
+    'Where do you want to grow most as a leader this month?'
+  ];
+  // Provide varied MC option sets and prevent repeating the same set
+  const MC_OPTION_SETS: string[][] = [
+    [
+      'I set direction clearly and keep people aligned',
+      'I build trust and make it safe to speak up',
+      'I develop people and delegate effectively',
+      'I make tough decisions with limited information',
+      'I drive change and learn quickly'
+    ],
+    [
+      'I clarify vision and connect work to purpose',
+      'I create a feedback culture with psychological safety',
+      'I delegate ownership and coach accountability',
+      'I balance stakeholders and long-term impact',
+      'I experiment, learn fast, and adapt'
+    ],
+    [
+      'I prioritize ruthlessly and keep focus',
+      'I coach underperformance with empathy and candor',
+      'I resolve conflicts and turn tension into progress',
+      'I enable cross-team collaboration',
+      'I invest in long-term strategy and systems'
+    ],
+    [
+      'I empower autonomy and remove blockers',
+      'I make data-informed decisions quickly',
+      'I mentor new leaders to scale myself',
+      'I strengthen customer obsession across teams',
+      'I build an innovation pipeline, not just one-offs'
+    ]
+  ];
+  const askedMcOptionSigsRef = useRef<Set<string>>(new Set());
+  const normalizeOption = (s: string) =>
+    s.toLowerCase().replace(/[^a-z0-9\s]/g, '').replace(/\s+/g, ' ').trim();
+  const optionsSignature = (opts: string[]) =>
+    opts.map(normalizeOption).sort().join('|');
+
   // Pre-assessment intro fields
   const [introDone, setIntroDone] = useState(false);
   const [introPosition, setIntroPosition] = useState('');
@@ -38,16 +121,119 @@ export const Assessment = () => {
   const [introMotivation, setIntroMotivation] = useState('');
   // Finalization state
   const [hasNavigated, setHasNavigated] = useState(false);
-  
-  // Follow-up question state
-  const [isFollowUp, setIsFollowUp] = useState(false);
-  const [followUpCount, setFollowUpCount] = useState(0);
-  const maxFollowUps = 3; // Limit follow-ups to keep assessment reasonable
-  
-  const { conversationId, threadId, createConversation, saveMessage, markConversationComplete } = useConversation();
-  
+
+  // Follow-ups handled by AI; local flags removed
+
+  const { conversationId, createConversation, saveMessage } = useConversation();
+
   // OpenAI assistant not needed for predefined questions
   const [currentQuestion, setCurrentQuestion] = useState<any>(null);
+
+  // Ask the model for the next assessment question based on the prompt, profile and history
+  const getNextQuestionFromAI = async () => {
+    // If profile isn't ready yet, wait to ensure first questions can be MCQs
+    if (!profile) {
+      return;
+    }
+
+    // 1) Use structured framework first: ask next unseen question by index
+    const askedCount = askedQuestionsRef.current.size;
+    if (askedCount < ASSESSMENT_FRAMEWORK.length) {
+      const next = ASSESSMENT_FRAMEWORK[askedCount];
+      // Ensure uniqueness via normalized tracking
+      const qText = ensureUniqueQuestion(next.text, next.type === 'multiple-choice');
+      const q = {
+        question: qText,
+        type: next.type,
+        options: next.options,
+      } as any;
+      setCurrentQuestion(q);
+      return;
+    }
+
+    try {
+      const history = messages
+        .map(m => `${m.type === 'bot' ? 'Q' : 'A'}: ${m.content}`)
+        .join('\n');
+
+      const schema = `Return ONLY JSON with this shape (no prose):\n{\n  "question": "string",\n  "type": "multiple-choice" | "open-ended" | "scale",\n  "options": ["string", ...],\n  "scale_info": { "min": 1, "max": 10, "min_label": "Low", "max_label": "High" }\n}`;
+
+      const avoidList = Array.from(askedQuestionsRef.current);
+      const avoidBlock = avoidList.length
+        ? `\nDo not repeat any previous question. Avoid these EXACT texts: ${JSON.stringify(avoidList)}`
+        : '';
+
+      const mustBeMC = mcAskedCount < 4;
+      const firstPhaseRule = mustBeMC
+        ? '\nNEXT QUESTION MUST be "multiple-choice" with 4-5 realistic statements. No scale or open-ended.'
+        : '';
+
+      const prompt = `\n${ASSESSMENT_SYSTEM_PROMPT}\n\nParticipant profile:\n${JSON.stringify(profile)}\n\nConversation so far:\n${history || '(none yet)'}${firstPhaseRule}${avoidBlock}\n\nInstruction:\n- Ask exactly ONE next question now.\n- Choose the format per the Conversation Flow rules.\n- If multiple-choice, provide 4-5 realistic choices (include \"Other\" only when appropriate).\n- If scale, prefer 1–10 with clear labels.\n- ${schema}`.trim();
+
+      const { data, error } = await supabase.functions.invoke('chat-assistant', {
+        body: { action: 'direct_completion', prompt }
+      });
+      if (error) throw error;
+
+      const raw = String(data?.response ?? '').trim();
+      const jsonStart = raw.indexOf('{');
+      const json = JSON.parse(jsonStart >= 0 ? raw.slice(jsonStart) : raw);
+
+      let questionText: string | undefined = typeof json?.question === 'string' ? json.question.trim() : undefined;
+      let qType: any = json?.type;
+      let options = Array.isArray(json?.options) ? json.options : undefined;
+      const validType = (t: any) => (t === 'multiple-choice' || t === 'open-ended' || t === 'scale');
+
+      if (!validType(qType)) qType = mustBeMC ? 'multiple-choice' : 'open-ended';
+
+      // Ensure we have a unique, valid question text
+      if (!questionText) {
+        questionText = mustBeMC ? MC_FALLBACK_TEXTS[0] : OPEN_FALLBACK_TEXTS[0];
+      }
+      questionText = ensureUniqueQuestion(questionText, mustBeMC);
+
+      // If we must produce MC, ensure options exist
+      if (mustBeMC) {
+        // Use model options if valid; otherwise pick a unique fallback set by index
+        if (!options || options.length < 4) {
+          options = MC_OPTION_SETS[mcAskedCount % MC_OPTION_SETS.length];
+        }
+        // Ensure we are not reusing the same option set
+        let sig = optionsSignature(options);
+        if (askedMcOptionSigsRef.current.has(sig)) {
+          for (let i = 0; i < MC_OPTION_SETS.length; i++) {
+            const candidate = MC_OPTION_SETS[(mcAskedCount + i) % MC_OPTION_SETS.length];
+            const candSig = optionsSignature(candidate);
+            if (!askedMcOptionSigsRef.current.has(candSig)) {
+              options = candidate;
+              sig = candSig;
+              break;
+            }
+          }
+        }
+        qType = 'multiple-choice';
+      }
+
+      setCurrentQuestion({
+        question: questionText!,
+        type: qType,
+        options,
+        scale_info: json?.scale_info
+      } as any);
+    } catch (_e) {
+      // Fallbacks with no duplicates for first phase
+      const mustBeMC = mcAskedCount < 4;
+      const fallbackText = ensureUniqueQuestion(
+        mustBeMC ? MC_FALLBACK_TEXTS[0] : OPEN_FALLBACK_TEXTS[0],
+        mustBeMC
+      );
+      setCurrentQuestion({
+        question: fallbackText,
+        type: mustBeMC ? 'multiple-choice' : 'open-ended',
+        options: mustBeMC ? MC_OPTION_SETS[mcAskedCount % MC_OPTION_SETS.length] : undefined
+      } as any);
+    }
+  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -102,7 +288,7 @@ export const Assessment = () => {
       ...questionData
     };
     setMessages(prev => [...prev, newMessage]);
-    
+
     // Save to database - create a proper message object
     const messageToSave: ChatMessage = {
       id: newMessage.id,
@@ -121,19 +307,20 @@ export const Assessment = () => {
     await saveMessage(messageToSave);
   };
 
-  // Handle predefined questions and follow-ups
+  // When a new currentQuestion is set, show it and increment display counter
   useEffect(() => {
     if (currentQuestion && !showCurrentQuestion) {
-      // For follow-up questions, don't increment the main question count
-      const nextCount = isFollowUp ? questionCount : questionCount + 1;
-      
-      if (!isFollowUp && nextCount > totalQuestions) {
-        setIsComplete(true);
-        markConversationComplete();
-        setShowCurrentQuestion(false);
+      // If duplicate, replace locally with a unique fallback (no recursion)
+      const norm = normalizeQuestion(currentQuestion.question);
+      if (askedNormalizedRef.current.has(norm)) {
+        const uniqueText = ensureUniqueQuestion(
+          currentQuestion.question,
+          currentQuestion.type === 'multiple-choice'
+        );
+        setCurrentQuestion({ ...currentQuestion, question: uniqueText } as any);
         return;
       }
-
+      const nextCount = questionCount + 1;
       addMessage('bot', currentQuestion.question, {
         isQuestion: true,
         questionType: currentQuestion.type,
@@ -141,129 +328,36 @@ export const Assessment = () => {
         scaleInfo: currentQuestion.scale_info
       });
       setShowCurrentQuestion(true);
-      
-      // Only increment question count for main questions, not follow-ups
-      if (!isFollowUp) {
-        setQuestionCount(nextCount);
+      setQuestionCount(nextCount);
+      askedQuestionsRef.current.add(currentQuestion.question);
+      askedNormalizedRef.current.add(norm);
+      if (currentQuestion.type === 'multiple-choice' && mcAskedCount < 4) {
+        setMcAskedCount((c) => c + 1);
+        // Track used MC option sets to prevent repeating the same options
+        const sig = currentQuestion.options ? optionsSignature(currentQuestion.options) : '';
+        if (sig) askedMcOptionSigsRef.current.add(sig);
       }
     }
-  }, [currentQuestion, showCurrentQuestion, questionCount, totalQuestions, isFollowUp, navigate]);
+  }, [currentQuestion, showCurrentQuestion, questionCount, navigate, mcAskedCount]);
 
   const handleStart = async () => {
     setIsStarted(true);
     setKickoffSent(false);
   };
 
-  // Initialize assistant when start pressed and threadId becomes available
-  // No OpenAI assistant initialization needed for predefined questions
+  // Build participant profile once intro is completed
+  useEffect(() => {
+    if (!isStarted || !introDone) return;
+    const profile: Profile = {
+      position: (introPosition || '').trim(),
+      role: (introRole || '').trim(),
+      teamSize: Number(introTeamSize || 0),
+      motivation: (introMotivation || '').trim(),
+    };
+    setProfile(profile);
+  }, [isStarted, introDone, introPosition, introRole, introTeamSize, introMotivation]);
 
-  // Mixed question types - 8 open-ended, 2 multiple choice
-  // Reordered so multiple-choice questions appear first
-  const assessmentQuestions = [
-    {
-      question: "What motivates you most as a leader?",
-      type: 'multiple-choice' as const,
-      options: [
-        "Seeing my team members grow and succeed",
-        "Achieving challenging goals and targets",
-        "Creating positive change in the organization",
-        "Building strong relationships and trust",
-        "Solving complex problems and making strategic decisions"
-      ]
-    },
-    {
-      question: "When making important decisions, what approach do you typically take?",
-      type: 'multiple-choice' as const,
-      options: [
-        "Gather input from my team and decide collaboratively",
-        "Analyze data thoroughly before making a decision",
-        "Trust my instincts and experience to guide me",
-        "Consult with mentors or senior leadership first",
-        "Consider the long-term impact on all stakeholders"
-      ]
-    },
-    { question: "What leadership challenges are you currently facing in your role?", type: 'open-ended' as const },
-    { question: "How do you typically handle conflict within your team?", type: 'open-ended' as const },
-    { question: "Describe a time when you had to make a difficult decision as a leader.", type: 'open-ended' as const },
-    { question: "How do you measure your effectiveness as a leader?", type: 'open-ended' as const },
-    { question: "What leadership skills do you feel you need to develop further?", type: 'open-ended' as const },
-    { question: "How do you handle giving feedback to team members?", type: 'open-ended' as const },
-    { question: "What role does emotional intelligence play in your leadership style?", type: 'open-ended' as const },
-    { question: "How do you adapt your leadership approach for different team members?", type: 'open-ended' as const }
-  ];
-
-  // Function to decide when to ask follow-up questions
-  const decideShouldFollowUp = (response: string, currentQuestionIndex: number): boolean => {
-    console.log('🔥 SIMPLE CHECK - Question:', currentQuestionIndex, 'Response:', response.substring(0, 30));
-    
-    // FORCE follow-ups on questions 1, 3, 6, 9
-    const followUpQuestions = [1, 3, 6, 9];
-    const shouldFollowUp = followUpQuestions.includes(currentQuestionIndex);
-    
-    console.log('🔥 Should follow up?', shouldFollowUp, 'for question', currentQuestionIndex);
-    return shouldFollowUp;
-  };
-
-  // Function to generate follow-up questions using OpenAI
-  const generateFollowUpQuestion = async (userResponse: string, questionIndex: number): Promise<string | null> => {
-    console.log('🤖 Generating follow-up for:', userResponse.substring(0, 50));
-    
-    try {
-      const originalQuestion = assessmentQuestions[questionIndex - 1]?.question || 'the previous question';
-      
-      const prompt = `You are an expert leadership assessment interviewer. Based on this response to "${originalQuestion}":
-
-"${userResponse}"
-
-Generate a natural, conversational follow-up question that:
-1. Digs deeper into their specific situation
-2. Asks for concrete examples or details
-3. Explores the impact or outcome
-4. Is different from "Can you tell me more about that?"
-5. Feels like a natural conversation, not an interrogation
-
-Respond with just the follow-up question, no explanation. Keep it under 20 words.`;
-
-      console.log('🔥 About to call supabase function...');
-
-      const response = await supabase.functions.invoke('chat-assistant', {
-        body: {
-          action: 'direct_completion',
-          prompt: prompt
-        }
-      });
-
-      console.log('🔥 FULL RESPONSE:', JSON.stringify(response, null, 2));
-
-      if (response.error) {
-        console.error('❌ Supabase function error:', response.error);
-        // Show user-friendly error
-        alert(`OpenAI Error: ${JSON.stringify(response.error)}`);
-        return null;
-      }
-
-      if (!response.data) {
-        console.error('❌ No data in response');
-        alert('No data returned from OpenAI function');
-        return null;
-      }
-
-      const followUpQuestion = response.data?.response?.trim();
-      console.log('✅ Generated follow-up question:', followUpQuestion);
-      
-      if (!followUpQuestion) {
-        console.log('❌ Empty follow-up question');
-        alert('OpenAI returned empty response');
-        return null;
-      }
-      
-      return followUpQuestion;
-    } catch (error) {
-      console.error('❌ Exception in generateFollowUpQuestion:', error);
-      alert(`Exception: ${error}`);
-      return null;
-    }
-  };
+  // remove old local follow-up helpers (now handled by AI prompt)
 
 
 
@@ -272,27 +366,20 @@ Respond with just the follow-up question, no explanation. Keep it under 20 words
   // Kick off conversation once intro info collected
   useEffect(() => {
     const kickOff = async () => {
-      if (!isStarted || kickoffSent || !introDone) return;
-      
+      if (!isStarted || kickoffSent || !introDone || !profile) return;
       try {
         await createConversation();
         await addMessage('bot', "Hi! I'm your leadership assessment guide. Let's begin! 👋");
-        
+        // Ask the first AI-driven question (forced MC)
+        await getNextQuestionFromAI();
         setKickoffSent(true);
-        
-        // Start with first question immediately
-        setTimeout(() => {
-          const firstQuestion = assessmentQuestions[0];
-          setCurrentQuestion(firstQuestion);
-        }, 1000);
-        
       } catch (error) {
         console.error('Error in kickoff:', error);
         await addMessage('bot', "I apologize, but I'm having trouble connecting. Please try refreshing the page and try again.");
       }
     };
     kickOff();
-  }, [isStarted, kickoffSent, introDone]);
+  }, [isStarted, kickoffSent, introDone, profile]);
 
   const handleMultipleChoiceAnswer = async (answer: string) => {
     setMcPending(true);
@@ -302,18 +389,24 @@ Respond with just the follow-up question, no explanation. Keep it under 20 words
       
       // Clear current question first to ensure clean state
       setCurrentQuestion(null);
-      
-      // Move to next question
-      const nextQuestionIndex = questionCount;
-      if (nextQuestionIndex < assessmentQuestions.length) {
-        setTimeout(() => {
-          const nextQuestion = assessmentQuestions[nextQuestionIndex];
-          setCurrentQuestion(nextQuestion);
-        }, 1500);
-      } else {
+      // Stop after minimum number of questions
+      if (askedQuestionsRef.current.size >= MIN_QUESTIONS) {
         setIsComplete(true);
-        markConversationComplete();
+        return;
       }
+      // If the current asked question has a follow-up pattern and answer seems weak, ask follow-up
+      const idx = askedQuestionsRef.current.size; // already incremented after showing
+      const prevFramework = ASSESSMENT_FRAMEWORK[idx - 1];
+      if (prevFramework && prevFramework.type === 'multiple-choice') {
+        const weak = !answer || answer.length < 4;
+        if (weak && prevFramework.followups.insufficient) {
+          const fText = prevFramework.followups.insufficient.replace('[X]', answer || 'your choice');
+          setCurrentQuestion({ question: ensureUniqueQuestion(fText, false), type: 'open-ended' } as any);
+          return;
+        }
+      }
+      // Ask the model for the next question
+      await getNextQuestionFromAI();
     } finally {
       setMcPending(false);
     }
@@ -321,83 +414,22 @@ Respond with just the follow-up question, no explanation. Keep it under 20 words
 
   const handleOpenEndedSubmit = async () => {
     if (!openEndedResponse.trim()) return;
-    
+
     await addMessage('user', openEndedResponse);
     setShowCurrentQuestion(false);
-    const currentResponse = openEndedResponse;
     setOpenEndedResponse('');
-    
+
     // Clear current question first to ensure clean state
     setCurrentQuestion(null);
-    
-    // Don't ask follow-up to a follow-up - only ask follow-ups to main questions
-    if (isFollowUp) {
-      console.log('This was a follow-up response, moving to next main question');
-      setIsFollowUp(false); // Reset follow-up state
-      // Continue to normal flow after follow-up
-    }
-    
-    // Decide if we should ask a follow-up question (only for main questions)
-    const shouldAskFollowUp = !isFollowUp && decideShouldFollowUp(currentResponse, questionCount);
-    
-    console.log('🔍 DETAILED Follow-up check:', {
-      shouldAskFollowUp, 
-      followUpCount, 
-      maxFollowUps, 
-      isFollowUp, 
-      questionCount,
-      currentResponse: currentResponse.substring(0, 50),
-      hasThreadId: !!threadId
-    });
-    
-    if (shouldAskFollowUp && followUpCount < maxFollowUps) {
-      console.log('✅ Generating follow-up question based on response:', currentResponse);
-      
-      try {
-        const followUpQuestion = await generateFollowUpQuestion(currentResponse, questionCount);
-        console.log('Generated follow-up question:', followUpQuestion);
-        if (followUpQuestion) {
-          setIsFollowUp(true);
-          setFollowUpCount(prev => prev + 1);
-          setTimeout(() => {
-            setCurrentQuestion({
-              question: followUpQuestion,
-              type: 'open-ended' as const
-            });
-          }, 1000); // Brief delay for smooth transition
-          return;
-        } else {
-          console.log('❌ No follow-up question generated, continuing with normal flow');
-        }
-      } catch (error) {
-        console.error('❌ Error generating follow-up question:', error);
-        // Fall through to normal question flow if follow-up fails
-      }
-    } else {
-      console.log('❌ Follow-up conditions not met:', {
-        shouldAskFollowUp, 
-        followUpCountOk: followUpCount < maxFollowUps,
-        currentFollowUpCount: followUpCount
-      });
-    }
-    
-    // Normal question flow
-    setIsFollowUp(false);
-    const nextQuestionIndex = questionCount;
-    console.log('Current questionCount:', questionCount, 'Next question index:', nextQuestionIndex);
-    console.log('Next question will be:', assessmentQuestions[nextQuestionIndex]?.question);
-    
-    if (nextQuestionIndex < assessmentQuestions.length) {
-      setTimeout(() => {
-        const nextQuestion = assessmentQuestions[nextQuestionIndex];
-        console.log('Setting next question:', nextQuestion.question);
-        setCurrentQuestion(nextQuestion);
-      }, 1500);
-    } else {
-      console.log('Assessment complete - no more questions');
+
+    // Stop after minimum number of questions
+    if (askedQuestionsRef.current.size >= MIN_QUESTIONS) {
       setIsComplete(true);
-      markConversationComplete();
+      return;
     }
+    
+    // Ask the model for the next question
+    await getNextQuestionFromAI();
   };
 
   const handleScaleSubmit = async () => {
@@ -405,21 +437,18 @@ Respond with just the follow-up question, no explanation. Keep it under 20 words
     await addMessage('user', scaleResponse);
     setShowCurrentQuestion(false);
     setScaleValue([5]); // Reset to middle value
-    
+
     // Clear current question first to ensure clean state
     setCurrentQuestion(null);
-    
-    // Move to next question
-    const nextQuestionIndex = questionCount;
-    if (nextQuestionIndex < assessmentQuestions.length) {
-      setTimeout(() => {
-        const nextQuestion = assessmentQuestions[nextQuestionIndex];
-        setCurrentQuestion(nextQuestion);
-      }, 1500);
-    } else {
+
+    // Stop after minimum number of questions
+    if (askedQuestionsRef.current.size >= MIN_QUESTIONS) {
       setIsComplete(true);
-      markConversationComplete();
+      return;
     }
+    
+    // Ask the model for the next question
+    await getNextQuestionFromAI();
   };
 
 
@@ -433,7 +462,7 @@ Respond with just the follow-up question, no explanation. Keep it under 20 words
         if (!userId) return;
 
         console.log('Assessment complete, generating evaluation...');
-        
+
         // Get all messages from the conversation
         const { data: messages, error: msgError } = await supabase
           .from('messages')
@@ -459,7 +488,7 @@ ${userResponses}
 
 Rate the person on these 12 leadership frameworks:
 1. Self-Awareness
-2. Emotional Intelligence  
+2. Emotional Intelligence
 3. Communication
 4. Decision Making
 5. Team Building
@@ -498,9 +527,9 @@ Respond with a JSON object with this structure:
             console.error('Error parsing evaluation JSON:', parseError);
             // Fallback to placeholder
             evaluationData = {
-              overall: { 
+              overall: {
                 persona: "Leadership Assessment Complete",
-                summary: 'Your assessment has been completed. View your detailed evaluation for personalized insights.' 
+                summary: 'Your assessment has been completed. View your detailed evaluation for personalized insights.'
               },
               frameworks: []
             };
@@ -508,9 +537,9 @@ Respond with a JSON object with this structure:
         } else {
           // Fallback evaluation
           evaluationData = {
-            overall: { 
+            overall: {
               persona: "Leadership Assessment Complete",
-              summary: 'Your assessment has been completed. View your detailed evaluation for personalized insights.' 
+              summary: 'Your assessment has been completed. View your detailed evaluation for personalized insights.'
             },
             frameworks: []
           };
@@ -526,13 +555,13 @@ Respond with a JSON object with this structure:
               data: evaluationData
             }
           ]);
-        
+
         if (evalInsertError) {
           console.warn('Failed to insert evaluation', evalInsertError);
         } else {
           console.log('Evaluation generated and saved successfully');
         }
-        
+
         setHasNavigated(true);
       } catch (e) {
         console.warn('Failed to persist evaluation', e);
@@ -550,21 +579,21 @@ Respond with a JSON object with this structure:
     return (
       <div className="min-h-screen bg-gradient-to-br from-primary/5 via-white to-muted/20">
         <Header />
-        
+
         <div className="min-h-[calc(100vh-80px)] flex items-center justify-center px-6 py-12">
           <div className="max-w-3xl mx-auto text-center space-y-12">
 
-            
+
             <div className="space-y-6">
               <h1 className="text-5xl lg:text-6xl font-bold text-text-primary leading-tight">
                 Leadership <span className="text-primary">Assessment</span>
               </h1>
               <p className="text-xl text-text-secondary leading-relaxed max-w-2xl mx-auto">
-                Welcome! I'm your leadership assessment guide. I'll ask you thoughtful questions 
+                Welcome! I'm your leadership assessment guide. I'll ask you thoughtful questions
                 and personalized follow-ups to deeply understand your leadership style and help you discover your leadership persona.
               </p>
             </div>
-            
+
             <div className="bg-white/60 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-primary/10 space-y-6">
               <h3 className="text-2xl font-bold text-text-primary">What to <span className="text-primary">expect</span>:</h3>
               <div className="grid md:grid-cols-2 gap-6">
@@ -586,8 +615,8 @@ Respond with a JSON object with this structure:
                 </div>
               </div>
             </div>
-            
-            <Button 
+
+            <Button
               onClick={handleStart}
               className="btn-assessment text-xl px-12 py-6 shadow-2xl hover:shadow-3xl transition-all duration-500 hover:scale-105 bg-gradient-to-r from-primary to-primary/90"
             >
@@ -605,7 +634,7 @@ Respond with a JSON object with this structure:
     return (
       <div className="min-h-screen bg-gradient-to-br from-primary/5 via-white to-muted/20">
         <Header />
-        
+
         <div className="min-h-[calc(100vh-80px)] flex items-center justify-center px-6 py-12">
           <div className="max-w-3xl mx-auto">
             <div className="bg-white/80 backdrop-blur-sm border border-primary/20 rounded-2xl p-8 shadow-lg">
@@ -614,49 +643,49 @@ Respond with a JSON object with this structure:
                   <h2 className="text-4xl font-bold text-text-primary">Before we <span className="text-primary">begin</span></h2>
                   <p className="text-xl text-text-secondary">Help us personalize your assessment experience</p>
                 </div>
-                
+
                 <div className="grid md:grid-cols-2 gap-6">
                   <div className="space-y-3">
                     <label className="text-sm font-medium text-text-primary">Position</label>
-                    <Input 
-                      value={introPosition} 
-                      onChange={(e) => setIntroPosition(e.target.value)} 
-                      placeholder="e.g., Director" 
+                    <Input
+                      value={introPosition}
+                      onChange={(e) => setIntroPosition(e.target.value)}
+                      placeholder="e.g., Director"
                       className="h-12"
                     />
                   </div>
                   <div className="space-y-3">
                     <label className="text-sm font-medium text-text-primary">Role in the company</label>
-                    <Input 
-                      value={introRole} 
-                      onChange={(e) => setIntroRole(e.target.value)} 
-                      placeholder="e.g., Operations" 
+                    <Input
+                      value={introRole}
+                      onChange={(e) => setIntroRole(e.target.value)}
+                      placeholder="e.g., Operations"
                       className="h-12"
                     />
                   </div>
                   <div className="space-y-3">
                     <label className="text-sm font-medium text-text-primary">Team size</label>
-                    <Input 
-                      value={introTeamSize} 
-                      onChange={(e) => setIntroTeamSize(e.target.value)} 
-                      placeholder="e.g., 12" 
+                    <Input
+                      value={introTeamSize}
+                      onChange={(e) => setIntroTeamSize(e.target.value)}
+                      placeholder="e.g., 12"
                       className="h-12"
                     />
                   </div>
                   <div className="space-y-3">
                     <label className="text-sm font-medium text-text-primary">Motivation for taking this assessment</label>
-                    <Input 
-                      value={introMotivation} 
-                      onChange={(e) => setIntroMotivation(e.target.value)} 
-                      placeholder="e.g., grow as a people leader" 
+                    <Input
+                      value={introMotivation}
+                      onChange={(e) => setIntroMotivation(e.target.value)}
+                      placeholder="e.g., grow as a people leader"
                       className="h-12"
                     />
                   </div>
                 </div>
-                
+
                 <div className="text-center pt-6">
-                  <Button 
-                    onClick={() => setIntroDone(true)} 
+                  <Button
+                    onClick={() => setIntroDone(true)}
                     disabled={kickoffSent}
                     className="btn-assessment text-xl px-12 py-4 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105"
                   >
@@ -675,7 +704,7 @@ Respond with a JSON object with this structure:
   return (
     <div className="min-h-screen bg-gradient-to-br from-muted/10 via-white to-primary/5">
       <Header />
-      
+
       <div className="max-w-5xl mx-auto px-6 py-8">
 
 
@@ -693,7 +722,7 @@ Respond with a JSON object with this structure:
                     <Bot size={22} className="text-white" />
                   </div>
                 )}
-                
+
                 <div className={`max-w-[80%] ${message.type === 'user' ? 'order-first' : ''}`}>
                   <div
                     className={`p-4 rounded-xl ${
@@ -703,7 +732,7 @@ Respond with a JSON object with this structure:
                     }`}
                   >
                     <p className="text-sm leading-relaxed">{message.content}</p>
-                    
+
                     {/* Dynamic Question UI based on type - only show for the current active question */}
                     {message.isQuestion && showCurrentQuestion && currentQuestion && message.content === currentQuestion.question && (
                       <div className="mt-4">
@@ -749,7 +778,7 @@ Respond with a JSON object with this structure:
                             <div className="text-xs text-text-secondary mt-1">Tip: press 1-{Math.min(9, message.options.length)} to answer quickly</div>
                           </div>
                         )}
-                        
+
                         {message.questionType === 'open-ended' && (
                           <div className="space-y-3">
                             <Textarea
@@ -835,7 +864,7 @@ Respond with a JSON object with this structure:
                             </div>
                           </div>
                         )}
-                        
+
                         {message.questionType === 'scale' && message.scaleInfo && (
                           <div className="space-y-4">
                             <div className="px-2">
@@ -889,7 +918,7 @@ Respond with a JSON object with this structure:
                     {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </div>
                 </div>
-                
+
                 {message.type === 'user' && (
                   <div className="w-12 h-12 bg-gradient-to-br from-text-secondary to-text-secondary/80 rounded-full flex items-center justify-center flex-shrink-0 shadow-lg">
                     <User size={22} className="text-white" />
@@ -897,7 +926,7 @@ Respond with a JSON object with this structure:
                 )}
               </div>
             ))}
-            
+
             {/* Loading Indicator */}
             {false && (
               <div className="flex gap-4 justify-start">
@@ -913,8 +942,8 @@ Respond with a JSON object with this structure:
                 </div>
               </div>
             )}
-            
-            
+
+
             {/* Assessment Complete - WhatsApp Conversion */}
             {isComplete && (
               <div className="bg-gradient-to-br from-primary/10 via-primary/5 to-white rounded-2xl p-8 border border-primary/20 shadow-lg">
@@ -928,7 +957,7 @@ Respond with a JSON object with this structure:
                     <h3 className="text-3xl font-bold text-text-primary">Assessment <span className="text-primary">Complete!</span></h3>
                     <p className="text-xl text-text-secondary">Choose how you'd like to continue your leadership journey</p>
                   </div>
-                  
+
                   <div className="grid md:grid-cols-2 gap-4">
                     {/* WhatsApp Option */}
                     <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 border border-green-200 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
@@ -996,7 +1025,7 @@ Respond with a JSON object with this structure:
                       </p>
                     </div>
                   </div>
-                  
+
                   <div className="text-center pt-4">
                     <p className="text-sm text-text-secondary">
                       🔒 Your data is secure and will only be used to provide your personalized coaching experience.
@@ -1005,7 +1034,7 @@ Respond with a JSON object with this structure:
                 </div>
               </div>
             )}
-            
+
             <div ref={messagesEndRef} />
           </div>
         </div>
