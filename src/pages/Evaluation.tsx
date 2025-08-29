@@ -700,8 +700,10 @@ function calculatePrincipleScore(principle: any, responses: string[], questionCo
     }
   });
 
-  // Convert level to score (1-5 scale to 0-100)
-  const score = (bestLevel - 1) * 25;
+  // Convert level to score with stricter scaling (1-5 scale to 0-100)
+  // Make level 5 much harder to achieve - require exceptional evidence
+  const scoreMapping = [0, 15, 35, 60, 80, 95]; // More stringent score distribution
+  const score = scoreMapping[bestLevel] || 0;
   
   // Calculate confidence based on response consistency
   const { consistency } = analyzeResponsePatterns(responses);
@@ -723,9 +725,9 @@ function detectResponsePatterns(responses: string[]): {
 } {
   const { repetition, engagement, quality } = analyzeResponsePatterns(responses);
   
-  const isRepetitive = repetition > 0.3;
-  const isEngaged = engagement > 60;
-  const isThoughtful = quality > 70;
+  const isRepetitive = repetition > 0.25; // Lower threshold for detecting repetition
+  const isEngaged = engagement > 80; // Higher bar for engagement
+  const isThoughtful = quality > 85; // Much higher bar for thoughtfulness
   
   let patternType = 'normal';
   if (isRepetitive && !isEngaged) patternType = 'disengaged';
@@ -769,7 +771,7 @@ function calculateFrameworkScore(frameworkKey: string, responses: string[], basi
   // Calculate principle-specific score
   const principleResult = calculatePrincipleScore(principle, responses, questionContext);
   
-  // Apply pattern-based adjustments
+  // Apply stricter pattern-based adjustments
   let adjustedScore = principleResult.score;
   let confidence = principleResult.confidence;
   
@@ -777,23 +779,48 @@ function calculateFrameworkScore(frameworkKey: string, responses: string[], basi
   const allSameResponse = responses.every(r => r.toLowerCase().trim() === responses[0]?.toLowerCase().trim());
   const veryShortResponses = responses.every(r => r.trim().length <= 2);
   
+  // Detect vague, generic responses
+  const vagueIndicators = ['fine', 'good', 'okay', 'normal', 'standard', 'typical', 'regular', 'average'];
+  const genericResponses = responses.filter(r => 
+    vagueIndicators.some(indicator => r.toLowerCase().includes(indicator)) && r.length < 30
+  ).length;
+  const vagueRatio = genericResponses / responses.length;
+  
+  // Detect lack of specific examples or evidence
+  const evidenceKeywords = ['for example', 'specifically', 'instance', 'time when', 'situation where', 'case', 'project', 'team member', 'client'];
+  const responsesWithEvidence = responses.filter(r => 
+    evidenceKeywords.some(keyword => r.toLowerCase().includes(keyword)) && r.length > 50
+  ).length;
+  const evidenceRatio = responsesWithEvidence / responses.length;
+  
   if (allSameResponse && veryShortResponses) {
     // Someone literally put the same 1-2 character response to everything - they didn't try at all
     adjustedScore = Math.max(0, 5); // Nearly zero score
     confidence = 0.95; // Very confident this person didn't engage
     principleResult.reasoning.push('CRITICAL: Identical single-character responses detected - assessment not completed genuinely');
   } else if (patternAnalysis.isRepetitive && !patternAnalysis.isEngaged) {
-    adjustedScore = Math.max(10, adjustedScore - 30); // Much harsher penalty for repetitive, disengaged responses
-    confidence = Math.max(0.3, confidence - 0.2);
-    principleResult.reasoning.push('Pattern detected: Repetitive responses with low engagement');
-  } else if (patternAnalysis.isThoughtful) {
-    adjustedScore = Math.min(95, adjustedScore + 10); // Reward thoughtful responses
-    confidence = Math.min(0.95, confidence + 0.1);
-    principleResult.reasoning.push('Pattern detected: Thoughtful and engaged responses');
+    adjustedScore = Math.max(5, adjustedScore - 40); // Even harsher penalty for repetitive, disengaged responses
+    confidence = Math.max(0.2, confidence - 0.3);
+    principleResult.reasoning.push('CRITICAL: Repetitive responses with low engagement - lacks genuine reflection');
+  } else if (vagueRatio > 0.5) {
+    // More than half responses are vague/generic
+    adjustedScore = Math.max(10, adjustedScore - 35);
+    confidence = Math.max(0.3, confidence - 0.25);
+    principleResult.reasoning.push('CONCERN: High proportion of vague, generic responses - lacks specificity and depth');
+  } else if (evidenceRatio < 0.3 && adjustedScore > 60) {
+    // High scores require concrete evidence - lack of examples is concerning
+    adjustedScore = Math.max(40, adjustedScore - 25);
+    confidence = Math.max(0.4, confidence - 0.2);
+    principleResult.reasoning.push('CAUTION: Claims not supported by specific examples or evidence - reduces credibility');
+  } else if (patternAnalysis.isThoughtful && evidenceRatio > 0.6) {
+    // Only reward if both thoughtful AND evidence-based
+    adjustedScore = Math.min(95, adjustedScore + 5); // Reduced reward - excellence must be earned
+    confidence = Math.min(0.9, confidence + 0.05);
+    principleResult.reasoning.push('STRENGTH: Thoughtful responses with concrete evidence');
   }
 
-  // Apply experience modifiers (reduced impact for more accurate scoring)
-  const experienceModifier = getExperienceModifier(frameworkKey, basicInfo) * 0.3;
+  // Stricter experience modifiers - experience alone doesn't guarantee competence
+  const experienceModifier = getExperienceModifier(frameworkKey, basicInfo) * 0.15; // Reduced from 0.3
   adjustedScore = Math.max(0, Math.min(100, adjustedScore + experienceModifier));
 
   return {
@@ -831,12 +858,18 @@ function deriveEvaluationFromMessages(msgs: Array<{ message_type: string; conten
   const frameworkScores: FrameworkScore[] = Object.values(LEADERSHIP_PRINCIPLES).map(principle => {
     const result = calculateFrameworkScore(principle.key, allResponses, basicInfo, allContexts);
     
-    // Apply follow-up bonus for more detailed analysis
+    // Apply stricter follow-up evaluation - quality over quantity
     let adjustedScore = result.score;
     if (followUpResponses.length > 0) {
-      const followUpBonus = Math.min(10, followUpResponses.length * 2); // Up to 10 point bonus
+      // Analyze quality of follow-up responses instead of just rewarding quantity
+      const substantiveFollowUps = followUpResponses.filter(r => r.length > 40 && !r.toLowerCase().includes('yes') && !r.toLowerCase().includes('no')).length;
+      const followUpBonus = Math.min(5, substantiveFollowUps * 1); // Reduced bonus, max 5 points
       adjustedScore = Math.min(100, result.score + followUpBonus);
-      result.reasoning.push(`Follow-up responses provided (+${followUpBonus} points for deeper engagement)`);
+      if (followUpBonus > 0) {
+        result.reasoning.push(`Quality follow-up responses provided (+${followUpBonus} points for substantive elaboration)`);
+      } else if (followUpResponses.length > 0) {
+        result.reasoning.push('Follow-up responses were brief or superficial - no bonus applied');
+      }
     }
     
     const summary = generateFrameworkSummary(principle.key, adjustedScore, result.level, result.reasoning, result.patternAnalysis);
