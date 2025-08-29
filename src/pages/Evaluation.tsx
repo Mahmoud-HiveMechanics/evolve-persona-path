@@ -131,6 +131,68 @@ export default function Evaluation() {
     return [...frameworks].sort((a, b) => (a.score ?? 0) - (b.score ?? 0)).slice(0, 3);
   }, [frameworks]);
 
+  // AI-powered evaluation derivation with enhanced analysis
+  const deriveEvaluationFromMessages = useCallback(async (msgs: Array<{ message_type: string; content: string; question_type: string | null; created_at: string }>): Promise<EvaluationData> => {
+    console.log('Deriving evaluation from messages using AI:', msgs.length);
+    
+    if (!msgs || msgs.length === 0) {
+      console.log('No messages found, using default evaluation');
+      return getDefaultEvaluation();
+    }
+
+    try {
+      // Extract user responses
+      const allResponses: string[] = [];
+      let conversationContext = '';
+      
+      // Sort messages by timestamp
+      const sortedMessages = msgs.sort((a: any, b: any) => 
+        new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+      );
+      
+      const userResponses = sortedMessages
+        .filter((msg: any) => msg.message_type === 'user')
+        .map((msg: any) => msg.content)
+        .filter((content: string) => content && content.trim().length > 5);
+      
+      allResponses.push(...userResponses);
+      
+      // Build conversation context (last 2000 chars to stay within limits)
+      conversationContext = sortedMessages
+        .map((msg: any) => `${msg.message_type}: ${msg.content}`)
+        .join('\n').slice(-2000);
+
+      console.log('Extracted responses for AI analysis:', allResponses.length);
+
+      if (allResponses.length === 0) {
+        console.log('No valid responses found, using default evaluation');
+        return getDefaultEvaluation();
+      }
+
+      // Call AI evaluation function
+      const response = await supabase.functions.invoke('ai-evaluation', {
+        body: {
+          responses: allResponses,
+          conversationContext: conversationContext
+        }
+      });
+
+      if (response.error) {
+        console.error('AI evaluation error:', response.error);
+        // Fallback to rule-based evaluation
+        return generateFallbackEvaluation(allResponses, conversationContext);
+      }
+
+      console.log('AI evaluation completed successfully');
+      return response.data;
+
+    } catch (error) {
+      console.error('Error in AI evaluation:', error);
+      // Fallback to rule-based evaluation with default values
+      return generateFallbackEvaluation(['Default response'], 'No context');
+    }
+  }, []);
+
   function toggleImprovement(key: string) {
     setImprovementsDone(prev => ({ ...prev, [key]: !prev[key] }));
   }
@@ -585,67 +647,7 @@ const LEADERSHIP_PRINCIPLES = {
 //   return Math.max(0, Math.min(100, Math.round((raw / 10) * 100)));
 // }
 
-  // AI-powered evaluation derivation with enhanced analysis
-  const deriveEvaluationFromMessages = useCallback(async (msgs: Array<{ message_type: string; content: string; question_type: string | null; created_at: string }>): Promise<EvaluationData> => {
-    console.log('Deriving evaluation from messages using AI:', msgs.length);
-    
-    if (!msgs || msgs.length === 0) {
-      console.log('No messages found, using default evaluation');
-      return getDefaultEvaluation();
-    }
-
-    try {
-      // Extract user responses
-      const allResponses: string[] = [];
-      let conversationContext = '';
-      
-      // Sort messages by timestamp
-      const sortedMessages = msgs.sort((a: any, b: any) => 
-        new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-      );
-      
-      const userResponses = sortedMessages
-        .filter((msg: any) => msg.message_type === 'user')
-        .map((msg: any) => msg.content)
-        .filter((content: string) => content && content.trim().length > 5);
-      
-      allResponses.push(...userResponses);
-      
-      // Build conversation context (last 2000 chars to stay within limits)
-      conversationContext = sortedMessages
-        .map((msg: any) => `${msg.message_type}: ${msg.content}`)
-        .join('\n').slice(-2000);
-
-      console.log('Extracted responses for AI analysis:', allResponses.length);
-
-      if (allResponses.length === 0) {
-        console.log('No valid responses found, using default evaluation');
-        return getDefaultEvaluation();
-      }
-
-      // Call AI evaluation function
-      const response = await supabase.functions.invoke('ai-evaluation', {
-        body: {
-          responses: allResponses,
-          conversationContext: conversationContext
-        }
-      });
-
-      if (response.error) {
-        console.error('AI evaluation error:', response.error);
-        // Fallback to rule-based evaluation
-        return generateFallbackEvaluation(allResponses, conversationContext);
-      }
-
-      console.log('AI evaluation completed successfully');
-      return response.data;
-
-    } catch (error) {
-      console.error('Error in AI evaluation:', error);
-      // Fallback to rule-based evaluation with default values
-      return generateFallbackEvaluation(['Default response'], 'No context');
-    }
-  }, []);
+// Function moved inside React component to fix useCallback error
 
 // Legacy functions removed - all evaluation logic now handled by AI
 
