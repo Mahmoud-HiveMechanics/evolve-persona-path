@@ -9,9 +9,6 @@ declare const Deno: {
   };
 };
 
-// Type declaration for serve function
-declare const serve: (handler: (request: Request) => Response | Promise<Response>) => void;
-
 // Type definitions
 interface RequestBody {
   action: string;
