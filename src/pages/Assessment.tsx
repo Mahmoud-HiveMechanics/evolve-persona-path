@@ -13,7 +13,7 @@ import { ChatMessage } from '@/types/shared';
 import type { Profile } from '@/config/assessment';
 import { ASSESSMENT_SYSTEM_PROMPT } from '@/config/assistantPrompt';
 import { ASSESSMENT_FRAMEWORK } from '@/config/assessmentFramework';
-import { generateEvaluationFromResponses } from '@/lib/evaluationGenerator';
+
 
 
 export const Assessment = () => {
@@ -462,15 +462,27 @@ export const Assessment = () => {
           return;
         }
 
-        // Generate evaluation based on user responses
-        const userResponses = messages
-          ?.filter(msg => msg.message_type === 'user')
-          .map(msg => msg.content) || [];
+        // Generate evaluation based on user responses using AI
+        console.log('User responses for evaluation:', messages?.length);
 
-        console.log('User responses:', userResponses);
+        // Use the enhanced AI evaluation system
+        const { data: aiEvaluation, error: aiError } = await supabase.functions.invoke('ai-evaluation', {
+          body: { messages: messages || [] }
+        });
 
-        // Create a robust evaluation based on responses
-        const evaluationData = generateEvaluationFromResponses(userResponses);
+        let evaluationData;
+        if (aiError || !aiEvaluation) {
+          console.error('AI evaluation failed, using fallback:', aiError);
+          // Fallback to rule-based evaluation if AI fails
+          const userResponses = messages
+            ?.filter(msg => msg.message_type === 'user')
+            .map(msg => msg.content) || [];
+          const { generateEvaluationFromResponses } = await import('@/lib/evaluationGenerator');
+          evaluationData = generateEvaluationFromResponses(userResponses);
+        } else {
+          evaluationData = aiEvaluation;
+        }
+        
         console.log('Generated evaluation:', evaluationData);
 
         const { error: evalInsertError } = await (supabase as any)
