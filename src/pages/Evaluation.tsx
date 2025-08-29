@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import { Header } from '../components/Header';
 import { supabase } from '@/integrations/supabase/client';
 import { Progress } from '@/components/ui/progress';
@@ -68,7 +68,7 @@ export default function Evaluation() {
                 const userResponses = msgs.filter(m => m.message_type === 'user');
                 console.log('User responses:', userResponses.map(m => m.content));
                 
-                payload = deriveEvaluationFromMessages(msgs);
+                payload = await deriveEvaluationFromMessages(msgs);
                 console.log('Generated enhanced evaluation:', payload);
                 
                 // Update the evaluation record with the enhanced scoring
@@ -106,7 +106,7 @@ export default function Evaluation() {
             ];
             
             console.log('Creating demo evaluation with repetitive X responses');
-            payload = deriveEvaluationFromMessages(demoMessages);
+            payload = await deriveEvaluationFromMessages(demoMessages);
             console.log('Demo evaluation generated:', payload);
           }
         }
@@ -569,174 +569,13 @@ const LEADERSHIP_PRINCIPLES = {
 // const FRAMEWORKS = Object.values(LEADERSHIP_PRINCIPLES).map(p => ({ key: p.key, label: p.label }));
 
 // Enhanced response analysis functions
-function analyzeResponsePatterns(responses: string[]): {
-  repetition: number;
-  engagement: number;
-  consistency: number;
-  quality: number;
-} {
-  console.log('Analyzing response patterns for:', responses);
-  if (responses.length === 0) return { repetition: 0, engagement: 0, consistency: 0, quality: 0 };
+// Legacy function removed - now handled by AI evaluation
 
-  // Check for repetitive responses
-  const uniqueResponses = new Set(responses.map(r => r.toLowerCase().trim()));
-  const repetition = 1 - (uniqueResponses.size / responses.length);
-  console.log('Unique responses:', uniqueResponses.size, 'out of', responses.length, 'repetition score:', repetition);
+// Legacy function removed - now handled by AI evaluation
 
-  // Analyze engagement (response length, detail, thoughtfulness)
-  const avgLength = responses.reduce((sum, r) => sum + r.length, 0) / responses.length;
-  const engagement = Math.min(100, avgLength / 2); // Normalize to 0-100
+// Legacy function removed - now handled by AI evaluation
 
-  // Check consistency in response quality
-  const lengths = responses.map(r => r.length);
-  const meanLength = lengths.reduce((sum, l) => sum + l, 0) / lengths.length;
-  const variance = lengths.reduce((sum, l) => sum + Math.pow(l - meanLength, 2), 0) / lengths.length;
-  const consistency = Math.max(0, 100 - (variance / 10));
-
-  // Overall quality score
-  const quality = (engagement + consistency) / 2;
-
-  return { repetition, engagement, consistency, quality };
-}
-
-function analyzeSentiment(text: string): {
-  positive: number;
-  negative: number;
-  neutral: number;
-  confidence: number;
-} {
-  const words = text.toLowerCase().split(/\s+/);
-  
-  const positiveWords = [
-    'excellent', 'great', 'good', 'positive', 'successful', 'effective', 'strong', 'confident',
-    'motivated', 'inspired', 'passionate', 'committed', 'dedicated', 'focused', 'clear', 'organized',
-    'collaborative', 'supportive', 'empathetic', 'understanding', 'flexible', 'adaptive', 'innovative',
-    'creative', 'strategic', 'visionary', 'purposeful', 'meaningful', 'impactful', 'transformative',
-    'love', 'enjoy', 'excited', 'thrilled', 'amazing', 'wonderful', 'fantastic', 'brilliant'
-  ];
-  
-  const negativeWords = [
-    'bad', 'poor', 'difficult', 'challenging', 'frustrating', 'confusing', 'unclear', 'weak',
-    'unsure', 'uncertain', 'doubtful', 'worried', 'concerned', 'stressed', 'overwhelmed', 'lost',
-    'confused', 'stuck', 'blocked', 'resistant', 'reluctant', 'hesitant', 'fearful', 'anxious',
-    'disappointed', 'discouraged', 'demotivated', 'uninspired', 'unfocused', 'disorganized',
-    'hate', 'terrible', 'awful', 'horrible', 'dreadful', 'miserable', 'frustrated', 'angry'
-  ];
-
-  let positive = 0;
-  let negative = 0;
-  let neutral = 0;
-
-  words.forEach(word => {
-    if (positiveWords.includes(word)) positive++;
-    else if (negativeWords.includes(word)) negative++;
-    else neutral++;
-  });
-
-  const total = words.length;
-  const confidence = total > 10 ? 0.8 : total > 5 ? 0.6 : 0.4;
-
-  return {
-    positive: positive / total,
-    negative: negative / total,
-    neutral: neutral / total,
-    confidence
-  };
-}
-
-function calculatePrincipleScore(principle: any, responses: string[], questionContext: string[]): {
-  score: number;
-  level: number;
-  confidence: number;
-  reasoning: string[];
-} {
-  let levelScores = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
-  const reasoning: string[] = [];
-
-  responses.forEach((response, index) => {
-    const responseLower = response.toLowerCase();
-    const sentiment = analyzeSentiment(response);
-    
-    // Analyze response against each level
-    Object.entries(principle.levels).forEach(([level, levelData]: [string, any]) => {
-      const levelNum = parseInt(level);
-      let levelScore = 0;
-      
-      // Check for level-specific keywords
-      levelData.keywords.forEach((keyword: string) => {
-        if (responseLower.includes(keyword.toLowerCase())) {
-          levelScore += 10;
-        }
-      });
-
-      // Sentiment analysis bonus/penalty
-      if (levelNum >= 4 && sentiment.positive > 0.3) {
-        levelScore += 15;
-      } else if (levelNum <= 2 && sentiment.negative > 0.3) {
-        levelScore += 10;
-      }
-
-      // Response quality bonus
-      if (response.length > 100) levelScore += 5;
-      if (response.split(' ').length > 20) levelScore += 5;
-
-      (levelScores as any)[levelNum] += levelScore;
-    });
-
-    // Add reasoning for this response
-    const questionContextText = questionContext[index] || 'Leadership question';
-    const responseAnalysis = `Response to "${questionContextText.substring(0, 50)}...": ${response.length > 50 ? 'Detailed' : 'Brief'} response with ${sentiment.positive > sentiment.negative ? 'positive' : sentiment.negative > sentiment.positive ? 'negative' : 'neutral'} sentiment`;
-    reasoning.push(responseAnalysis);
-  });
-
-  // Determine the most likely level
-  let bestLevel = 1;
-  let bestScore = levelScores[1];
-  
-  Object.entries(levelScores).forEach(([level, score]) => {
-    if (score > bestScore) {
-      bestScore = score;
-      bestLevel = parseInt(level);
-    }
-  });
-
-  // Convert level to score with stricter scaling (1-5 scale to 0-100)
-  // Make level 5 much harder to achieve - require exceptional evidence
-  const scoreMapping = [0, 15, 35, 60, 80, 95]; // More stringent score distribution
-  const score = scoreMapping[bestLevel] || 0;
-  
-  // Calculate confidence based on response consistency
-  const { consistency } = analyzeResponsePatterns(responses);
-  const confidence = Math.min(0.95, consistency / 100 + 0.5);
-
-  return {
-    score: Math.round(score),
-    level: bestLevel,
-    confidence,
-    reasoning
-  };
-}
-
-function detectResponsePatterns(responses: string[]): {
-  isRepetitive: boolean;
-  isEngaged: boolean;
-  isThoughtful: boolean;
-  patternType: string;
-} {
-  const { repetition, engagement, quality } = analyzeResponsePatterns(responses);
-  
-  const isRepetitive = repetition > 0.25; // Lower threshold for detecting repetition
-  const isEngaged = engagement > 80; // Higher bar for engagement
-  const isThoughtful = quality > 85; // Much higher bar for thoughtfulness
-  
-  let patternType = 'normal';
-  if (isRepetitive && !isEngaged) patternType = 'disengaged';
-  else if (isRepetitive && isEngaged) patternType = 'focused';
-  else if (!isRepetitive && isEngaged) patternType = 'thoughtful';
-  else if (!isRepetitive && !isEngaged) patternType = 'brief';
-  
-  return { isRepetitive, isEngaged, isThoughtful, patternType };
-}
+// Legacy function removed - now handled by AI evaluation
 
 // function parseScaleAnswer(content: string): number | null {
 //   const m = content?.match(/(\d{1,2})\s*out\s*of\s*10/i);
@@ -805,80 +644,17 @@ const deriveEvaluationFromMessages = useCallback(async (msgs: Array<{ message_ty
 
   } catch (error) {
     console.error('Error in AI evaluation:', error);
-      // Fallback to rule-based evaluation
-      return generateFallbackEvaluation(allResponses, conversationContext.slice(0, 1000));
+    // Fallback to rule-based evaluation with default values
+    return generateFallbackEvaluation(['Default response'], 'No context');
   }
 }, []);
 
+// Legacy functions removed - all evaluation logic now handled by AI
+
+
 // Legacy functions removed - using AI evaluation instead
-  
-  for (const msg of msgs) {
-    if (msg.message_type === 'bot' && msg.content !== 'Let me ask you more about that...') {
-      // Start new conversation pair
-      if (currentPair) {
-        pairs.push(currentPair);
-      }
-      currentPair = {
-        question: msg.content,
-        response: null,
-        followUpQuestion: null,
-        followUpResponse: null,
-        isFollowUp: false
-      };
-    } else if (msg.message_type === 'bot' && msg.content === 'Let me ask you more about that...') {
-      // This is a follow-up indicator, next bot message will be the follow-up question
-      if (currentPair) {
-        currentPair.hasFollowUpIndicator = true;
-      }
-    } else if (msg.message_type === 'user' && currentPair) {
-      if (!currentPair.response) {
-        currentPair.response = msg.content;
-      } else if (!currentPair.followUpResponse) {
-        currentPair.followUpResponse = msg.content;
-      }
-    }
-  }
-  
-  // Add the last pair
-  if (currentPair) {
-    pairs.push(currentPair);
-  }
-  
-  return pairs;
-}
 
-
-
-// Legacy functions removed
-  
-  let summary = `Level ${level}: ${levelData?.name || 'Developing'}. `;
-  
-  if (patternAnalysis.isRepetitive) {
-    summary += "Your responses show some repetition, which may indicate areas for deeper reflection. ";
-  } else if (patternAnalysis.isThoughtful) {
-    summary += "Your thoughtful responses demonstrate genuine engagement with this area. ";
-  }
-  
-  if (score >= 75) {
-    summary += "You demonstrate strong capability in this leadership principle. ";
-  } else if (score >= 50) {
-    summary += "You show developing capability with room for growth. ";
-  } else {
-    summary += "This area represents a key opportunity for development. ";
-  }
-  
-  return summary;
-}
-
-function getExperienceModifier(_frameworkKey: string, basicInfo: any): number {
-  const position = basicInfo.position.toLowerCase();
-  const isLeader = position.includes('director') || position.includes('manager') || position.includes('lead') || position.includes('head');
-  const isSenior = position.includes('senior') || position.includes('principal') || position.includes('chief');
-  
-  if (isSenior) return 8;
-  if (isLeader) return 5;
-  return 0;
-}
+// Legacy function removed - now handled by AI evaluation
 
 // function getTeamSizeModifier(frameworkKey: string, teamSize: string): number {
 //   const size = parseInt(teamSize) || 0;
@@ -914,91 +690,9 @@ function getExperienceModifier(_frameworkKey: string, basicInfo: any): number {
 //   return 0;
 // }
 
-// Legacy functions removed
-  const bottom3 = sortedFrameworks.slice(-3);
-  
-  // Analyze overall response patterns
-  const patternAnalysis = detectResponsePatterns(responses);
-  
-  // Generate persona based on top framework and response patterns
-  const topFramework = top3[0];
-  const persona = generatePersona(topFramework, basicInfo, patternAnalysis, responses);
-  
-  // Generate comprehensive summary
-  const avgScore = Math.round(frameworks.reduce((sum, f) => sum + (f.score || 0), 0) / frameworks.length);
-  const teamSizeNum = parseInt(basicInfo.teamSize) || 0;
-  
-  // Check for completely disengaged responses
-  const allSameResponse = responses.every(r => r.toLowerCase().trim() === responses[0]?.toLowerCase().trim());
-  const veryShortResponses = responses.every(r => r.trim().length <= 2);
-  
-  let summary = '';
-  
-  if (allSameResponse && veryShortResponses) {
-    summary = `WARNING: Your assessment responses indicate you did not genuinely engage with the leadership evaluation process. All responses were identical single characters ("${responses[0]?.trim()}"), suggesting the assessment was not completed seriously. These results do not reflect actual leadership capabilities and should not be used for development planning. Please retake the assessment with thoughtful, genuine responses to receive meaningful insights.`;
-  } else {
-    summary = `Based on your assessment responses, you demonstrate ${avgScore >= 70 ? 'strong' : avgScore >= 50 ? 'developing' : avgScore >= 10 ? 'emerging' : 'minimal'} leadership capabilities. `;
-    
-    if (followUpCount > 0) {
-      summary += `Your engagement with ${followUpCount} follow-up question${followUpCount > 1 ? 's' : ''} shows deeper reflection and commitment to the assessment process. `;
-    }
-    
-    if (patternAnalysis.isRepetitive) {
-      summary += "Your responses show significant repetition, suggesting you may benefit from more diverse reflection on leadership scenarios. ";
-    } else if (patternAnalysis.isThoughtful) {
-      summary += "Your thoughtful and detailed responses indicate genuine engagement with the assessment process. ";
-    }
-  }
-  
-  summary += `As a ${basicInfo.position} in ${basicInfo.role} leading ${teamSizeNum > 0 ? `a team of ${basicInfo.teamSize}` : 'your role'}, your strongest areas are `;
-  summary += `${top3.map(f => f.label).join(', ')}. `;
-  
-  if (basicInfo.motivation) {
-    summary += `Your motivation to ${basicInfo.motivation.toLowerCase()} aligns well with your leadership profile. `;
-  }
-  
-  summary += `Focus on developing ${bottom3[0]?.label} and ${bottom3[1]?.label} to become an even more well-rounded leader.`;
-  
-  return { persona, summary };
-}
+// Legacy functions removed - all evaluation logic now handled by AI
 
-// Enhanced persona generation
-function generatePersona(topFramework: FrameworkScore, _basicInfo: any, patternAnalysis: any, responses: string[] = []): string {
-  const personaMap: Record<string, string> = {
-    self_awareness: "Reflective Leader",
-    self_responsibility: "Accountable Leader", 
-    growth: "Growth-Oriented Leader",
-    psych_safety: "Trust-Building Leader",
-    empathy: "People-First Leader",
-    shared_resp: "Collaborative Leader",
-    purpose: "Vision-Driven Leader",
-    culture: "Culture-Shaping Leader",
-    tensions: "Conflict-Resolving Leader",
-    stakeholders: "Impact-Focused Leader",
-    change: "Adaptive Leader",
-    stewardship: "Ethical Leader"
-  };
-  
-  // Check for completely disengaged responses
-  const allSameResponse = responses.length > 0 && responses.every(r => r.toLowerCase().trim() === responses[0]?.toLowerCase().trim());
-  const veryShortResponses = responses.length > 0 && responses.every(r => r.trim().length <= 2);
-  
-  let persona = '';
-  
-  if (allSameResponse && veryShortResponses) {
-    persona = "Assessment Not Completed (Invalid)";
-  } else {
-    persona = personaMap[topFramework.key] || "Emerging Leader";
-    
-    if (patternAnalysis.isRepetitive) {
-      persona += " (Developing)";
-    } else if (patternAnalysis.isThoughtful) {
-      persona += " (Engaged)";
-    }
-  }
-  
-  return persona;
-}
+// Legacy function removed - now handled by AI evaluation
 
 const getDefaultEvaluation = (): EvaluationData => {
   const frameworks: FrameworkScore[] = Object.values(LEADERSHIP_PRINCIPLES).map((principle) => ({
