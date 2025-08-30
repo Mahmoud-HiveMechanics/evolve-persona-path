@@ -73,9 +73,9 @@ serve(async (req) => {
       throw new Error('OpenAI API key not configured');
     }
 
-    if (!responses || responses.length === 0) {
-      console.error('No responses provided for evaluation');
-      throw new Error('No responses provided for evaluation');
+    if (!responses || !Array.isArray(responses) || responses.length === 0) {
+      console.error('No valid responses provided for evaluation');
+      throw new Error('No valid responses provided for evaluation');
     }
 
     console.log('Starting framework analysis...');
