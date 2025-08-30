@@ -3,9 +3,10 @@ export type FrameworkQuestion = {
   section: 'self_perception' | 'scenarios' | 'behavioral';
   title: string;
   assesses: string[];
-  type: 'multiple-choice' | 'open-ended';
+  type: 'multiple-choice' | 'open-ended' | 'most-least-choice';
   text: string;
   options?: string[]; // for MCQ
+  most_least_options?: string[]; // for Most/Least choice
   followups: {
     insufficient?: string;
     surface?: string;

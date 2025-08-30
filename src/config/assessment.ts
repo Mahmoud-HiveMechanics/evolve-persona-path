@@ -7,8 +7,9 @@ export type Profile = {
 
 export type Question = {
   template: string;
-  type: 'multiple-choice' | 'open-ended' | 'scale';
+  type: 'multiple-choice' | 'open-ended' | 'scale' | 'most-least-choice';
   options?: string[];
+  most_least_options?: string[];
   scale_info?: {
     min: number;
     max: number;
@@ -39,6 +40,18 @@ export const assessmentSections: AssessmentSection[] = [
           "I try to find common ground first",
           "I involve HR or other stakeholders",
           "I wait for the right moment and setting"
+        ],
+        targeting: {}
+      },
+      {
+        template: "When facing a leadership challenge, which approach resonates most and least with you?",
+        type: "most-least-choice",
+        most_least_options: [
+          "Take immediate decisive action based on available information",
+          "Gather input from multiple stakeholders before deciding",
+          "Analyze past similar situations for guidance",
+          "Trust your intuition and experience",
+          "Focus on potential long-term consequences"
         ],
         targeting: {}
       }

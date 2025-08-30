@@ -5,6 +5,7 @@ export type ConcreteQuestion = {
   question: string;
   type: Question['type'];
   options?: string[];
+  most_least_options?: string[];
   scale_info?: Question['scale_info'];
   aiRewrite?: boolean;
 };
@@ -18,6 +19,7 @@ export function buildPersonalizedQuestions(profile: Profile): ConcreteQuestion[]
         question: renderTemplate(q.template, profile),
         type: q.type,
         options: q.options,
+        most_least_options: q.most_least_options,
         scale_info: q.scale_info,
         aiRewrite: q.aiRewrite,
       });

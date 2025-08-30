@@ -5,7 +5,7 @@ export interface ChatMessage {
   type: 'bot' | 'user';
   content: string;
   timestamp: Date;
-  questionType?: 'multiple-choice' | 'open-ended' | 'scale';
+  questionType?: 'multiple-choice' | 'open-ended' | 'scale' | 'most-least-choice';
   options?: string[];
   scaleInfo?: {
     min: number;
@@ -17,11 +17,14 @@ export interface ChatMessage {
   scaleMax?: number;
   scaleLabels?: string[];
   isQuestion?: boolean;
+  mostLeastOptions?: string[];
+  mostSelection?: string;
+  leastSelection?: string;
 }
 
 export interface AssistantQuestion {
   question: string;
-  type: 'multiple-choice' | 'open-ended' | 'scale';
+  type: 'multiple-choice' | 'open-ended' | 'scale' | 'most-least-choice';
   options?: string[];
   scale_info?: {
     min: number;
@@ -29,6 +32,7 @@ export interface AssistantQuestion {
     min_label: string;
     max_label: string;
   };
+  most_least_options?: string[];
 }
 
 export interface FrameworkScore {

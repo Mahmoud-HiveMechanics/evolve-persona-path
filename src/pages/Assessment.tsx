@@ -4,6 +4,7 @@ import { Button } from '../components/ui/button';
 import { Textarea } from '../components/ui/textarea';
 import { Slider } from '../components/ui/slider';
 import { ArrowRight, Send, User, Bot, Mic, Square, Check } from 'lucide-react';
+import { MostLeastChoice } from '../components/MostLeastChoice';
 import { supabase } from '@/integrations/supabase/client';
 
 import { useConversation } from '../hooks/useConversation';
@@ -33,6 +34,8 @@ export const Assessment = () => {
   const recordedChunksRef = useRef<BlobPart[]>([]);
   const [mcPending, setMcPending] = useState(false);
   const [mcOtherValue, setMcOtherValue] = useState('');
+  const [mostSelection, setMostSelection] = useState<string | undefined>();
+  const [leastSelection, setLeastSelection] = useState<string | undefined>();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   // Track last shown question to prevent duplicates and count MC in opening phase
   // Remove unused lastQuestionText to satisfy linter
@@ -108,6 +111,24 @@ export const Assessment = () => {
       'I build an innovation pipeline, not just one-offs'
     ]
   ];
+
+  // Most/Least Choice option sets for deeper personality assessment
+  const MOST_LEAST_OPTION_SETS: string[][] = [
+    [
+      'Make decisions quickly with available information',
+      'Seek input from multiple stakeholders before deciding',
+      'Analyze past similar situations for guidance',
+      'Trust my intuition and leadership experience',
+      'Focus primarily on long-term strategic consequences'
+    ],
+    [
+      'Address team conflicts directly and immediately',
+      'Create structured processes to prevent conflicts',
+      'Focus on building stronger team relationships',
+      'Delegate conflict resolution to team members',
+      'Use conflicts as learning opportunities for growth'
+    ]
+  ];
   const askedMcOptionSigsRef = useRef<Set<string>>(new Set());
   const normalizeOption = (s: string) =>
     s.toLowerCase().replace(/[^a-z0-9\s]/g, '').replace(/\s+/g, ' ').trim();
@@ -147,6 +168,7 @@ export const Assessment = () => {
         question: qText,
         type: next.type,
         options: next.options,
+        most_least_options: next.most_least_options,
       } as any;
       setCurrentQuestion(q);
       return;
@@ -183,7 +205,7 @@ export const Assessment = () => {
       let questionText: string | undefined = typeof json?.question === 'string' ? json.question.trim() : undefined;
       let qType: any = json?.type;
       let options = Array.isArray(json?.options) ? json.options : undefined;
-      const validType = (t: any) => (t === 'multiple-choice' || t === 'open-ended' || t === 'scale');
+      const validType = (t: any) => (t === 'multiple-choice' || t === 'open-ended' || t === 'scale' || t === 'most-least-choice');
 
       if (!validType(qType)) qType = mustBeMC ? 'multiple-choice' : 'open-ended';
 
@@ -215,10 +237,20 @@ export const Assessment = () => {
         qType = 'multiple-choice';
       }
 
+      // Handle most-least-choice type
+      if (qType === 'most-least-choice') {
+        let mostLeastOptions = json?.most_least_options;
+        if (!mostLeastOptions || mostLeastOptions.length < 4) {
+          // Use predefined option set as fallback
+          mostLeastOptions = MOST_LEAST_OPTION_SETS[0];
+        }
+      }
+
       setCurrentQuestion({
         question: questionText!,
         type: qType,
         options,
+        most_least_options: json?.most_least_options || (qType === 'most-least-choice' ? MOST_LEAST_OPTION_SETS[0] : undefined),
         scale_info: json?.scale_info
       } as any);
     } catch (_e) {
@@ -312,6 +344,7 @@ export const Assessment = () => {
         isQuestion: true,
         questionType: currentQuestion.type,
         options: currentQuestion.options,
+        mostLeastOptions: currentQuestion.most_least_options,
         scaleInfo: currentQuestion.scale_info
       });
       setShowCurrentQuestion(true);
@@ -424,6 +457,26 @@ export const Assessment = () => {
     await addMessage('user', scaleResponse);
     setShowCurrentQuestion(false);
     setScaleValue([5]); // Reset to middle value
+
+    // Clear current question first to ensure clean state
+    setCurrentQuestion(null);
+
+    // Stop after minimum number of questions
+    if (askedQuestionsRef.current.size >= MIN_QUESTIONS) {
+      setIsComplete(true);
+      return;
+    }
+    
+    // Ask the model for the next question
+    await getNextQuestionFromAI();
+  };
+
+  const handleMostLeastAnswer = async (most: string, least: string) => {
+    const response = `Most like me: ${most}\nLeast like me: ${least}`;
+    await addMessage('user', response);
+    setShowCurrentQuestion(false);
+    setMostSelection(undefined);
+    setLeastSelection(undefined);
 
     // Clear current question first to ensure clean state
     setCurrentQuestion(null);
@@ -853,6 +906,24 @@ export const Assessment = () => {
                               Submit Rating
                             </Button>
                           </div>
+                        )}
+
+                        {message.questionType === 'most-least-choice' && message.mostLeastOptions && (
+                          <MostLeastChoice
+                            options={message.mostLeastOptions}
+                            mostSelection={mostSelection}
+                            leastSelection={leastSelection}
+                            onSelectionChange={(most, least) => {
+                              setMostSelection(most);
+                              setLeastSelection(least);
+                            }}
+                            onSubmit={() => {
+                              if (mostSelection && leastSelection) {
+                                handleMostLeastAnswer(mostSelection, leastSelection);
+                              }
+                            }}
+                            disabled={false}
+                          />
                         )}
                       </div>
                     )}
