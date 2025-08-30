@@ -141,13 +141,13 @@ CRITICAL EVALUATION CRITERIA:
 5. **Authenticity**: Genuine responses vs. rehearsed or idealistic answers
 6. **Leadership Maturity**: Demonstrates understanding of leadership complexity
 
-STRICT SCORING GUIDELINES (Be Critical):
-- 85-100: EXCEPTIONAL - Deep insights, multiple specific examples, sophisticated leadership thinking, clear evidence of mastery
-- 70-84: STRONG - Good examples, solid understanding, demonstrates competence with room for growth
-- 55-69: DEVELOPING - Basic understanding, limited examples, shows potential but needs development
-- 40-54: EMERGING - Minimal evidence, surface-level responses, significant development needed
-- 25-39: CONCERNING - Little to no evidence, unclear responses, major gaps in understanding
-- 0-24: INADEQUATE - No evidence or concerning responses that suggest leadership challenges
+STRICT SCORING GUIDELINES (Be Critical and Rigorous):
+- 90-100: EXCEPTIONAL - Profound insights, multiple concrete examples, sophisticated leadership wisdom, clear mastery evidence
+- 75-89: STRONG - Good examples with depth, solid understanding, demonstrates clear competence 
+- 60-74: DEVELOPING - Some understanding, limited examples, shows potential but needs significant development
+- 45-59: EMERGING - Minimal evidence, surface-level responses, major development needed
+- 30-44: CONCERNING - Very little evidence, unclear responses, substantial gaps in understanding
+- 0-29: INADEQUATE - No evidence or concerning responses that suggest serious leadership challenges
 
 ANALYSIS REQUIREMENTS:
 - Quote specific phrases from their responses as evidence
@@ -165,7 +165,7 @@ Provide your response in this exact JSON format:
   "evidence": "[Direct quotes from responses that support your assessment]"
 }
 
-BE CRITICAL. Most people score in the 40-70 range. High scores (80+) require exceptional evidence.`;
+BE CRITICAL. Most people score in the 30-60 range. High scores (75+) require exceptional evidence with concrete examples.`;
 
   try {
     console.log(`Making OpenAI API call for ${framework.label}...`);
@@ -238,22 +238,22 @@ function calculateFallbackScore(responses: string[], frameworkKey: string): numb
   const responseText = responses.join(' ').toLowerCase();
   const responseLength = responseText.length;
   
-  // Base score on response quality
-  let score = 30; // Start at emerging level
+  // Base score on response quality - more stringent
+  let score = 20; // Start at concerning level
   
-  // Length factor (more detailed responses get higher scores)
-  if (responseLength > 500) score += 15;
-  else if (responseLength > 200) score += 10;
-  else if (responseLength > 100) score += 5;
+  // Length factor (more detailed responses get higher scores) - more stringent
+  if (responseLength > 800) score += 12;
+  else if (responseLength > 400) score += 8;
+  else if (responseLength > 200) score += 4;
   
-  // Look for specific leadership keywords
+  // Look for specific leadership keywords - more stringent
   const leadershipKeywords = ['team', 'manage', 'lead', 'decision', 'responsibility', 'growth', 'feedback', 'challenge', 'conflict', 'vision', 'goal', 'strategy'];
   const keywordCount = leadershipKeywords.filter(keyword => responseText.includes(keyword)).length;
-  score += keywordCount * 3;
+  score += keywordCount * 2; // Reduced from 3 to 2
   
-  // Look for examples and specificity
-  if (responseText.includes('example') || responseText.includes('instance') || responseText.includes('situation')) score += 8;
-  if (responseText.includes('learned') || responseText.includes('improved') || responseText.includes('developed')) score += 7;
+  // Look for examples and specificity - more stringent
+  if (responseText.includes('example') || responseText.includes('instance') || responseText.includes('situation')) score += 6;
+  if (responseText.includes('learned') || responseText.includes('improved') || responseText.includes('developed')) score += 5;
   
   // Framework-specific keywords
   const frameworkKeywords: Record<string, string[]> = {
@@ -273,12 +273,12 @@ function calculateFallbackScore(responses: string[], frameworkKey: string): numb
   
   const specificKeywords = frameworkKeywords[frameworkKey] || [];
   const specificMatches = specificKeywords.filter(keyword => responseText.includes(keyword)).length;
-  score += specificMatches * 4;
+  score += specificMatches * 3; // Reduced from 4 to 3
   
   // Add some variance to avoid identical scores
   score += Math.random() * 10 - 5;
   
-  return Math.max(25, Math.min(75, Math.round(score))); // Cap between 25-75 for fallback
+  return Math.max(15, Math.min(65, Math.round(score))); // Cap between 15-65 for fallback
 }
 
 async function generateOverallAssessment(frameworks: FrameworkScore[], responses: string[], conversationContext: string) {
@@ -309,11 +309,11 @@ ANALYSIS REQUIREMENTS:
    - Provides actionable insights for growth
 
 SCORING CONTEXT:
-- 80+: Exceptional leadership capability
-- 65-79: Strong competence with growth potential  
-- 50-64: Developing leader with foundational skills
-- 35-49: Emerging leader needing significant development
-- Below 35: Early-stage leadership development required
+- 75+: Exceptional leadership capability
+- 60-74: Strong competence with growth potential  
+- 45-59: Developing leader with foundational skills
+- 30-44: Emerging leader needing significant development
+- Below 30: Early-stage leadership development required
 
 Provide your response in this exact JSON format:
 {
@@ -376,11 +376,11 @@ Provide your response in this exact JSON format:
 }
 
 function getPersonaFromScore(avgScore: number): string {
-  if (avgScore >= 80) return LEADERSHIP_PERSONAS[0]; // Visionary
-  if (avgScore >= 70) return LEADERSHIP_PERSONAS[1]; // Collaborative
-  if (avgScore >= 60) return LEADERSHIP_PERSONAS[2]; // Strategic
-  if (avgScore >= 50) return LEADERSHIP_PERSONAS[3]; // Empowering
-  if (avgScore >= 40) return LEADERSHIP_PERSONAS[4]; // Adaptive
+  if (avgScore >= 75) return LEADERSHIP_PERSONAS[0]; // Visionary
+  if (avgScore >= 65) return LEADERSHIP_PERSONAS[1]; // Collaborative
+  if (avgScore >= 55) return LEADERSHIP_PERSONAS[2]; // Strategic
+  if (avgScore >= 45) return LEADERSHIP_PERSONAS[3]; // Empowering
+  if (avgScore >= 35) return LEADERSHIP_PERSONAS[4]; // Adaptive
   return LEADERSHIP_PERSONAS[5]; // Results-Driven
 }
 
@@ -388,11 +388,11 @@ function generatePersonalizedSummary(avgScore: number, topFrameworks: FrameworkS
   const strengthsText = topFrameworks.length > 0 ? topFrameworks[0].label : 'leadership fundamentals';
   const growthText = lowestFrameworks.length > 0 ? lowestFrameworks[0].label : 'core leadership skills';
   
-  if (avgScore >= 75) {
+  if (avgScore >= 70) {
     return `Your assessment reveals strong leadership capabilities with particular strength in ${strengthsText}. You demonstrate solid competencies across multiple leadership dimensions. Focus on further developing ${growthText} to reach exceptional leadership levels.`;
-  } else if (avgScore >= 60) {
+  } else if (avgScore >= 55) {
     return `Your leadership assessment shows developing competencies with notable strength in ${strengthsText}. You have foundational leadership skills with clear potential for growth. Prioritizing development in ${growthText} will accelerate your leadership effectiveness.`;
-  } else if (avgScore >= 45) {
+  } else if (avgScore >= 40) {
     return `Your assessment indicates emerging leadership potential with some strength in ${strengthsText}. You show foundational awareness but would benefit from focused development. Concentrate on building ${growthText} and seeking mentorship opportunities.`;
   } else {
     return `Your assessment suggests early-stage leadership development with potential in ${strengthsText}. This represents an excellent starting point for your leadership journey. Focus on developing ${growthText} through training, practice, and guidance from experienced leaders.`;
