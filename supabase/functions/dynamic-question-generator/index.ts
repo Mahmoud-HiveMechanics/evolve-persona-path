@@ -189,7 +189,6 @@ OUTPUT FORMAT: Respond with ONLY valid JSON in exactly this format:
   "needsFollowUp": true,
   "followUpReasons": ["specific reason for follow-up"]
 }
-```
 
 CRITICAL: Return ONLY the JSON object above. No additional text, explanations, or formatting.
 Be ruthlessly honest in your assessment. Most leadership responses are surface-level.
