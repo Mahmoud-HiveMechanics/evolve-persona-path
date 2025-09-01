@@ -176,7 +176,8 @@ ANALYSIS REQUIREMENTS:
 - Is there potential for deeper exploration?
 - Are there gaps in their leadership narrative?
 
-OUTPUT FORMAT (JSON only):
+OUTPUT FORMAT: Respond with ONLY valid JSON in exactly this format:
+```json
 {
   "qualityScore": number,
   "depth": "surface|moderate|deep",
@@ -189,7 +190,9 @@ OUTPUT FORMAT (JSON only):
   "needsFollowUp": boolean,
   "followUpReasons": ["specific reason for follow-up"]
 }
+```
 
+CRITICAL: Return ONLY the JSON object above. No additional text, explanations, or formatting.
 Be ruthlessly honest in your assessment. Most leadership responses are surface-level.
 `;
 
@@ -213,7 +216,47 @@ Be ruthlessly honest in your assessment. Most leadership responses are surface-l
   }
 
   const data = await response_api.json();
-  return JSON.parse(data.choices[0].message.content);
+  
+  // Validate OpenAI response structure
+  if (!data.choices || !data.choices[0] || !data.choices[0].message || !data.choices[0].message.content) {
+    console.error('Invalid OpenAI response structure:', JSON.stringify(data));
+    throw new Error('Invalid response from OpenAI API');
+  }
+  
+  const content = data.choices[0].message.content.trim();
+  
+  // Add error handling for JSON parsing
+  try {
+    const parsed = JSON.parse(content);
+    
+    // Validate required fields for ResponseAnalysis
+    if (typeof parsed.qualityScore !== 'number' || 
+        !parsed.depth || 
+        !parsed.leadershipInsights ||
+        typeof parsed.needsFollowUp !== 'boolean') {
+      console.error('Invalid response analysis structure:', parsed);
+      throw new Error('Response analysis missing required fields');
+    }
+    
+    return parsed;
+  } catch (parseError) {
+    console.error('Failed to parse OpenAI response as JSON. Content:', content);
+    console.error('Parse error:', parseError);
+    
+    // Return a minimal valid response as fallback
+    return {
+      qualityScore: 3,
+      depth: 'surface',
+      leadershipInsights: {
+        strengths: [],
+        gaps: ['Unable to analyze response due to parsing error'],
+        contradictions: [],
+        principles: {}
+      },
+      needsFollowUp: true,
+      followUpReasons: ['Previous response could not be analyzed, asking for clarification']
+    };
+  }
 }
 
 async function generateContextualQuestion(
@@ -287,18 +330,23 @@ Target unexplored principles:
 - Use "scale" for self-assessment ratings
 - Keep questions conversational and natural
 
-OUTPUT FORMAT (JSON only):
+OUTPUT FORMAT: Respond with ONLY valid JSON in exactly this format:
+```json
 {
   "question": "The exact question to ask",
   "type": "open-ended|multiple-choice|scale|most-least-choice", 
-  "options": ["option1", "option2"] (only if multiple-choice),
-  "scale_info": {"min": 1, "max": 5, "min_label": "Never", "max_label": "Always"} (only if scale),
+  "options": ["option1", "option2"],
+  "scale_info": {"min": 1, "max": 5, "min_label": "Never", "max_label": "Always"},
   "reasoning": "Why this question was chosen",
   "followUpType": "clarification|depth|challenge|contradiction|scenario",
   "targetedPrinciples": ["Leadership principles this question explores"]
 }
+```
 
-CRITICAL: Make the question feel natural and conversational, not robotic or formal.
+CRITICAL: 
+- Return ONLY the JSON object above. No additional text, explanations, or formatting.
+- Make the question feel natural and conversational, not robotic or formal.
+- Include "options" and "scale_info" fields only if the type requires them.
 `;
 
   const response_api = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -321,7 +369,39 @@ CRITICAL: Make the question feel natural and conversational, not robotic or form
   }
 
   const data = await response_api.json();
-  return JSON.parse(data.choices[0].message.content);
+  
+  // Validate OpenAI response structure
+  if (!data.choices || !data.choices[0] || !data.choices[0].message || !data.choices[0].message.content) {
+    console.error('Invalid OpenAI response structure for question generation:', JSON.stringify(data));
+    throw new Error('Invalid response from OpenAI API');
+  }
+  
+  const content = data.choices[0].message.content.trim();
+  
+  // Add error handling for JSON parsing
+  try {
+    const parsed = JSON.parse(content);
+    
+    // Validate required fields for QuestionResponse
+    if (!parsed.question || !parsed.type) {
+      console.error('Invalid question response structure:', parsed);
+      throw new Error('Generated question missing required fields');
+    }
+    
+    return parsed;
+  } catch (parseError) {
+    console.error('Failed to parse OpenAI question response as JSON. Content:', content);
+    console.error('Parse error:', parseError);
+    
+    // Return a fallback question
+    return {
+      question: "Can you tell me more about a specific leadership challenge you faced recently? What exactly happened, and how did you handle it?",
+      type: 'open-ended',
+      reasoning: 'Fallback question due to parsing error',
+      followUpType: 'clarification',
+      targetedPrinciples: ['Self-Awareness', 'Self-Responsibility']
+    };
+  }
 }
 
 async function updateConversationPersona(

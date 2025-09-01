@@ -210,14 +210,33 @@ export const Assessment = () => {
           setCurrentQuestion(q);
           setAiProcessing(false);
           return;
+        } else {
+          console.warn('Dynamic generation returned unsuccessful response:', dynamicData);
         }
       } catch (dynamicError) {
         console.error('Dynamic question generation failed:', dynamicError);
       }
     }
 
-      // 4) Final fallback - AI generated question
-      try {
+    // 3) Fallback to remaining framework questions if available
+    if (askedCount < ASSESSMENT_FRAMEWORK.length) {
+      console.log('Using remaining framework question as fallback');
+      const next = ASSESSMENT_FRAMEWORK[askedCount];
+      const qText = ensureUniqueQuestion(next.text, next.type === 'multiple-choice');
+      const q = {
+        question: qText,
+        type: next.type,
+        options: next.options,
+        most_least_options: next.most_least_options,
+      } as any;
+      setCurrentQuestion(q);
+      setAiProcessing(false);
+      return;
+    }
+
+    // 4) Final fallback - generic question
+    console.log('Using final fallback question');
+    try {
         const history = messages
         .map(m => `${m.type === 'bot' ? 'Q' : 'A'}: ${m.content}`)
         .join('\n');
