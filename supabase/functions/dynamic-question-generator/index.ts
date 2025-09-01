@@ -177,17 +177,16 @@ ANALYSIS REQUIREMENTS:
 - Are there gaps in their leadership narrative?
 
 OUTPUT FORMAT: Respond with ONLY valid JSON in exactly this format:
-```json
 {
-  "qualityScore": number,
-  "depth": "surface|moderate|deep",
+  "qualityScore": 7,
+  "depth": "moderate",
   "leadershipInsights": {
     "strengths": ["specific strength with evidence"],
     "gaps": ["specific gap or blind spot"],
     "contradictions": ["any contradictions noted"],
-    "principles": {"Principle Name": score}
+    "principles": {"Self-Awareness": 8, "Trust and Psychological Safety": 6}
   },
-  "needsFollowUp": boolean,
+  "needsFollowUp": true,
   "followUpReasons": ["specific reason for follow-up"]
 }
 ```
@@ -331,17 +330,13 @@ Target unexplored principles:
 - Keep questions conversational and natural
 
 OUTPUT FORMAT: Respond with ONLY valid JSON in exactly this format:
-```json
 {
-  "question": "The exact question to ask",
-  "type": "open-ended|multiple-choice|scale|most-least-choice", 
-  "options": ["option1", "option2"],
-  "scale_info": {"min": 1, "max": 5, "min_label": "Never", "max_label": "Always"},
-  "reasoning": "Why this question was chosen",
-  "followUpType": "clarification|depth|challenge|contradiction|scenario",
-  "targetedPrinciples": ["Leadership principles this question explores"]
+  "question": "Can you give me a specific example of when you had to handle a difficult team situation?",
+  "type": "open-ended", 
+  "reasoning": "Seeking concrete evidence and specific examples",
+  "followUpType": "clarification",
+  "targetedPrinciples": ["Self-Awareness", "Trust and Psychological Safety"]
 }
-```
 
 CRITICAL: 
 - Return ONLY the JSON object above. No additional text, explanations, or formatting.
