@@ -320,6 +320,7 @@ export const Assessment = () => {
         type: mustBeMC ? 'multiple-choice' : 'open-ended',
         options: mustBeMC ? MC_OPTION_SETS[mcAskedCount % MC_OPTION_SETS.length] : undefined
       } as any);
+    }
     
     setAiProcessing(false);
   };
