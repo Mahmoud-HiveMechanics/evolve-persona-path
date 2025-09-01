@@ -110,7 +110,7 @@ export const useConversation = () => {
     if (!user || !conversationId) return;
 
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('messages')
         .insert({
           conversation_id: conversationId,
@@ -121,12 +121,16 @@ export const useConversation = () => {
           question_options: message.options,
           question_scale_min: message.scaleMin,
           question_scale_max: message.scaleMax,
-          question_scale_labels: message.scaleLabels
-        });
+          question_scale_labels: message.scaleLabels,
+          generated_by_ai: false
+        })
+        .select();
 
       if (error) throw error;
+      return data;
     } catch (error) {
       console.error('Error saving message:', error);
+      throw error;
     }
   };
 

@@ -158,11 +158,59 @@ export const Assessment = () => {
       return;
     }
 
-    // 1) Use structured framework first: ask next unseen question by index
+    // 1) Use structured framework first for opening questions
     const askedCount = askedQuestionsRef.current.size;
-    if (askedCount < ASSESSMENT_FRAMEWORK.length) {
+    if (askedCount < 3) {
       const next = ASSESSMENT_FRAMEWORK[askedCount];
       // Ensure uniqueness via normalized tracking
+      const qText = ensureUniqueQuestion(next.text, next.type === 'multiple-choice');
+      const q = {
+        question: qText,
+        type: next.type,
+        options: next.options,
+        most_least_options: next.most_least_options,
+      } as any;
+      setCurrentQuestion(q);
+      return;
+    }
+
+    // 2) Try dynamic question generation for adaptive questioning
+    const lastUserMessage = messages.filter(m => m.type === 'user').slice(-1)[0];
+    if (lastUserMessage && conversationId) {
+      try {
+        const { data: dynamicData, error: dynamicError } = await supabase.functions.invoke('dynamic-question-generator', {
+          body: {
+            conversationId,
+            lastResponse: lastUserMessage.content,
+            currentPersona: {}, // Will be populated from database
+            conversationHistory: messages.slice(-5), // Last 5 messages for context
+            frameworkQuestions: ASSESSMENT_FRAMEWORK,
+            questionCount: askedCount
+          }
+        });
+
+        if (!dynamicError && dynamicData?.success && dynamicData?.question) {
+          console.log('Using dynamic question:', dynamicData.question);
+          
+          const q = {
+            question: dynamicData.question.question,
+            type: dynamicData.question.type || 'open-ended',
+            options: dynamicData.question.options,
+            most_least_options: dynamicData.question.most_least_options,
+            scale_info: dynamicData.question.scale_info
+          } as any;
+          
+          setCurrentQuestion(q);
+          return;
+        }
+      } catch (dynamicError) {
+        console.error('Dynamic question generation failed:', dynamicError);
+      }
+    }
+
+    // 3) Fallback to remaining framework questions
+    if (askedCount < ASSESSMENT_FRAMEWORK.length) {
+      const next = ASSESSMENT_FRAMEWORK[askedCount];
       const qText = ensureUniqueQuestion(next.text, next.type === 'multiple-choice');
       const q = {
         question: qText,

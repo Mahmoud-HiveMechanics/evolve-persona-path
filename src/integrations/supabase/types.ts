@@ -20,6 +20,7 @@ export type Database = {
           assistant_id: string | null
           completed_at: string | null
           id: string
+          persona_snapshot: Json | null
           started_at: string
           status: string | null
           thread_id: string | null
@@ -30,6 +31,7 @@ export type Database = {
           assistant_id?: string | null
           completed_at?: string | null
           id?: string
+          persona_snapshot?: Json | null
           started_at?: string
           status?: string | null
           thread_id?: string | null
@@ -40,6 +42,7 @@ export type Database = {
           assistant_id?: string | null
           completed_at?: string | null
           id?: string
+          persona_snapshot?: Json | null
           started_at?: string
           status?: string | null
           thread_id?: string | null
@@ -47,44 +50,91 @@ export type Database = {
         }
         Relationships: []
       }
+      evaluations: {
+        Row: {
+          conversation_id: string
+          created_at: string
+          data: Json | null
+          id: string
+          summary: string | null
+          user_id: string
+        }
+        Insert: {
+          conversation_id: string
+          created_at?: string
+          data?: Json | null
+          id?: string
+          summary?: string | null
+          user_id: string
+        }
+        Update: {
+          conversation_id?: string
+          created_at?: string
+          data?: Json | null
+          id?: string
+          summary?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "evaluations_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       messages: {
         Row: {
           content: string
           conversation_id: string
           created_at: string
+          generated_by_ai: boolean | null
           id: string
+          leadership_insights: Json | null
           message_type: string
           question_options: Json | null
           question_scale_labels: Json | null
           question_scale_max: number | null
           question_scale_min: number | null
           question_type: string | null
+          requires_followup: boolean | null
+          response_quality_score: number | null
           user_id: string
         }
         Insert: {
           content: string
           conversation_id: string
           created_at?: string
+          generated_by_ai?: boolean | null
           id?: string
+          leadership_insights?: Json | null
           message_type: string
           question_options?: Json | null
           question_scale_labels?: Json | null
           question_scale_max?: number | null
           question_scale_min?: number | null
           question_type?: string | null
+          requires_followup?: boolean | null
+          response_quality_score?: number | null
           user_id: string
         }
         Update: {
           content?: string
           conversation_id?: string
           created_at?: string
+          generated_by_ai?: boolean | null
           id?: string
+          leadership_insights?: Json | null
           message_type?: string
           question_options?: Json | null
           question_scale_labels?: Json | null
           question_scale_max?: number | null
           question_scale_min?: number | null
           question_type?: string | null
+          requires_followup?: boolean | null
+          response_quality_score?: number | null
           user_id?: string
         }
         Relationships: [
