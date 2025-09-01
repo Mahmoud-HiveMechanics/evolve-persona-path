@@ -4,6 +4,7 @@ import { Button } from '../components/ui/button';
 import { Textarea } from '../components/ui/textarea';
 import { Slider } from '../components/ui/slider';
 import { ArrowRight, Send, User, Bot, Mic, Square, Check } from 'lucide-react';
+import { Skeleton } from '../components/ui/skeleton';
 import { MostLeastChoice } from '../components/MostLeastChoice';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -36,6 +37,7 @@ export const Assessment = () => {
   const [mcOtherValue, setMcOtherValue] = useState('');
   const [mostSelection, setMostSelection] = useState<string | undefined>();
   const [leastSelection, setLeastSelection] = useState<string | undefined>();
+  const [aiProcessing, setAiProcessing] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   // Track last shown question to prevent duplicates and count MC in opening phase
   // Remove unused lastQuestionText to satisfy linter
@@ -158,6 +160,8 @@ export const Assessment = () => {
       return;
     }
 
+    setAiProcessing(true);
+    
     // 1) Use structured framework first for opening questions
     const askedCount = askedQuestionsRef.current.size;
     if (askedCount < 3) {
@@ -171,59 +175,62 @@ export const Assessment = () => {
         most_least_options: next.most_least_options,
       } as any;
       setCurrentQuestion(q);
+      setAiProcessing(false);
       return;
     }
 
-    // 2) Try dynamic question generation for adaptive questioning
-    const lastUserMessage = messages.filter(m => m.type === 'user').slice(-1)[0];
-    if (lastUserMessage && conversationId) {
-      try {
-        const { data: dynamicData, error: dynamicError } = await supabase.functions.invoke('dynamic-question-generator', {
-          body: {
-            conversationId,
-            lastResponse: lastUserMessage.content,
-            currentPersona: {}, // Will be populated from database
-            conversationHistory: messages.slice(-5), // Last 5 messages for context
-            frameworkQuestions: ASSESSMENT_FRAMEWORK,
-            questionCount: askedCount
+      // 2) Try dynamic question generation for adaptive questioning
+      const lastUserMessage = messages.filter(m => m.type === 'user').slice(-1)[0];
+      if (lastUserMessage && conversationId) {
+        try {
+          const { data: dynamicData, error: dynamicError } = await supabase.functions.invoke('dynamic-question-generator', {
+            body: {
+              conversationId,
+              lastResponse: lastUserMessage.content,
+              currentPersona: {}, // Will be populated from database
+              conversationHistory: messages.slice(-5), // Last 5 messages for context
+              frameworkQuestions: ASSESSMENT_FRAMEWORK,
+              questionCount: askedCount
+            }
+          });
+
+          if (!dynamicError && dynamicData?.success && dynamicData?.question) {
+            console.log('Using dynamic question:', dynamicData.question);
+            
+            const q = {
+              question: dynamicData.question.question,
+              type: dynamicData.question.type || 'open-ended',
+              options: dynamicData.question.options,
+              most_least_options: dynamicData.question.most_least_options,
+              scale_info: dynamicData.question.scale_info
+            } as any;
+            
+            setCurrentQuestion(q);
+            return;
           }
-        });
-
-        if (!dynamicError && dynamicData?.success && dynamicData?.question) {
-          console.log('Using dynamic question:', dynamicData.question);
-          
-          const q = {
-            question: dynamicData.question.question,
-            type: dynamicData.question.type || 'open-ended',
-            options: dynamicData.question.options,
-            most_least_options: dynamicData.question.most_least_options,
-            scale_info: dynamicData.question.scale_info
-          } as any;
-          
-          setCurrentQuestion(q);
-          return;
+        } catch (dynamicError) {
+          console.error('Dynamic question generation failed:', dynamicError);
         }
-      } catch (dynamicError) {
-        console.error('Dynamic question generation failed:', dynamicError);
       }
-    }
 
-    // 3) Fallback to remaining framework questions
-    if (askedCount < ASSESSMENT_FRAMEWORK.length) {
-      const next = ASSESSMENT_FRAMEWORK[askedCount];
-      const qText = ensureUniqueQuestion(next.text, next.type === 'multiple-choice');
-      const q = {
-        question: qText,
-        type: next.type,
-        options: next.options,
-        most_least_options: next.most_least_options,
-      } as any;
-      setCurrentQuestion(q);
-      return;
-    }
+      // 3) Fallback to remaining framework questions
+      if (askedCount < ASSESSMENT_FRAMEWORK.length) {
+        const next = ASSESSMENT_FRAMEWORK[askedCount];
+        const qText = ensureUniqueQuestion(next.text, next.type === 'multiple-choice');
+        const q = {
+          question: qText,
+          type: next.type,
+          options: next.options,
+          most_least_options: next.most_least_options,
+        } as any;
+        setCurrentQuestion(q);
+        setAiProcessing(false);
+        return;
+      }
 
-    try {
-      const history = messages
+      // 4) Final fallback - AI generated question
+      try {
+        const history = messages
         .map(m => `${m.type === 'bot' ? 'Q' : 'A'}: ${m.content}`)
         .join('\n');
 
@@ -313,7 +320,8 @@ export const Assessment = () => {
         type: mustBeMC ? 'multiple-choice' : 'open-ended',
         options: mustBeMC ? MC_OPTION_SETS[mcAskedCount % MC_OPTION_SETS.length] : undefined
       } as any);
-    }
+    
+    setAiProcessing(false);
   };
 
   const scrollToBottom = () => {
@@ -989,17 +997,21 @@ export const Assessment = () => {
               </div>
             ))}
 
-            {/* Loading Indicator */}
-            {false && (
+            {/* AI Processing Loading Indicator */}
+            {aiProcessing && (
               <div className="flex gap-4 justify-start">
-                <div className="w-12 h-12 bg-gradient-to-br from-primary to-primary/80 rounded-full flex items-center justify-center flex-shrink-0 shadow-lg">
+                <div className="w-12 h-12 bg-gradient-to-br from-primary to-primary/80 rounded-full flex items-center justify-center flex-shrink-0 shadow-lg animate-pulse">
                   <Bot size={22} className="text-white" />
                 </div>
                 <div className="bg-white/90 backdrop-blur-sm border border-primary/10 rounded-xl p-6 shadow-sm">
-                  <div className="flex gap-2">
-                    <div className="w-3 h-3 bg-primary rounded-full animate-bounce"></div>
-                    <div className="w-3 h-3 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                    <div className="w-3 h-3 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                  <div className="space-y-3">
+                    <Skeleton className="h-4 w-3/4" />
+                    <Skeleton className="h-4 w-1/2" />
+                    <div className="flex gap-2 pt-2">
+                      <div className="w-3 h-3 bg-primary rounded-full animate-bounce"></div>
+                      <div className="w-3 h-3 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                      <div className="w-3 h-3 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                    </div>
                   </div>
                 </div>
               </div>
