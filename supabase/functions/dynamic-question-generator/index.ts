@@ -193,15 +193,60 @@ Generate the next question that will provide the most valuable insight into thei
         messages: [
           {
             role: 'system',
-            content: 'You are an expert leadership assessment coach. Always respond with valid JSON only.'
+            content: 'You are an expert leadership assessment coach. Generate contextual questions based on conversation history and profile.'
           },
           {
             role: 'user',
             content: prompt
           }
         ],
-        max_completion_tokens: 800,
-        response_format: { type: "json_object" }
+        max_completion_tokens: 2000,
+        response_format: {
+          type: "json_schema",
+          json_schema: {
+            name: "leadership_question",
+            schema: {
+              type: "object",
+              properties: {
+                question: {
+                  type: "string",
+                  description: "The strategic leadership assessment question"
+                },
+                type: {
+                  type: "string",
+                  enum: ["multiple-choice", "open-ended", "scale", "most-least-choice"],
+                  description: "Type of question that will yield the most insight"
+                },
+                options: {
+                  type: "array",
+                  items: { type: "string" },
+                  description: "Options for multiple-choice questions"
+                },
+                most_least_options: {
+                  type: "array",
+                  items: { type: "string" },
+                  description: "Options for most-least choice questions"
+                },
+                scale_info: {
+                  type: "object",
+                  properties: {
+                    min: { type: "number" },
+                    max: { type: "number" },
+                    min_label: { type: "string" },
+                    max_label: { type: "string" }
+                  },
+                  description: "Scale configuration for scale questions"
+                },
+                reasoning: {
+                  type: "string",
+                  description: "Why this question was chosen based on previous responses"
+                }
+              },
+              required: ["question", "type", "reasoning"],
+              additionalProperties: false
+            }
+          }
+        }
       }),
     });
 
@@ -213,18 +258,31 @@ Generate the next question that will provide the most valuable insight into thei
 
     const data = await response.json();
     console.log('GPT-5 response:', data);
+    console.log('Token usage:', data.usage);
 
     let questionData;
     try {
-      questionData = JSON.parse(data.choices[0].message.content);
+      const content = data.choices[0].message.content;
+      console.log('Raw content:', content);
+      
+      if (!content || content.trim() === '') {
+        throw new Error('Empty response from GPT-5');
+      }
+      
+      questionData = JSON.parse(content);
+      
+      // Validate required fields
+      if (!questionData.question || !questionData.type || !questionData.reasoning) {
+        throw new Error('Missing required fields in response');
+      }
+      
     } catch (parseError) {
       console.error('Failed to parse GPT-5 response as JSON:', parseError);
-      // Fallback question
-      questionData = {
-        question: "Tell me about a time when you had to lead through a significant challenge. What was your approach and what did you learn?",
-        type: "open-ended",
-        reasoning: "Fallback question due to parsing error"
-      };
+      console.error('Raw response:', data.choices[0]?.message?.content);
+      
+      // Fallback question based on conversation context
+      const contextualFallback = generateContextualFallback(profile, conversationHistory, questionCount);
+      questionData = contextualFallback;
     }
 
     console.log('Generated question:', questionData);
@@ -262,4 +320,89 @@ Generate the next question that will provide the most valuable insight into thei
     const fallbackIndex = questionCount % fallbackQuestions.length;
     return fallbackQuestions[fallbackIndex];
   }
+}
+
+// Generate contextual fallback question based on conversation and profile
+function generateContextualFallback(
+  profile: any,
+  conversationHistory: any[],
+  questionCount: number
+): QuestionResponse {
+  console.log('Generating contextual fallback question');
+  
+  // Analyze what's been covered in conversation
+  const hasDiscussedChallenges = conversationHistory.some(msg => 
+    msg.content.toLowerCase().includes('challenge') || 
+    msg.content.toLowerCase().includes('difficult')
+  );
+  
+  const hasDiscussedTeam = conversationHistory.some(msg =>
+    msg.content.toLowerCase().includes('team') ||
+    msg.content.toLowerCase().includes('member')
+  );
+  
+  const hasDiscussedStyle = conversationHistory.some(msg =>
+    msg.content.toLowerCase().includes('style') ||
+    msg.content.toLowerCase().includes('approach')
+  );
+
+  // Early stage questions (0-4)
+  if (questionCount < 5) {
+    if (!hasDiscussedStyle) {
+      return {
+        question: `As a ${profile.position} in ${profile.role} leading ${profile.teamSize} people, how would you describe your natural leadership approach?`,
+        type: "multiple-choice",
+        options: [
+          "Collaborative - I involve my team in decisions and value input",
+          "Direct - I set clear expectations and drive for results", 
+          "Supportive - I focus on developing and empowering my people",
+          "Strategic - I emphasize vision and long-term thinking"
+        ],
+        reasoning: `Contextual fallback exploring leadership style for ${profile.position} role`
+      };
+    } else {
+      return {
+        question: `Given your motivation to ${profile.motivation.toLowerCase()}, what's the biggest leadership challenge you're facing right now with your team of ${profile.teamSize}?`,
+        type: "open-ended",
+        reasoning: `Contextual fallback connecting motivation to current challenges`
+      };
+    }
+  }
+  
+  // Mid-stage questions (5-9)
+  if (questionCount < 10) {
+    if (!hasDiscussedTeam) {
+      return {
+        question: "When leading your team through priorities and decisions, which approach resonates most and least with you?",
+        type: "most-least-choice",
+        most_least_options: [
+          "Gather extensive input before making decisions",
+          "Make quick decisions and adjust as needed",
+          "Focus on consensus and team buy-in",
+          "Delegate decision-making to team experts",
+          "Rely on data and analysis to guide choices"
+        ],
+        reasoning: "Contextual fallback exploring decision-making style with team"
+      };
+    } else {
+      return {
+        question: `On a scale of 1-10, how confident are you in your ability to ${profile.motivation.toLowerCase()} through your leadership?`,
+        type: "scale",
+        scale_info: {
+          min: 1,
+          max: 10,
+          min_label: "Not confident at all",
+          max_label: "Extremely confident"
+        },
+        reasoning: `Contextual fallback assessing confidence in achieving ${profile.motivation}`
+      };
+    }
+  }
+  
+  // Final stage questions (10+)
+  return {
+    question: `Looking at your journey as a ${profile.position}, what's one leadership behavior or skill you'd most like to develop further?`,
+    type: "open-ended", 
+    reasoning: "Contextual fallback for growth and development focus"
+  };
 }
