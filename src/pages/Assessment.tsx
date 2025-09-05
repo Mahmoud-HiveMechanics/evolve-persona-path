@@ -99,8 +99,9 @@ export const Assessment = () => {
     console.log(`🎯 Question ${askedCount + 1}: AI-Generated Question`);
     
     try {
-      // Prepare conversation history for AI
-      const conversationHistory = messages.map(msg => ({
+      // Limit conversation history to last 8 messages to prevent token explosion
+      const recentMessages = messages.slice(-8);
+      const conversationHistory = recentMessages.map(msg => ({
         type: msg.type,
         content: msg.content,
         timestamp: msg.timestamp.toISOString(),
@@ -121,16 +122,26 @@ export const Assessment = () => {
         questionTypeHistory
       });
 
-      // Call the AI service to generate the next question
-      const { data, error } = await supabase.functions.invoke('dynamic-question-generator', {
-        body: {
-          conversationId,
-          profile,
-          conversationHistory,
-          questionCount: askedCount,
-          questionTypeHistory
-        }
+      // Create timeout promise (30 seconds)
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Question generation timeout')), 30000);
       });
+
+      // Call the AI service with timeout
+      const response = await Promise.race([
+        supabase.functions.invoke('dynamic-question-generator', {
+          body: {
+            conversationId,
+            profile,
+            conversationHistory,
+            questionCount: askedCount,
+            questionTypeHistory
+          }
+        }),
+        timeoutPromise
+      ]);
+
+      const { data, error } = response as any;
 
       if (error) {
         console.error('Error generating question:', error);
@@ -154,18 +165,35 @@ export const Assessment = () => {
     } catch (error) {
       console.error('Failed to generate AI question:', error);
       
-      // Fallback to a basic question
-      const fallbackQuestions = [
+      // Enhanced fallback questions based on stage
+      const isEarlyStage = askedCount < 5;
+      const fallbackQuestions = isEarlyStage ? [
         {
-          question: "How would you describe your leadership approach?",
+          question: "How would you describe your natural leadership style?",
+          type: "multiple-choice",
+          options: ["Collaborative and team-focused", "Direct and results-oriented", "Supportive and people-first", "Strategic and visionary"]
+        },
+        {
+          question: "On a scale of 1-10, how confident are you in making difficult decisions under pressure?",
+          type: "scale",
+          scale_info: { min: 1, max: 10, min_label: "Not confident", max_label: "Very confident" }
+        },
+        {
+          question: "When facing a team challenge, what approach most and least represents your style?",
+          type: "most-least-choice",
+          most_least_options: ["Address it directly with the team", "Seek input from key stakeholders", "Analyze data to find solutions", "Focus on long-term implications"]
+        }
+      ] : [
+        {
+          question: "Tell me about a time when you had to lead your team through a difficult change.",
           type: "open-ended"
         },
         {
-          question: "What's your biggest strength as a leader?",
+          question: "What's the most important lesson you've learned about leadership?",
           type: "open-ended"
         },
         {
-          question: "Tell me about a challenging leadership situation you've faced.",
+          question: "How do you handle situations where team members disagree with your decisions?",
           type: "open-ended"
         }
       ];

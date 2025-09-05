@@ -147,72 +147,42 @@ async function generateContextualQuestion(
 
     const varietyGuidance = generateVarietyGuidance(questionTypeCount, allowedTypes, questionCount);
 
-    // Build the comprehensive prompt with all context
-    const prompt = `You are an expert leadership assessment coach conducting a personalized leadership evaluation. Your goal is to deeply understand this person's leadership style, capabilities, and growth areas through strategic questioning.
+    // Streamlined prompt to reduce token usage
+    const prompt = `You are a leadership assessment coach. Generate a strategic question based on:
 
-PARTICIPANT PROFILE:
-- Position: ${profile.position}
-- Role in company: ${profile.role}
-- Team size: ${profile.teamSize}
-- Motivation for assessment: ${profile.motivation}
+PROFILE: ${profile.position} in ${profile.role}, team of ${profile.teamSize}, wants to ${profile.motivation}
 
-CONVERSATION HISTORY:
+RECENT CONVERSATION:
 ${formattedHistory}
 
-ASSESSMENT PROGRESS:
-- Current question number: ${questionCount + 1}
-- Target: 15 total questions
-- Assessment phase: ${questionCount < 5 ? 'Initial exploration (simple question types)' : questionCount < 10 ? 'Deep dive (gradual complexity)' : 'Validation & synthesis (full complexity)'}
+PROGRESS: Question ${questionCount + 1}/15, Phase: ${questionCount < 5 ? 'Initial' : questionCount < 10 ? 'Deep dive' : 'Synthesis'}
 
-QUESTION TYPE VARIETY & PROGRESSION:
+QUESTION TYPE RULES:
 ${varietyGuidance}
-- Allowed question types for this phase: ${allowedTypes.join(', ')}
-- Question type usage so far: ${Object.entries(questionTypeCount).map(([type, count]) => `${type}: ${count}`).join(', ') || 'None yet'}
+- Allowed types: ${allowedTypes.join(', ')}
+- Used so far: ${Object.entries(questionTypeCount).map(([type, count]) => `${type}: ${count}`).join(', ') || 'None'}
 
-LEADERSHIP PRINCIPLES TO ASSESS:
-1. Self-Leadership: Self-awareness, emotional regulation, personal growth mindset
-2. Relational Leadership: Communication, empathy, conflict resolution, team building
-3. Organizational Leadership: Strategic thinking, decision-making, change management
-4. Beyond the Organization: Industry influence, social responsibility, legacy thinking
+LEADERSHIP AREAS:
+1. Self-Leadership (awareness, regulation, growth)
+2. Relational (communication, empathy, team building)
+3. Organizational (strategy, decisions, change)
+4. Beyond Organization (influence, responsibility, legacy)
 
-QUESTION GENERATION RULES:
-1. ANALYZE ALL PREVIOUS RESPONSES to identify patterns, gaps, and areas needing exploration
-2. BUILD ON PREVIOUS ANSWERS - reference specific things they've shared
-3. AVOID REPETITION - don't ask similar questions to what's already been covered
-4. PROGRESS LOGICALLY from general to specific, surface to deep
-5. ENSURE VARIETY - avoid overusing the same question type (max 2-3 consecutive of same type)
-6. RESPECT PHASE RESTRICTIONS - only use allowed question types for current phase
-7. CHOOSE question type based on what will yield the most insight AND variety needs
+REQUIREMENTS:
+- Build on their previous answers
+- Choose question type for max insight + variety
+- Avoid repetition
+- Progress from simple to complex
 
-QUESTION TYPE SELECTION STRATEGY:
-- multiple-choice: Quick preferences, style identification, baseline assessments
-- scale: Self-assessment of confidence, frequency, importance (choose contextual scale topic based on previous answers)
-- most-least-choice: Prioritization, values clarification, behavioral preferences
-- open-ended: Detailed experiences, stories, deeper reflection (gradually introduced from question 6+)
-
-SCALE QUESTION GUIDANCE:
-When using scale questions, choose the measurement based on previous responses:
-- If they mentioned challenges → confidence in handling similar situations
-- If they discussed team → frequency of team behaviors or team satisfaction
-- If they shared leadership style → importance of different leadership qualities
-- If they talked about goals → confidence in achieving specific outcomes
-
-RESPONSE FORMAT (JSON only):
+JSON FORMAT:
 {
-  "question": "Your strategic question here",
+  "question": "Your question",
   "type": "multiple-choice|open-ended|scale|most-least-choice",
-  "options": ["option1", "option2", "option3", "option4"],
-  "most_least_options": ["option1", "option2", "option3", "option4"],
-  "scale_info": {
-    "min": 1,
-    "max": 10,
-    "min_label": "Never/Strongly Disagree",
-    "max_label": "Always/Strongly Agree"
-  },
-  "reasoning": "Brief explanation of why this question was chosen based on previous responses"
-}
-
-Generate the next question that will provide the most valuable insight into their leadership capabilities.`;
+  "options": ["A", "B", "C", "D"],
+  "most_least_options": ["A", "B", "C", "D"],
+  "scale_info": {"min": 1, "max": 10, "min_label": "Low", "max_label": "High"},
+  "reasoning": "Why this question"
+}`;
 
     console.log('Sending prompt to GPT-5...');
     
@@ -227,14 +197,14 @@ Generate the next question that will provide the most valuable insight into thei
         messages: [
           {
             role: 'system',
-            content: 'You are an expert leadership assessment coach. Generate contextual questions based on conversation history and profile.'
+            content: 'You are a leadership assessment coach. Generate strategic questions in JSON format.'
           },
           {
             role: 'user',
             content: prompt
           }
         ],
-        max_completion_tokens: 2000,
+        max_completion_tokens: 1000,
         response_format: {
           type: "json_schema",
           json_schema: {
