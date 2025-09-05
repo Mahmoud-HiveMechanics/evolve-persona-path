@@ -177,7 +177,7 @@ BE CRITICAL. Most people score in the 30-60 range. High scores (75+) require exc
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-5-2025-08-07',
+        model: 'gpt-4o',
         messages: [
           { 
             role: 'system', 
@@ -185,7 +185,8 @@ BE CRITICAL. Most people score in the 30-60 range. High scores (75+) require exc
           },
           { role: 'user', content: prompt }
         ],
-        max_completion_tokens: 600
+        max_completion_tokens: 600,
+        response_format: { type: 'json_object' }
       }),
     });
 
@@ -331,7 +332,7 @@ Provide your response in this exact JSON format:
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-5-2025-08-07',
+        model: 'gpt-4o',
         messages: [
           { 
             role: 'system', 
@@ -339,7 +340,8 @@ Provide your response in this exact JSON format:
           },
           { role: 'user', content: prompt }
         ],
-        max_completion_tokens: 400
+        max_completion_tokens: 400,
+        response_format: { type: 'json_object' }
       }),
     });
 

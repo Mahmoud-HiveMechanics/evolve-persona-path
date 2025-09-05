@@ -202,12 +202,12 @@ Be ruthlessly honest in your assessment. Most leadership responses are surface-l
       'Authorization': `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({
-      model: 'gpt-5-2025-08-07',
-      messages: [{ role: 'user', content: prompt }],
-      max_completion_tokens: 1500,
-      response_format: { type: 'json_object' }
-    }),
+          body: JSON.stringify({
+        model: 'gpt-4o',
+        messages: [{ role: 'user', content: prompt }],
+        max_completion_tokens: 1500,
+        response_format: { type: 'json_object' }
+      }),
   });
 
   if (!response_api.ok) {
@@ -372,12 +372,12 @@ CRITICAL:
       'Authorization': `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({
-      model: 'gpt-5-2025-08-07',
-      messages: [{ role: 'user', content: prompt }],
-      max_completion_tokens: 800,
-      response_format: { type: 'json_object' }
-    }),
+          body: JSON.stringify({
+        model: 'gpt-4o',
+        messages: [{ role: 'user', content: prompt }],
+        max_completion_tokens: 800,
+        response_format: { type: 'json_object' }
+      }),
   });
 
   if (!response_api.ok) {

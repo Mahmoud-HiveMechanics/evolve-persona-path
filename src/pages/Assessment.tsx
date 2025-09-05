@@ -187,11 +187,11 @@ export const Assessment = () => {
     const lastUserMessage = messages.filter(m => m.type === 'user').slice(-1)[0];
     if (lastUserMessage && conversationId) {
       try {
-        // Analyze leadership style after first 4 questions for dynamic prompt engineering
+        // Analyze leadership style after first 3 questions for dynamic prompt engineering
         let currentLeadershipStyle = leadershipStyle;
-        if (askedCount >= 4 && !leadershipStyle) {
+        if (askedCount >= 3 && !leadershipStyle) {
           const mcqAnswers = extractMCQAnswers(messages);
-          if (mcqAnswers.length >= 4) {
+          if (mcqAnswers.length >= 3) {
             currentLeadershipStyle = analyzeLeadershipStyle(mcqAnswers);
             setLeadershipStyle(currentLeadershipStyle);
             console.log('Leadership style analyzed:', currentLeadershipStyle);
@@ -210,7 +210,11 @@ export const Assessment = () => {
           }
         });
 
-        if (!dynamicError && dynamicData?.success && dynamicData?.question) {
+        if (dynamicError) {
+          console.error('Dynamic question generation error:', dynamicError);
+        } else if (!dynamicData?.success) {
+          console.warn('Dynamic generation returned unsuccessful response:', dynamicData);
+        } else if (dynamicData?.question) {
           console.log('Using dynamic question:', dynamicData.question);
           
           const q = {
@@ -225,7 +229,7 @@ export const Assessment = () => {
           setAiProcessing(false);
           return;
         } else {
-          console.warn('Dynamic generation returned unsuccessful response:', dynamicData);
+          console.warn('Dynamic generation succeeded but no question returned:', dynamicData);
         }
       } catch (dynamicError) {
         console.error('Dynamic question generation failed:', dynamicError);
