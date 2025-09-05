@@ -10,6 +10,7 @@ interface GenerateQuestionRequest {
   conversationHistory: any[];
   frameworkQuestions: any[];
   questionCount: number;
+  leadershipStyle?: any;
 }
 
 interface QuestionResponse {
@@ -98,7 +99,8 @@ serve(async (req) => {
       requestData.conversationHistory,
       requestData.frameworkQuestions,
       requestData.questionCount,
-      OPENAI_API_KEY
+      OPENAI_API_KEY,
+      requestData.leadershipStyle
     );
 
     console.log('Generated question:', nextQuestion);
@@ -263,7 +265,8 @@ async function generateContextualQuestion(
   conversationHistory: any[],
   frameworkQuestions: any[],
   questionCount: number,
-  apiKey: string
+  apiKey: string,
+  leadershipStyle?: any
 ): Promise<QuestionResponse> {
   // Determine if we should use framework question or generate dynamic one
   const shouldGenerateDynamic = analysis.needsFollowUp || 
@@ -284,7 +287,26 @@ async function generateContextualQuestion(
     };
   }
 
-  // Generate dynamic question
+  // Generate dynamic question with leadership style bias
+  const leadershipBias = leadershipStyle ? `
+LEADERSHIP STYLE ANALYSIS (Use this to bias your questions):
+- Primary Style: ${leadershipStyle.primaryStyle}
+- Secondary Style: ${leadershipStyle.secondaryStyle}
+- Focus Areas: ${leadershipStyle.focusAreas?.join(', ')}
+- Strengths: ${leadershipStyle.strengths?.join(', ')}
+- Potential Blind Spots: ${leadershipStyle.potentialBlindSpots?.join(', ')}
+- Recommended Question Bias: ${leadershipStyle.recommendedQuestionBias?.join(', ')}
+
+BIAS INSTRUCTIONS:
+- Focus questions on the identified blind spots and gaps
+- Challenge the participant's comfort zone based on their style
+- If they're analytical, ask about quick decisions and action
+- If they're action-oriented, probe reflection and collaboration
+- If they're collaborative, explore independent leadership
+- If they're strategic, focus on operational execution
+- If they're empathetic, explore tough conversations and accountability
+` : '';
+
   const prompt = `
 ROLE: Expert leadership assessment interviewer
 
@@ -298,6 +320,7 @@ RESPONSE ANALYSIS:
 - Needs Follow-up: ${analysis.needsFollowUp}
 - Follow-up Reasons: ${analysis.followUpReasons.join(', ')}
 - Identified Gaps: ${analysis.leadershipInsights.gaps.join(', ')}
+${leadershipBias}
 
 QUESTION GENERATION RULES:
 

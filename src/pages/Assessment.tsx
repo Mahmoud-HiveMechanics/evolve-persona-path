@@ -15,6 +15,7 @@ import { ChatMessage } from '@/types/shared';
 import type { Profile } from '@/config/assessment';
 import { ASSESSMENT_SYSTEM_PROMPT } from '@/config/assistantPrompt';
 import { ASSESSMENT_FRAMEWORK } from '@/config/assessmentFramework';
+import { analyzeLeadershipStyle, extractMCQAnswers, type LeadershipStyle } from '@/lib/leadershipAnalysis';
 
 
 
@@ -38,6 +39,7 @@ export const Assessment = () => {
   const [mostSelection, setMostSelection] = useState<string | undefined>();
   const [leastSelection, setLeastSelection] = useState<string | undefined>();
   const [aiProcessing, setAiProcessing] = useState(false);
+  const [leadershipStyle, setLeadershipStyle] = useState<LeadershipStyle | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   // Track last shown question to prevent duplicates and count MC in opening phase
   // Remove unused lastQuestionText to satisfy linter
@@ -185,14 +187,26 @@ export const Assessment = () => {
     const lastUserMessage = messages.filter(m => m.type === 'user').slice(-1)[0];
     if (lastUserMessage && conversationId) {
       try {
+        // Analyze leadership style after first 4 questions for dynamic prompt engineering
+        let currentLeadershipStyle = leadershipStyle;
+        if (askedCount >= 4 && !leadershipStyle) {
+          const mcqAnswers = extractMCQAnswers(messages);
+          if (mcqAnswers.length >= 4) {
+            currentLeadershipStyle = analyzeLeadershipStyle(mcqAnswers);
+            setLeadershipStyle(currentLeadershipStyle);
+            console.log('Leadership style analyzed:', currentLeadershipStyle);
+          }
+        }
+
         const { data: dynamicData, error: dynamicError } = await supabase.functions.invoke('dynamic-question-generator', {
           body: {
             conversationId,
             lastResponse: lastUserMessage.content,
-            currentPersona: {}, // Will be populated from database
+            currentPersona: currentLeadershipStyle || {}, // Pass leadership style as persona
             conversationHistory: messages.slice(-5), // Last 5 messages for context
             frameworkQuestions: ASSESSMENT_FRAMEWORK,
-            questionCount: askedCount
+            questionCount: askedCount,
+            leadershipStyle: currentLeadershipStyle // Add leadership style for prompt engineering
           }
         });
 
@@ -253,7 +267,27 @@ export const Assessment = () => {
         ? '\nNEXT QUESTION MUST be "multiple-choice" with 4-5 realistic statements. No scale or open-ended.'
         : '';
 
-      const prompt = `\n${ASSESSMENT_SYSTEM_PROMPT}\n\nParticipant profile:\n${JSON.stringify(profile)}\n\nConversation so far:\n${history || '(none yet)'}${firstPhaseRule}${avoidBlock}\n\nInstruction:\n- Ask exactly ONE next question now.\n- Choose the format per the Conversation Flow rules.\n- If multiple-choice, provide 4-5 realistic choices (include \"Other\" only when appropriate).\n- If scale, prefer 1–10 with clear labels.\n- ${schema}`.trim();
+      // Add leadership style bias if available
+      const leadershipBias = leadershipStyle ? `
+LEADERSHIP STYLE ANALYSIS (Use this to bias your questions):
+- Primary Style: ${leadershipStyle.primaryStyle}
+- Secondary Style: ${leadershipStyle.secondaryStyle}
+- Focus Areas: ${leadershipStyle.focusAreas?.join(', ')}
+- Strengths: ${leadershipStyle.strengths?.join(', ')}
+- Potential Blind Spots: ${leadershipStyle.potentialBlindSpots?.join(', ')}
+- Recommended Question Bias: ${leadershipStyle.recommendedQuestionBias?.join(', ')}
+
+BIAS INSTRUCTIONS:
+- Focus questions on the identified blind spots and gaps
+- Challenge the participant's comfort zone based on their style
+- If they're analytical, ask about quick decisions and action
+- If they're action-oriented, probe reflection and collaboration
+- If they're collaborative, explore independent leadership
+- If they're strategic, focus on operational execution
+- If they're empathetic, explore tough conversations and accountability
+` : '';
+
+      const prompt = `\n${ASSESSMENT_SYSTEM_PROMPT}\n\nParticipant profile:\n${JSON.stringify(profile)}\n\nConversation so far:\n${history || '(none yet)'}${leadershipBias}${firstPhaseRule}${avoidBlock}\n\nInstruction:\n- Ask exactly ONE next question now.\n- Choose the format per the Conversation Flow rules.\n- If multiple-choice, provide 4-5 realistic choices (include \"Other\" only when appropriate).\n- If scale, prefer 1–10 with clear labels.\n- ${schema}`.trim();
 
       const { data, error } = await supabase.functions.invoke('chat-assistant', {
         body: { action: 'direct_completion', prompt }

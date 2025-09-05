@@ -198,7 +198,7 @@ export default function Evaluation() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-white to-muted/20">
+    <div className="min-h-screen bg-gray-50">
       <Header />
       <div className="max-w-7xl mx-auto px-6 py-12">
         {loading && (
@@ -220,124 +220,87 @@ export default function Evaluation() {
 
         {!loading && !error && data && (
           <>
-            {/* Hero Section */}
-            <div className="text-center mb-16">
-              <h1 className="text-5xl lg:text-6xl font-bold text-text-primary mb-6">
-                Your Leadership <span className="text-primary">Profile</span>
-              </h1>
-              {data.overall?.persona && (
-                <div className="inline-block bg-gradient-to-r from-primary to-primary/80 text-white px-8 py-4 rounded-2xl text-xl font-semibold shadow-lg">
-                  {data.overall.persona}
-                </div>
-              )}
-            </div>
-
-            {/* Overall Summary */}
-            {data.overall && (
-              <div className="bg-white/80 backdrop-blur-sm rounded-3xl p-8 mb-12 shadow-lg border border-primary/10">
-                <div className="max-w-4xl mx-auto text-center">
-                  <h2 className="text-3xl font-bold text-text-primary mb-6">Your Leadership Journey</h2>
-                  <p className="text-xl text-text-secondary leading-relaxed">{data.overall.summary}</p>
-                </div>
+            {/* Main Dashboard */}
+            <div className="max-w-6xl mx-auto">
+              {/* Title Section */}
+              <div className="text-center mb-12">
+                <h1 className="text-4xl lg:text-5xl font-bold text-text-primary mb-4">
+                  {data.overall?.persona || 'LEADERSHIP PROFILE'}
+                </h1>
+                {data.overall?.summary && (
+                  <p className="text-lg text-text-secondary max-w-3xl mx-auto">
+                    {data.overall.summary}
+                  </p>
+                )}
               </div>
-            )}
 
-            {/* Overview chart */}
-            {frameworks.length > 0 && (
-              <div className="bg-white/80 backdrop-blur-sm rounded-3xl p-8 mb-12 shadow-lg border border-primary/10">
-                <h2 className="text-3xl font-bold text-text-primary text-center mb-8">Leadership Framework Scores</h2>
-                <div className="h-80 mb-8">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={chartData} margin={{ left: -20, right: 10, top: 10, bottom: 20 }}>
-                      <XAxis 
-                        dataKey="name" 
-                        tick={{ fontSize: 11, fill: '#6B7280' }} 
-                        axisLine={false}
-                        tickLine={false}
-                      />
-                      <YAxis 
-                        domain={[0, 100]} 
-                        tick={{ fontSize: 12, fill: '#6B7280' }} 
-                        axisLine={false}
-                        tickLine={false}
-                      />
-                      <Tooltip 
-                        formatter={(v: any) => [`${v}%`, 'Score']} 
-                        contentStyle={{ 
-                          backgroundColor: 'rgba(255, 255, 255, 0.95)', 
-                          border: '1px solid #E5E7EB', 
-                          borderRadius: '12px',
-                          boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)'
-                        }}
-                      />
-                      <Bar 
-                        dataKey="score" 
-                        fill="url(#barGradient)" 
-                        radius={[8, 8, 0, 0]} 
-                      />
-                      <defs>
-                        <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#10B981" />
-                          <stop offset="100%" stopColor="#059669" />
-                        </linearGradient>
-                      </defs>
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-            )}
-
-            {/* Framework Scores Grid */}
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
-              {frameworks.map((fr) => {
-                const score = Math.round(fr.score);
-                const isHighScore = score >= 80;
-                const isMediumScore = score >= 60;
-                
-                return (
-                  <div key={fr.key} className="group">
-                    <div className={`bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border transition-all duration-300 hover:shadow-xl hover:scale-105 ${
-                      isHighScore ? 'border-green-200 bg-green-50/50' : 
-                      isMediumScore ? 'border-yellow-200 bg-yellow-50/50' : 
-                      'border-red-200 bg-red-50/50'
-                    }`}>
-                      <div className="flex items-center justify-between mb-4">
-                        <h3 className="font-bold text-text-primary text-lg">{fr.label}</h3>
-                        <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg ${
-                          isHighScore ? 'bg-green-500' : 
-                          isMediumScore ? 'bg-yellow-500' : 
-                          'bg-red-500'
-                        }`}>
-                          {score}
+              {/* Dashboard Grid */}
+              <div className="grid lg:grid-cols-3 gap-8">
+                {/* Left Column - Leadership Dimensions */}
+                <div className="lg:col-span-2 space-y-6">
+                  {getLeadershipDimensions(frameworks).map((dimension) => {
+                    const level = getLeadershipLevel(dimension.score);
+                    const progressWidth = Math.max(0, Math.min(100, dimension.score));
+                    
+                    return (
+                      <div key={dimension.key} className="bg-white/90 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-gray-100">
+                        <div className="mb-4">
+                          <h3 className="text-xl font-bold text-text-primary mb-2">{dimension.label.toUpperCase()}</h3>
+                          <div className="flex items-center gap-3 mb-3">
+                            <span className="text-sm font-semibold text-primary">Level:</span>
+                            <span className="text-lg font-bold text-text-primary">{level}</span>
+                          </div>
                         </div>
+                        
+                        {/* Progress Bar */}
+                        <div className="mb-4">
+                          <div className="w-full bg-gray-200 rounded-full h-3">
+                            <div 
+                              className="bg-gradient-to-r from-teal-500 to-teal-600 h-3 rounded-full transition-all duration-1000 ease-out"
+                              style={{ width: `${progressWidth}%` }}
+                            ></div>
+                          </div>
+                        </div>
+                        
+                        <p className="text-sm text-text-secondary leading-relaxed">
+                          {getDimensionDescription(dimension.key, level)}
+                        </p>
                       </div>
-                      
-                      <div className="mb-4">
-                        <Progress 
-                          value={Math.max(0, Math.min(100, fr.score))} 
-                          className="h-3"
-                        />
-                      </div>
-                      
-                      {fr.summary && (
-                        <p className="text-sm text-text-secondary leading-relaxed">{fr.summary}</p>
-                      )}
-                      
-                      <div className="mt-4 flex items-center gap-2">
-                        <div className={`w-3 h-3 rounded-full ${
-                          isHighScore ? 'bg-green-500' : 
-                          isMediumScore ? 'bg-yellow-500' : 
-                          'bg-red-500'
-                        }`}></div>
-                        <span className="text-sm font-medium text-text-secondary">
-                          {isHighScore ? 'Strong' : isMediumScore ? 'Developing' : 'Growth Area'}
-                        </span>
-                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Right Column - Top Priorities */}
+                <div className="lg:col-span-1">
+                  <div className="bg-white/90 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-gray-100 h-fit">
+                    <h3 className="text-xl font-bold text-text-primary mb-6">Top 2 Priorities</h3>
+                    
+                    <div className="space-y-4">
+                      {getTopPriorities(frameworks).map((priority, index) => (
+                        <div key={index} className="border-l-4 border-teal-500 pl-4">
+                          <h4 className="font-semibold text-text-primary mb-2">{priority.title}</h4>
+                          <p className="text-sm text-text-secondary">{priority.description}</p>
+                        </div>
+                      ))}
+                    </div>
+                    
+                    {/* Chat Button */}
+                    <div className="mt-6 flex justify-end">
+                      <button 
+                        onClick={() => window.open('/assessment', '_blank')}
+                        className="bg-teal-500 hover:bg-teal-600 text-white p-3 rounded-full shadow-lg transition-all duration-200 hover:scale-105"
+                        title="Start coaching conversation"
+                      >
+                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M20 2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h4l4 4 4-4h4c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"/>
+                        </svg>
+                      </button>
                     </div>
                   </div>
-                );
-              })}
+                </div>
+              </div>
             </div>
+
 
             {/* Growth Opportunities */}
             {lowestThree.length > 0 && (
@@ -631,11 +594,100 @@ const LEADERSHIP_PRINCIPLES = {
 // const FRAMEWORKS = Object.values(LEADERSHIP_PRINCIPLES).map(p => ({ key: p.key, label: p.label }));
 
 // Enhanced response analysis functions
-// Legacy function removed - now handled by AI evaluation
+// Helper functions for the new dashboard design
 
-// Legacy function removed - now handled by AI evaluation
+function getLeadershipDimensions(frameworks: FrameworkScore[]): Array<{ key: string; label: string; score: number }> {
+  // Group frameworks by leadership dimension
+  const dimensions = {
+    'self_leadership': {
+      label: 'Self-Leadership',
+      keys: ['self_awareness', 'self_responsibility', 'continuous_growth']
+    },
+    'relational_leadership': {
+      label: 'Relational Leadership', 
+      keys: ['trust_safety', 'empathy', 'empowerment']
+    },
+    'organizational_leadership': {
+      label: 'Leadership Beyond the Organization',
+      keys: ['vision', 'culture', 'tension', 'innovation', 'stakeholder', 'stewardship']
+    }
+  };
 
-// Legacy function removed - now handled by AI evaluation
+  return Object.entries(dimensions).map(([key, dimension]) => {
+    // Calculate average score for this dimension
+    const dimensionFrameworks = frameworks.filter(fr => dimension.keys.includes(fr.key));
+    const averageScore = dimensionFrameworks.length > 0 
+      ? dimensionFrameworks.reduce((sum, fr) => sum + fr.score, 0) / dimensionFrameworks.length
+      : 0;
+
+    return {
+      key,
+      label: dimension.label,
+      score: averageScore
+    };
+  });
+}
+
+function getLeadershipLevel(score: number): string {
+  if (score >= 90) return 'TRANSFORMATIONAL';
+  if (score >= 75) return 'ADVANCED';
+  if (score >= 60) return 'DEVELOPING';
+  if (score >= 40) return 'EMERGING';
+  return 'BEGINNER';
+}
+
+function getDimensionDescription(key: string, level: string): string {
+  const descriptions: { [key: string]: { [level: string]: string } } = {
+    self_leadership: {
+      'TRANSFORMATIONAL': 'You demonstrate exceptional self-awareness and continuous growth, serving as a model for others.',
+      'ADVANCED': 'You demonstrate a strong ability to reflect on your thoughts, emotions, and behaviors with clarity and purpose.',
+      'DEVELOPING': 'You show growing awareness of your strengths and areas for development.',
+      'EMERGING': 'You\'re beginning to recognize your personal leadership patterns and growth opportunities.',
+      'BEGINNER': 'You\'re starting to develop self-awareness and personal leadership skills.'
+    },
+    relational_leadership: {
+      'TRANSFORMATIONAL': 'You lead with heart and deep emotional intelligence, creating spaces of trust and psychological safety.',
+      'ADVANCED': 'You excel at building relationships and creating inclusive, empowering environments.',
+      'DEVELOPING': 'You show strong interpersonal skills and team-building capabilities.',
+      'EMERGING': 'You\'re developing your ability to connect with and lead others effectively.',
+      'BEGINNER': 'You\'re learning the fundamentals of relational leadership.'
+    },
+    organizational_leadership: {
+      'TRANSFORMATIONAL': 'You drive organizational transformation through visionary leadership and cultural development.',
+      'ADVANCED': 'You effectively align teams with organizational vision and foster leadership at all levels.',
+      'DEVELOPING': 'You show strong organizational leadership and strategic thinking capabilities.',
+      'EMERGING': 'You\'re beginning to recognize your broader organizational impact and influence.',
+      'BEGINNER': 'You\'re developing your organizational leadership skills and strategic thinking.'
+    }
+  };
+  
+  return descriptions[key]?.[level] || 'You\'re developing your leadership capabilities in this area.';
+}
+
+function getTopPriorities(frameworks: FrameworkScore[]): Array<{ title: string; description: string }> {
+  // Sort frameworks by score (lowest first) to identify areas needing improvement
+  const sortedFrameworks = [...frameworks].sort((a, b) => a.score - b.score);
+  
+  const priorities: { [key: string]: { title: string; description: string } } = {
+    self_awareness: { title: 'Self-Awareness', description: 'Develop deeper understanding of your leadership impact and blind spots.' },
+    self_responsibility: { title: 'Self-Responsibility', description: 'Take greater ownership of outcomes and decision-making processes.' },
+    continuous_growth: { title: 'Continuous Growth', description: 'Establish regular learning and development practices.' },
+    trust_safety: { title: 'Trust & Safety', description: 'Create environments where people feel safe to take risks and be vulnerable.' },
+    empathy: { title: 'Empathy & Awareness', description: 'Develop deeper understanding of others\' perspectives and needs.' },
+    empowerment: { title: 'Empowerment', description: 'Delegate meaningful authority and hold others accountable for results.' },
+    vision: { title: 'Purpose-Driven Goals', description: 'Set and articulate a compelling vision for the future.' },
+    culture: { title: 'Culture Building', description: 'Foster leadership development at every level of the organization.' },
+    tension: { title: 'Tension Management', description: 'Use productive conflict and differences to drive better decisions.' },
+    innovation: { title: 'Change & Innovation', description: 'Embrace change and drive innovation through experimentation.' },
+    stakeholder: { title: 'Stakeholder Impact', description: 'Create positive value for all stakeholders beyond immediate team.' },
+    stewardship: { title: 'Ethical Stewardship', description: 'Lead with responsibility for societal and environmental impact.' }
+  };
+  
+  return sortedFrameworks.slice(0, 2).map(fr => priorities[fr.key] || { 
+    title: fr.label, 
+    description: 'Focus on developing this leadership capability.' 
+  });
+}
 
 // Legacy function removed - now handled by AI evaluation
 
