@@ -13,13 +13,6 @@ import { Input } from '../components/ui/input';
 import { useNavigate } from 'react-router-dom';
 import { ChatMessage } from '@/types/shared';
 import type { Profile } from '@/config/assessment';
-import { 
-  STYLE_DETECTION_QUESTIONS, 
-  determineLeadershipStyle,
-  getQuestionsForStyle,
-  LEADERSHIP_STYLE_DESCRIPTIONS,
-  type LeadershipStyleType 
-} from '@/config/leadershipStyleRouting';
 
 
 
@@ -44,8 +37,6 @@ export const Assessment = () => {
   const [leastSelection, setLeastSelection] = useState<string | undefined>();
   const [aiProcessing, setAiProcessing] = useState(false);
   
-  const [detectedLeadershipStyle, setDetectedLeadershipStyle] = useState<LeadershipStyleType | null>(null);
-  const [styleQuestions, setStyleQuestions] = useState<any[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   // Track last shown question to prevent duplicates and count MC in opening phase
   // Remove unused lastQuestionText to satisfy linter
@@ -96,7 +87,7 @@ export const Assessment = () => {
   // OpenAI assistant not needed for predefined questions
   const [currentQuestion, setCurrentQuestion] = useState<any>(null);
 
-  // New Leadership Style Routing System
+  // AI-Driven Question Generation System
   const getNextQuestionFromAI = async () => {
     if (!profile) {
       return;
@@ -105,75 +96,77 @@ export const Assessment = () => {
     setAiProcessing(true);
     const askedCount = askedQuestionsRef.current.size;
     
-    console.log(`🎯 Question ${askedCount + 1}: Leadership Style Routing`);
+    console.log(`🎯 Question ${askedCount + 1}: AI-Generated Question`);
     
-    // Phase 1: Style Detection Questions (Questions 1-4)
-    if (askedCount < 4) {
-      console.log(`📋 Using Style Detection Question ${askedCount + 1} of 4`);
-      const next = STYLE_DETECTION_QUESTIONS[askedCount];
-      const q = {
-        question: next.text,
-        type: next.type,
-        options: next.options,
-        most_least_options: next.most_least_options,
-      } as any;
-      setCurrentQuestion(q);
-      setAiProcessing(false);
-      return;
-    }
-    
-    // Phase 2: Leadership Style Analysis (After Question 4)
-    if (askedCount === 4 && !detectedLeadershipStyle) {
-      console.log('🧠 Analyzing Leadership Style from MCQ answers...');
-      
-      // Extract answers from the first 4 questions
-      const userMessages = messages.filter(msg => msg.type === 'user');
-      const styleAnswers = userMessages.slice(0, 4).map(msg => msg.content);
-      
-      console.log('Style Detection Answers:', styleAnswers);
-      
-      if (styleAnswers.length >= 4) {
-        const detectedStyle = determineLeadershipStyle(styleAnswers);
-        setDetectedLeadershipStyle(detectedStyle);
-        
-        // Get the style-specific questions
-        const questionsForStyle = getQuestionsForStyle(detectedStyle);
-        setStyleQuestions(questionsForStyle);
-        
-        const styleInfo = LEADERSHIP_STYLE_DESCRIPTIONS[detectedStyle];
-        console.log(`✅ Leadership Style Detected: ${styleInfo.name}`);
-        console.log(`📚 Loaded ${questionsForStyle.length} style-specific questions`);
-        
-        // Show style confirmation message
-        await addMessage('bot', `Based on your responses, I've identified you as a **${styleInfo.name}**. ${styleInfo.description} 
+    try {
+      // Prepare conversation history for AI
+      const conversationHistory = messages.map(msg => ({
+        type: msg.type,
+        content: msg.content,
+        timestamp: msg.timestamp.toISOString(),
+        isQuestion: msg.isQuestion,
+        questionType: msg.questionType
+      }));
 
-The next questions will focus on your growth areas: ${styleInfo.growthAreas.join(', ')}.`);
+      console.log('Calling dynamic-question-generator with:', {
+        conversationId,
+        profile,
+        questionCount: askedCount,
+        historyLength: conversationHistory.length
+      });
+
+      // Call the AI service to generate the next question
+      const { data, error } = await supabase.functions.invoke('dynamic-question-generator', {
+        body: {
+          conversationId,
+          profile,
+          conversationHistory,
+          questionCount: askedCount
+        }
+      });
+
+      if (error) {
+        console.error('Error generating question:', error);
+        throw error;
       }
-    }
-    
-    // Phase 3: Style-Specific Questions (Questions 5-15)
-    if (askedCount >= 4 && detectedLeadershipStyle && styleQuestions.length > 0) {
-      const questionIndex = askedCount - 4; // Questions 5-15 map to indices 0-10
-      
-      if (questionIndex < styleQuestions.length) {
-        console.log(`🎯 Using ${detectedLeadershipStyle} Question ${questionIndex + 1} of ${styleQuestions.length}`);
-        const next = styleQuestions[questionIndex];
+
+      if (data?.question) {
         const q = {
-          question: next.text,
-          type: next.type,
-          options: next.options,
-          most_least_options: next.most_least_options,
-          scale_info: next.scale_info
+          question: data.question.question,
+          type: data.question.type,
+          options: data.question.options,
+          most_least_options: data.question.most_least_options,
+          scale_info: data.question.scale_info
         } as any;
+        
+        console.log('✅ Generated AI question:', q);
         setCurrentQuestion(q);
-        setAiProcessing(false);
-        return;
+      } else {
+        throw new Error('No question returned from AI service');
       }
+    } catch (error) {
+      console.error('Failed to generate AI question:', error);
+      
+      // Fallback to a basic question
+      const fallbackQuestions = [
+        {
+          question: "How would you describe your leadership approach?",
+          type: "open-ended"
+        },
+        {
+          question: "What's your biggest strength as a leader?",
+          type: "open-ended"
+        },
+        {
+          question: "Tell me about a challenging leadership situation you've faced.",
+          type: "open-ended"
+        }
+      ];
+      
+      const fallbackIndex = askedCount % fallbackQuestions.length;
+      setCurrentQuestion(fallbackQuestions[fallbackIndex]);
     }
     
-    // Phase 4: Assessment Complete
-    console.log('🏁 Assessment Complete - All questions answered');
-    setIsComplete(true);
     setAiProcessing(false);
   };
 

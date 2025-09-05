@@ -5,12 +5,20 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 // Type definitions
 interface GenerateQuestionRequest {
   conversationId: string;
-  lastResponse: string;
-  currentPersona: any;
-  conversationHistory: any[];
-  frameworkQuestions: any[];
+  profile: {
+    position: string;
+    role: string;
+    teamSize: number;
+    motivation: string;
+  };
+  conversationHistory: Array<{
+    type: 'bot' | 'user';
+    content: string;
+    timestamp: string;
+    isQuestion?: boolean;
+    questionType?: string;
+  }>;
   questionCount: number;
-  leadershipStyle?: any;
 }
 
 interface QuestionResponse {
@@ -25,21 +33,6 @@ interface QuestionResponse {
     max_label: string;
   };
   reasoning: string;
-  followUpType: 'clarification' | 'depth' | 'challenge' | 'contradiction' | 'scenario' | 'framework';
-  targetedPrinciples: string[];
-}
-
-interface ResponseAnalysis {
-  qualityScore: number; // 1-10
-  depth: 'surface' | 'moderate' | 'deep';
-  leadershipInsights: {
-    strengths: string[];
-    gaps: string[];
-    contradictions: string[];
-    principles: { [key: string]: number }; // principle -> score
-  };
-  needsFollowUp: boolean;
-  followUpReasons: string[];
 }
 
 const corsHeaders = {
@@ -48,404 +41,225 @@ const corsHeaders = {
 };
 
 const LEADERSHIP_PRINCIPLES = [
-  'Self-Awareness', 'Self-Responsibility', 'Continuous Personal Growth',
-  'Trust and Psychological Safety', 'Empathy and Awareness of Others',
-  'Purpose/Vision/Aligned Outcome', 'Empowered/Shared Responsibility', 
-  'Culture of Leadership', 'Change/Innovation', 'Productive Tension Management',
-  'Stakeholder Impact', 'Social/Ethical Stewardship'
+  'Self-Leadership: Self-awareness, emotional regulation, personal growth mindset',
+  'Relational Leadership: Communication, empathy, conflict resolution, team building', 
+  'Organizational Leadership: Strategic thinking, decision-making, change management',
+  'Beyond the Organization: Industry influence, social responsibility, legacy thinking'
 ];
 
 serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
+  if (!openAIApiKey) {
+    console.error('OPENAI_API_KEY is not set');
+    return new Response(JSON.stringify({ error: 'OpenAI API key not configured' }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const supabaseUrl = Deno.env.get('SUPABASE_URL');
+  const supabaseServiceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  if (!supabaseUrl || !supabaseServiceRoleKey) {
+    console.error('Supabase configuration missing');
+    return new Response(JSON.stringify({ error: 'Supabase configuration missing' }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
+
   try {
-    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
-    const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
-    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    const { 
+      conversationId, 
+      profile,
+      conversationHistory, 
+      questionCount
+    } = await req.json() as GenerateQuestionRequest;
 
-    if (!OPENAI_API_KEY || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-      throw new Error('Missing required environment variables');
-    }
+    console.log('Generating question for conversation:', conversationId);
+    console.log('Question count:', questionCount);
+    console.log('Profile:', profile);
+    console.log('Conversation history length:', conversationHistory.length);
 
-    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-    const requestData: GenerateQuestionRequest = await req.json();
-
-    console.log('Generating dynamic question for conversation:', requestData.conversationId);
-
-    // Step 1: Analyze the last response
-    const responseAnalysis = await analyzeResponse(
-      requestData.lastResponse,
-      requestData.currentPersona,
-      requestData.conversationHistory,
-      OPENAI_API_KEY
+    // Generate contextual question based on full conversation history
+    const questionResponse = await generateContextualQuestion(
+      profile,
+      conversationHistory,
+      questionCount,
+      openAIApiKey
     );
 
-    console.log('Response analysis:', responseAnalysis);
-
-    // Step 2: Update conversation persona
-    await updateConversationPersona(
-      supabase,
-      requestData.conversationId,
-      responseAnalysis.leadershipInsights,
-      requestData.currentPersona
-    );
-
-    // Step 3: Generate next question based on analysis
-    const nextQuestion = await generateContextualQuestion(
-      requestData.lastResponse,
-      responseAnalysis,
-      requestData.conversationHistory,
-      requestData.frameworkQuestions,
-      requestData.questionCount,
-      OPENAI_API_KEY,
-      requestData.leadershipStyle
-    );
-
-    console.log('Generated question:', nextQuestion);
-
-    return new Response(
-      JSON.stringify({
-        success: true,
-        question: nextQuestion,
-        analysis: responseAnalysis
-      }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200 
-      }
-    );
-
+    return new Response(JSON.stringify({
+      question: questionResponse
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   } catch (error) {
-    console.error('Error in dynamic question generation:', error);
-    return new Response(
-      JSON.stringify({ 
-        success: false, 
-        error: error.message,
-        fallback: true
-      }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500 
-      }
-    );
+    console.error('Error in dynamic-question-generator function:', error);
+    return new Response(JSON.stringify({ 
+      error: 'Failed to generate question',
+      details: error.message 
+    }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   }
 });
 
-async function analyzeResponse(
-  response: string,
-  currentPersona: any,
+// Generate contextual question based on full conversation history
+async function generateContextualQuestion(
+  profile: any,
   conversationHistory: any[],
+  questionCount: number,
   apiKey: string
-): Promise<ResponseAnalysis> {
-  const prompt = `
-ROLE: Expert leadership assessment analyst
+): Promise<QuestionResponse> {
+  try {
+    console.log('Generating contextual question with GPT-5');
 
-TASK: Analyze this leadership assessment response for quality, depth, and leadership insights.
+    // Format conversation history for the prompt
+    const formattedHistory = conversationHistory
+      .map(msg => `${msg.type === 'bot' ? 'Assistant' : 'User'}: ${msg.content}`)
+      .join('\n');
 
-RESPONSE TO ANALYZE: "${response}"
+    // Build the comprehensive prompt with all context
+    const prompt = `You are an expert leadership assessment coach conducting a personalized leadership evaluation. Your goal is to deeply understand this person's leadership style, capabilities, and growth areas through strategic questioning.
 
-CURRENT PERSONA SNAPSHOT: ${JSON.stringify(currentPersona)}
+PARTICIPANT PROFILE:
+- Position: ${profile.position}
+- Role in company: ${profile.role}
+- Team size: ${profile.teamSize}
+- Motivation for assessment: ${profile.motivation}
 
-CONVERSATION CONTEXT: ${conversationHistory.slice(-3).map(msg => `${msg.message_type}: ${msg.content}`).join('\n')}
+CONVERSATION HISTORY:
+${formattedHistory}
+
+ASSESSMENT PROGRESS:
+- Current question number: ${questionCount + 1}
+- Target: 15 total questions
+- Assessment phase: ${questionCount < 5 ? 'Initial exploration' : questionCount < 10 ? 'Deep dive' : 'Validation & synthesis'}
 
 LEADERSHIP PRINCIPLES TO ASSESS:
-${LEADERSHIP_PRINCIPLES.map((p, i) => `${i + 1}. ${p}`).join('\n')}
-
-ANALYSIS REQUIREMENTS:
-
-1. QUALITY SCORE (1-10):
-- 1-3: Generic, superficial, buzzwords only
-- 4-6: Some specifics but lacks depth or examples
-- 7-8: Concrete examples with good insight
-- 9-10: Deep self-awareness with specific evidence
-
-2. DEPTH ASSESSMENT:
-- surface: Generic responses, no examples, theoretical only
-- moderate: Some specifics but missing key details
-- deep: Rich examples with clear insights and self-awareness
-
-3. LEADERSHIP INSIGHTS:
-- Identify demonstrated strengths (be specific)
-- Identify gaps or blind spots (what's missing)
-- Note any contradictions with previous responses
-- Score each relevant leadership principle 1-10 based on evidence
-
-4. FOLLOW-UP NECESSITY:
-- Does this response reveal interesting contradictions?
-- Are there vague statements that need clarification?
-- Is there potential for deeper exploration?
-- Are there gaps in their leadership narrative?
-
-OUTPUT FORMAT: Respond with ONLY valid JSON in exactly this format:
-{
-  "qualityScore": 7,
-  "depth": "moderate",
-  "leadershipInsights": {
-    "strengths": ["specific strength with evidence"],
-    "gaps": ["specific gap or blind spot"],
-    "contradictions": ["any contradictions noted"],
-    "principles": {"Self-Awareness": 8, "Trust and Psychological Safety": 6}
-  },
-  "needsFollowUp": true,
-  "followUpReasons": ["specific reason for follow-up"]
-}
-
-CRITICAL: Return ONLY the JSON object above. No additional text, explanations, or formatting.
-Be ruthlessly honest in your assessment. Most leadership responses are surface-level.
-`;
-
-  const response_api = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-          body: JSON.stringify({
-        model: 'gpt-4o',
-        messages: [{ role: 'user', content: prompt }],
-        max_completion_tokens: 1500,
-        response_format: { type: 'json_object' }
-      }),
-  });
-
-  if (!response_api.ok) {
-    console.error('OpenAI API error:', await response_api.text());
-    throw new Error('Failed to analyze response');
-  }
-
-  const data = await response_api.json();
-  
-  // Validate OpenAI response structure
-  if (!data.choices || !data.choices[0] || !data.choices[0].message || !data.choices[0].message.content) {
-    console.error('Invalid OpenAI response structure:', JSON.stringify(data));
-    throw new Error('Invalid response from OpenAI API');
-  }
-  
-  const content = data.choices[0].message.content.trim();
-  
-  // Add error handling for JSON parsing
-  try {
-    const parsed = JSON.parse(content);
-    
-    // Validate required fields for ResponseAnalysis
-    if (typeof parsed.qualityScore !== 'number' || 
-        !parsed.depth || 
-        !parsed.leadershipInsights ||
-        typeof parsed.needsFollowUp !== 'boolean') {
-      console.error('Invalid response analysis structure:', parsed);
-      throw new Error('Response analysis missing required fields');
-    }
-    
-    return parsed;
-  } catch (parseError) {
-    console.error('Failed to parse OpenAI response as JSON. Content:', content);
-    console.error('Parse error:', parseError);
-    
-    // Return a minimal valid response as fallback
-    return {
-      qualityScore: 3,
-      depth: 'surface',
-      leadershipInsights: {
-        strengths: [],
-        gaps: ['Unable to analyze response due to parsing error'],
-        contradictions: [],
-        principles: {}
-      },
-      needsFollowUp: true,
-      followUpReasons: ['Previous response could not be analyzed, asking for clarification']
-    };
-  }
-}
-
-async function generateContextualQuestion(
-  lastResponse: string,
-  analysis: ResponseAnalysis,
-  conversationHistory: any[],
-  frameworkQuestions: any[],
-  questionCount: number,
-  apiKey: string,
-  leadershipStyle?: any
-): Promise<QuestionResponse> {
-  // Determine if we should use framework question or generate dynamic one
-  const shouldGenerateDynamic = analysis.needsFollowUp || 
-                               analysis.qualityScore < 6 || 
-                               analysis.depth === 'surface';
-
-  if (!shouldGenerateDynamic && questionCount < frameworkQuestions.length) {
-    // Use next framework question
-    const nextFramework = frameworkQuestions[questionCount];
-    return {
-      question: nextFramework.text,
-      type: nextFramework.type,
-      options: nextFramework.options,
-      most_least_options: nextFramework.most_least_options,
-      reasoning: 'Using structured framework question',
-      followUpType: 'framework',
-      targetedPrinciples: nextFramework.assesses || []
-    };
-  }
-
-  // Generate dynamic question with leadership style bias
-  const leadershipBias = leadershipStyle ? `
-LEADERSHIP STYLE ANALYSIS (Use this to bias your questions):
-- Primary Style: ${leadershipStyle.primaryStyle}
-- Secondary Style: ${leadershipStyle.secondaryStyle}
-- Focus Areas: ${leadershipStyle.focusAreas?.join(', ')}
-- Strengths: ${leadershipStyle.strengths?.join(', ')}
-- Potential Blind Spots: ${leadershipStyle.potentialBlindSpots?.join(', ')}
-- Recommended Question Bias: ${leadershipStyle.recommendedQuestionBias?.join(', ')}
-
-BIAS INSTRUCTIONS:
-- Focus questions on the identified blind spots and gaps
-- Challenge the participant's comfort zone based on their style
-- If they're analytical, ask about quick decisions and action
-- If they're action-oriented, probe reflection and collaboration
-- If they're collaborative, explore independent leadership
-- If they're strategic, focus on operational execution
-- If they're empathetic, explore tough conversations and accountability
-` : '';
-
-  const prompt = `
-ROLE: Expert leadership assessment interviewer
-
-TASK: Generate ONE contextually perfect follow-up question based on the analysis.
-
-LAST RESPONSE: "${lastResponse}"
-
-RESPONSE ANALYSIS:
-- Quality Score: ${analysis.qualityScore}/10
-- Depth: ${analysis.depth}
-- Needs Follow-up: ${analysis.needsFollowUp}
-- Follow-up Reasons: ${analysis.followUpReasons.join(', ')}
-- Identified Gaps: ${analysis.leadershipInsights.gaps.join(', ')}
-${leadershipBias}
+1. Self-Leadership: Self-awareness, emotional regulation, personal growth mindset
+2. Relational Leadership: Communication, empathy, conflict resolution, team building
+3. Organizational Leadership: Strategic thinking, decision-making, change management
+4. Beyond the Organization: Industry influence, social responsibility, legacy thinking
 
 QUESTION GENERATION RULES:
+1. ANALYZE ALL PREVIOUS RESPONSES to identify patterns, gaps, and areas needing exploration
+2. BUILD ON PREVIOUS ANSWERS - reference specific things they've shared
+3. AVOID REPETITION - don't ask similar questions to what's already been covered
+4. PROGRESS LOGICALLY from general to specific, surface to deep
+5. ADAPT question type based on what will yield the most insight
 
-1. FOR SURFACE RESPONSES (score 1-5):
-Generate clarification questions that demand specific examples:
-- "You mentioned X. Can you give me a specific example from the last 3 months?"
-- "That sounds thoughtful, but what did this look like in practice?"
-- "Help me understand - what exactly happened and what did others observe?"
+QUESTION TYPES TO USE:
+- multiple-choice: For preferences, style identification, or quick assessments
+- open-ended: For detailed experiences, stories, and deeper reflection
+- scale: For self-assessment of skills, confidence, or frequency (1-10 scale)
+- most-least-choice: For prioritization and values clarification
 
-2. FOR MODERATE RESPONSES (score 6-7):
-Generate depth questions that explore implications:
-- "What surprised you about how that played out?"
-- "How did your team members react to your approach?"
-- "What would have happened if you had handled it differently?"
-
-3. FOR CONTRADICTIONS:
-Address them directly:
-- "Earlier you mentioned Y, but this suggests Z. Help me understand the difference."
-
-4. FOR GAPS IN LEADERSHIP AREAS:
-Target unexplored principles:
-- Focus on principles scored low or not mentioned
-- Create scenario questions for missing competencies
-
-5. QUESTION TYPES:
-- Use "open-ended" for most follow-ups requiring examples
-- Use "multiple-choice" only for scenario-based dilemmas
-- Use "scale" for self-assessment ratings
-- Keep questions conversational and natural
-
-OUTPUT FORMAT: Respond with ONLY valid JSON in exactly this format:
+RESPONSE FORMAT (JSON only):
 {
-  "question": "Can you give me a specific example of when you had to handle a difficult team situation?",
-  "type": "open-ended", 
-  "reasoning": "Seeking concrete evidence and specific examples",
-  "followUpType": "clarification",
-  "targetedPrinciples": ["Self-Awareness", "Trust and Psychological Safety"]
+  "question": "Your strategic question here",
+  "type": "multiple-choice|open-ended|scale|most-least-choice",
+  "options": ["option1", "option2", "option3", "option4"],
+  "most_least_options": ["option1", "option2", "option3", "option4"],
+  "scale_info": {
+    "min": 1,
+    "max": 10,
+    "min_label": "Never/Strongly Disagree",
+    "max_label": "Always/Strongly Agree"
+  },
+  "reasoning": "Brief explanation of why this question was chosen based on previous responses"
 }
 
-CRITICAL: 
-- Return ONLY the JSON object above. No additional text, explanations, or formatting.
-- Make the question feel natural and conversational, not robotic or formal.
-- Include "options" and "scale_info" fields only if the type requires them.
-`;
+Generate the next question that will provide the most valuable insight into their leadership capabilities.`;
 
-  const response_api = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-          body: JSON.stringify({
-        model: 'gpt-4o',
-        messages: [{ role: 'user', content: prompt }],
+    console.log('Sending prompt to GPT-5...');
+    
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-5-2025-08-07',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are an expert leadership assessment coach. Always respond with valid JSON only.'
+          },
+          {
+            role: 'user',
+            content: prompt
+          }
+        ],
         max_completion_tokens: 800,
-        response_format: { type: 'json_object' }
+        response_format: { type: "json_object" }
       }),
-  });
+    });
 
-  if (!response_api.ok) {
-    console.error('OpenAI API error:', await response_api.text());
-    throw new Error('Failed to generate question');
-  }
-
-  const data = await response_api.json();
-  
-  // Validate OpenAI response structure
-  if (!data.choices || !data.choices[0] || !data.choices[0].message || !data.choices[0].message.content) {
-    console.error('Invalid OpenAI response structure for question generation:', JSON.stringify(data));
-    throw new Error('Invalid response from OpenAI API');
-  }
-  
-  const content = data.choices[0].message.content.trim();
-  
-  // Add error handling for JSON parsing
-  try {
-    const parsed = JSON.parse(content);
-    
-    // Validate required fields for QuestionResponse
-    if (!parsed.question || !parsed.type) {
-      console.error('Invalid question response structure:', parsed);
-      throw new Error('Generated question missing required fields');
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('OpenAI API error:', response.status, errorText);
+      throw new Error(`OpenAI API error: ${response.status} ${errorText}`);
     }
+
+    const data = await response.json();
+    console.log('GPT-5 response:', data);
+
+    let questionData;
+    try {
+      questionData = JSON.parse(data.choices[0].message.content);
+    } catch (parseError) {
+      console.error('Failed to parse GPT-5 response as JSON:', parseError);
+      // Fallback question
+      questionData = {
+        question: "Tell me about a time when you had to lead through a significant challenge. What was your approach and what did you learn?",
+        type: "open-ended",
+        reasoning: "Fallback question due to parsing error"
+      };
+    }
+
+    console.log('Generated question:', questionData);
+    return questionData;
+
+  } catch (error) {
+    console.error('Error generating contextual question:', error);
     
-    return parsed;
-  } catch (parseError) {
-    console.error('Failed to parse OpenAI question response as JSON. Content:', content);
-    console.error('Parse error:', parseError);
+    // Fallback question based on question count
+    const fallbackQuestions = [
+      {
+        question: "How would you describe your natural leadership style?",
+        type: "multiple-choice",
+        options: ["Collaborative and team-focused", "Direct and results-oriented", "Supportive and people-first", "Visionary and strategic"],
+        reasoning: "Fallback question for leadership style identification"
+      },
+      {
+        question: "What motivates you most as a leader?",
+        type: "open-ended",
+        reasoning: "Fallback question for motivation exploration"
+      },
+      {
+        question: "On a scale of 1-10, how confident are you in your ability to handle conflict within your team?",
+        type: "scale",
+        scale_info: {
+          min: 1,
+          max: 10,
+          min_label: "Not confident at all",
+          max_label: "Extremely confident"
+        },
+        reasoning: "Fallback question for conflict management assessment"
+      }
+    ];
     
-    // Return a fallback question
-    return {
-      question: "Can you tell me more about a specific leadership challenge you faced recently? What exactly happened, and how did you handle it?",
-      type: 'open-ended',
-      reasoning: 'Fallback question due to parsing error',
-      followUpType: 'clarification',
-      targetedPrinciples: ['Self-Awareness', 'Self-Responsibility']
-    };
-  }
-}
-
-async function updateConversationPersona(
-  supabase: any,
-  conversationId: string,
-  insights: any,
-  currentPersona: any
-) {
-  // Merge new insights with current persona
-  const updatedPersona = {
-    ...currentPersona,
-    strengths: [...(currentPersona.strengths || []), ...insights.strengths],
-    gaps: [...(currentPersona.gaps || []), ...insights.gaps],
-    principles: {
-      ...currentPersona.principles,
-      ...insights.principles
-    },
-    lastUpdated: new Date().toISOString()
-  };
-
-  // Update conversation with new persona snapshot
-  const { error } = await supabase
-    .from('conversations')
-    .update({ persona_snapshot: updatedPersona })
-    .eq('id', conversationId);
-
-  if (error) {
-    console.error('Error updating persona:', error);
+    const fallbackIndex = questionCount % fallbackQuestions.length;
+    return fallbackQuestions[fallbackIndex];
   }
 }
