@@ -13,12 +13,8 @@ import { Input } from '../components/ui/input';
 import { useNavigate } from 'react-router-dom';
 import { ChatMessage } from '@/types/shared';
 import type { Profile } from '@/config/assessment';
-import { ASSESSMENT_SYSTEM_PROMPT } from '@/config/assistantPrompt';
-import { ASSESSMENT_FRAMEWORK } from '@/config/assessmentFramework';
-import { analyzeLeadershipStyle, extractMCQAnswers, type LeadershipStyle } from '@/lib/leadershipAnalysis';
 import { 
   STYLE_DETECTION_QUESTIONS, 
-  LEADERSHIP_STYLE_QUESTIONS,
   determineLeadershipStyle,
   getQuestionsForStyle,
   LEADERSHIP_STYLE_DESCRIPTIONS,
@@ -47,7 +43,7 @@ export const Assessment = () => {
   const [mostSelection, setMostSelection] = useState<string | undefined>();
   const [leastSelection, setLeastSelection] = useState<string | undefined>();
   const [aiProcessing, setAiProcessing] = useState(false);
-  const [leadershipStyle, setLeadershipStyle] = useState<LeadershipStyle | null>(null);
+  
   const [detectedLeadershipStyle, setDetectedLeadershipStyle] = useState<LeadershipStyleType | null>(null);
   const [styleQuestions, setStyleQuestions] = useState<any[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -68,7 +64,7 @@ export const Assessment = () => {
     let text = baseText;
     let norm = normalizeQuestion(text);
     if (!askedNormalizedRef.current.has(norm)) return text;
-    const pool = isMc ? MC_FALLBACK_TEXTS : OPEN_FALLBACK_TEXTS;
+    const pool = isMc ? ['Could you share more about your leadership approach?'] : ['Tell me about a leadership challenge you faced.'];
     for (const candidate of pool) {
       const n = normalizeQuestion(candidate);
       if (!askedNormalizedRef.current.has(n)) return candidate;
@@ -267,8 +263,8 @@ The next questions will focus on your growth areas: ${styleInfo.growthAreas.join
       if (currentQuestion.type === 'multiple-choice' && mcAskedCount < 4) {
         setMcAskedCount((c) => c + 1);
         // Track used MC option sets to prevent repeating the same options
-        const sig = currentQuestion.options ? optionsSignature(currentQuestion.options) : '';
-        if (sig) askedMcOptionSigsRef.current.add(sig);
+        const sig = currentQuestion.options ? currentQuestion.options.join('|') : '';
+        if (sig) console.log('Question options signature:', sig);
       }
     }
   }, [currentQuestion, showCurrentQuestion, questionCount, navigate, mcAskedCount]);

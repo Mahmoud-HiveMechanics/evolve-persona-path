@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, useCallback } from 'react';
 import { Header } from '../components/Header';
 import { supabase } from '@/integrations/supabase/client';
 import { Progress } from '@/components/ui/progress';
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip } from 'recharts';
+
 import { FrameworkScore, EvaluationData, toErrorWithMessage } from '@/types/shared';
 
 export default function Evaluation() {
@@ -122,10 +122,6 @@ export default function Evaluation() {
 
   const frameworks = data?.frameworks || [];
 
-  const chartData = useMemo(() =>
-    frameworks.map(f => ({ name: f.label.split(' ')[0], score: Math.round(f.score) })),
-    [frameworks]
-  );
 
   const lowestThree = useMemo(() => {
     return [...frameworks].sort((a, b) => (a.score ?? 0) - (b.score ?? 0)).slice(0, 3);

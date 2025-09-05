@@ -130,7 +130,7 @@ function analyzeSelectionPatterns(selections: string[]): LeadershipStyle {
 /**
  * Generates question bias recommendations based on leadership style analysis
  */
-function generateQuestionBias(primaryStyle: string, secondaryStyle: string, blindSpots: string[]): string[] {
+function generateQuestionBias(primaryStyle: string, _secondaryStyle: string, blindSpots: string[]): string[] {
   const biasRecommendations: string[] = [];
 
   // Add bias based on blind spots
