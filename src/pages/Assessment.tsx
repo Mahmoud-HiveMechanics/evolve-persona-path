@@ -16,12 +16,20 @@ import type { Profile } from '@/config/assessment';
 import { ASSESSMENT_SYSTEM_PROMPT } from '@/config/assistantPrompt';
 import { ASSESSMENT_FRAMEWORK } from '@/config/assessmentFramework';
 import { analyzeLeadershipStyle, extractMCQAnswers, type LeadershipStyle } from '@/lib/leadershipAnalysis';
+import { 
+  STYLE_DETECTION_QUESTIONS, 
+  LEADERSHIP_STYLE_QUESTIONS,
+  determineLeadershipStyle,
+  getQuestionsForStyle,
+  LEADERSHIP_STYLE_DESCRIPTIONS,
+  type LeadershipStyleType 
+} from '@/config/leadershipStyleRouting';
 
 
 
 export const Assessment = () => {
   const navigate = useNavigate();
-  const MIN_QUESTIONS = 15;
+  const MIN_QUESTIONS = 15; // 4 style detection + 11 style-specific questions
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isStarted, setIsStarted] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
@@ -40,6 +48,8 @@ export const Assessment = () => {
   const [leastSelection, setLeastSelection] = useState<string | undefined>();
   const [aiProcessing, setAiProcessing] = useState(false);
   const [leadershipStyle, setLeadershipStyle] = useState<LeadershipStyle | null>(null);
+  const [detectedLeadershipStyle, setDetectedLeadershipStyle] = useState<LeadershipStyleType | null>(null);
+  const [styleQuestions, setStyleQuestions] = useState<any[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   // Track last shown question to prevent duplicates and count MC in opening phase
   // Remove unused lastQuestionText to satisfy linter
@@ -72,72 +82,7 @@ export const Assessment = () => {
     }
     return text;
   };
-  // pickUnique no longer used; uniqueness handled by ensureUniqueQuestion
-  const MC_FALLBACK_TEXTS = [
-    'Which statement best reflects you right now?',
-    'Pick the statement that best fits you right now',
-    'Choose the statement that sounds most like you today',
-    'Which option describes your current leadership approach best?'
-  ];
-  const OPEN_FALLBACK_TEXTS = [
-    'What leadership challenge is most present for you right now?',
-    'What feels hardest about leading your team this week?',
-    'Where do you want to grow most as a leader this month?'
-  ];
-  // Provide varied MC option sets and prevent repeating the same set
-  const MC_OPTION_SETS: string[][] = [
-    [
-      'I set direction clearly and keep people aligned',
-      'I build trust and make it safe to speak up',
-      'I develop people and delegate effectively',
-      'I make tough decisions with limited information',
-      'I drive change and learn quickly'
-    ],
-    [
-      'I clarify vision and connect work to purpose',
-      'I create a feedback culture with psychological safety',
-      'I delegate ownership and coach accountability',
-      'I balance stakeholders and long-term impact',
-      'I experiment, learn fast, and adapt'
-    ],
-    [
-      'I prioritize ruthlessly and keep focus',
-      'I coach underperformance with empathy and candor',
-      'I resolve conflicts and turn tension into progress',
-      'I enable cross-team collaboration',
-      'I invest in long-term strategy and systems'
-    ],
-    [
-      'I empower autonomy and remove blockers',
-      'I make data-informed decisions quickly',
-      'I mentor new leaders to scale myself',
-      'I strengthen customer obsession across teams',
-      'I build an innovation pipeline, not just one-offs'
-    ]
-  ];
-
-  // Most/Least Choice option sets for deeper personality assessment
-  const MOST_LEAST_OPTION_SETS: string[][] = [
-    [
-      'Make decisions quickly with available information',
-      'Seek input from multiple stakeholders before deciding',
-      'Analyze past similar situations for guidance',
-      'Trust my intuition and leadership experience',
-      'Focus primarily on long-term strategic consequences'
-    ],
-    [
-      'Address team conflicts directly and immediately',
-      'Create structured processes to prevent conflicts',
-      'Focus on building stronger team relationships',
-      'Delegate conflict resolution to team members',
-      'Use conflicts as learning opportunities for growth'
-    ]
-  ];
-  const askedMcOptionSigsRef = useRef<Set<string>>(new Set());
-  const normalizeOption = (s: string) =>
-    s.toLowerCase().replace(/[^a-z0-9\s]/g, '').replace(/\s+/g, ' ').trim();
-  const optionsSignature = (opts: string[]) =>
-    opts.map(normalizeOption).sort().join('|');
+  // Leadership Style Routing System - clean and deterministic
 
   // Pre-assessment intro fields
   const [introDone, setIntroDone] = useState(false);
@@ -155,25 +100,23 @@ export const Assessment = () => {
   // OpenAI assistant not needed for predefined questions
   const [currentQuestion, setCurrentQuestion] = useState<any>(null);
 
-  // Ask the model for the next assessment question based on the prompt, profile and history
+  // New Leadership Style Routing System
   const getNextQuestionFromAI = async () => {
-    // If profile isn't ready yet, wait to ensure first questions can be MCQs
     if (!profile) {
       return;
     }
 
     setAiProcessing(true);
-    
-    // Use dynamic AI question generation for all questions after the first 3 framework questions
     const askedCount = askedQuestionsRef.current.size;
     
-    // 1) Use structured framework first for opening 3 questions only
-    if (askedCount < 3) {
-      const next = ASSESSMENT_FRAMEWORK[askedCount];
-      // Ensure uniqueness via normalized tracking
-      const qText = ensureUniqueQuestion(next.text, next.type === 'multiple-choice');
+    console.log(`🎯 Question ${askedCount + 1}: Leadership Style Routing`);
+    
+    // Phase 1: Style Detection Questions (Questions 1-4)
+    if (askedCount < 4) {
+      console.log(`📋 Using Style Detection Question ${askedCount + 1} of 4`);
+      const next = STYLE_DETECTION_QUESTIONS[askedCount];
       const q = {
-        question: qText,
+        question: next.text,
         type: next.type,
         options: next.options,
         most_least_options: next.most_least_options,
@@ -181,192 +124,60 @@ export const Assessment = () => {
       setCurrentQuestion(q);
       setAiProcessing(false);
       return;
-    }
-
-    // 2) Use dynamic AI generation for all subsequent questions (including open-ended)
-    const lastUserMessage = messages.filter(m => m.type === 'user').slice(-1)[0];
-    if (lastUserMessage && conversationId) {
-      try {
-        // Analyze leadership style after first 3 questions for dynamic prompt engineering
-        let currentLeadershipStyle = leadershipStyle;
-        if (askedCount >= 3 && !leadershipStyle) {
-          const mcqAnswers = extractMCQAnswers(messages);
-          if (mcqAnswers.length >= 3) {
-            currentLeadershipStyle = analyzeLeadershipStyle(mcqAnswers);
-            setLeadershipStyle(currentLeadershipStyle);
-            console.log('Leadership style analyzed:', currentLeadershipStyle);
-          }
-        }
-
-        const { data: dynamicData, error: dynamicError } = await supabase.functions.invoke('dynamic-question-generator', {
-          body: {
-            conversationId,
-            lastResponse: lastUserMessage.content,
-            currentPersona: currentLeadershipStyle || {}, // Pass leadership style as persona
-            conversationHistory: messages.slice(-5), // Last 5 messages for context
-            frameworkQuestions: ASSESSMENT_FRAMEWORK,
-            questionCount: askedCount,
-            leadershipStyle: currentLeadershipStyle // Add leadership style for prompt engineering
-          }
-        });
-
-        if (dynamicError) {
-          console.error('Dynamic question generation error:', dynamicError);
-        } else if (!dynamicData?.success) {
-          console.warn('Dynamic generation returned unsuccessful response:', dynamicData);
-        } else if (dynamicData?.question) {
-          console.log('Using dynamic question:', dynamicData.question);
-          
-          const q = {
-            question: dynamicData.question.question,
-            type: dynamicData.question.type || 'open-ended',
-            options: dynamicData.question.options,
-            most_least_options: dynamicData.question.most_least_options,
-            scale_info: dynamicData.question.scale_info
-          } as any;
-          
-          setCurrentQuestion(q);
-          setAiProcessing(false);
-          return;
-        } else {
-          console.warn('Dynamic generation succeeded but no question returned:', dynamicData);
-        }
-      } catch (dynamicError) {
-        console.error('Dynamic question generation failed:', dynamicError);
-      }
-    }
-
-    // 3) Fallback to remaining framework questions if available
-    if (askedCount < ASSESSMENT_FRAMEWORK.length) {
-      console.log('Using remaining framework question as fallback');
-      const next = ASSESSMENT_FRAMEWORK[askedCount];
-      const qText = ensureUniqueQuestion(next.text, next.type === 'multiple-choice');
-      const q = {
-        question: qText,
-        type: next.type,
-        options: next.options,
-        most_least_options: next.most_least_options,
-      } as any;
-      setCurrentQuestion(q);
-      setAiProcessing(false);
-      return;
-    }
-
-    // 4) Final fallback - generic question
-    console.log('Using final fallback question');
-    try {
-        const history = messages
-        .map(m => `${m.type === 'bot' ? 'Q' : 'A'}: ${m.content}`)
-        .join('\n');
-
-      const schema = `Return ONLY JSON with this shape (no prose):\n{\n  "question": "string",\n  "type": "multiple-choice" | "open-ended" | "scale",\n  "options": ["string", ...],\n  "scale_info": { "min": 1, "max": 10, "min_label": "Low", "max_label": "High" }\n}`;
-
-      const avoidList = Array.from(askedQuestionsRef.current);
-      const avoidBlock = avoidList.length
-        ? `\nDo not repeat any previous question. Avoid these EXACT texts: ${JSON.stringify(avoidList)}`
-        : '';
-
-      const mustBeMC = mcAskedCount < 4;
-      const firstPhaseRule = mustBeMC
-        ? '\nNEXT QUESTION MUST be "multiple-choice" with 4-5 realistic statements. No scale or open-ended.'
-        : '';
-
-      // Add leadership style bias if available
-      const leadershipBias = leadershipStyle ? `
-LEADERSHIP STYLE ANALYSIS (Use this to bias your questions):
-- Primary Style: ${leadershipStyle.primaryStyle}
-- Secondary Style: ${leadershipStyle.secondaryStyle}
-- Focus Areas: ${leadershipStyle.focusAreas?.join(', ')}
-- Strengths: ${leadershipStyle.strengths?.join(', ')}
-- Potential Blind Spots: ${leadershipStyle.potentialBlindSpots?.join(', ')}
-- Recommended Question Bias: ${leadershipStyle.recommendedQuestionBias?.join(', ')}
-
-BIAS INSTRUCTIONS:
-- Focus questions on the identified blind spots and gaps
-- Challenge the participant's comfort zone based on their style
-- If they're analytical, ask about quick decisions and action
-- If they're action-oriented, probe reflection and collaboration
-- If they're collaborative, explore independent leadership
-- If they're strategic, focus on operational execution
-- If they're empathetic, explore tough conversations and accountability
-` : '';
-
-      const prompt = `\n${ASSESSMENT_SYSTEM_PROMPT}\n\nParticipant profile:\n${JSON.stringify(profile)}\n\nConversation so far:\n${history || '(none yet)'}${leadershipBias}${firstPhaseRule}${avoidBlock}\n\nInstruction:\n- Ask exactly ONE next question now.\n- Choose the format per the Conversation Flow rules.\n- If multiple-choice, provide 4-5 realistic choices (include \"Other\" only when appropriate).\n- If scale, prefer 1–10 with clear labels.\n- ${schema}`.trim();
-
-      const { data, error } = await supabase.functions.invoke('chat-assistant', {
-        body: { action: 'direct_completion', prompt }
-      });
-      if (error) throw error;
-
-      const raw = String(data?.response ?? '').trim();
-      const jsonStart = raw.indexOf('{');
-      const json = JSON.parse(jsonStart >= 0 ? raw.slice(jsonStart) : raw);
-
-      let questionText: string | undefined = typeof json?.question === 'string' ? json.question.trim() : undefined;
-      let qType: any = json?.type;
-      let options = Array.isArray(json?.options) ? json.options : undefined;
-      const validType = (t: any) => (t === 'multiple-choice' || t === 'open-ended' || t === 'scale' || t === 'most-least-choice');
-
-      if (!validType(qType)) qType = mustBeMC ? 'multiple-choice' : 'open-ended';
-
-      // Ensure we have a unique, valid question text
-      if (!questionText) {
-        questionText = mustBeMC ? MC_FALLBACK_TEXTS[0] : OPEN_FALLBACK_TEXTS[0];
-      }
-      questionText = ensureUniqueQuestion(questionText, mustBeMC);
-
-      // If we must produce MC, ensure options exist
-      if (mustBeMC) {
-        // Use model options if valid; otherwise pick a unique fallback set by index
-        if (!options || options.length < 4) {
-          options = MC_OPTION_SETS[mcAskedCount % MC_OPTION_SETS.length];
-        }
-        // Ensure we are not reusing the same option set
-        let sig = optionsSignature(options);
-        if (askedMcOptionSigsRef.current.has(sig)) {
-          for (let i = 0; i < MC_OPTION_SETS.length; i++) {
-            const candidate = MC_OPTION_SETS[(mcAskedCount + i) % MC_OPTION_SETS.length];
-            const candSig = optionsSignature(candidate);
-            if (!askedMcOptionSigsRef.current.has(candSig)) {
-              options = candidate;
-              sig = candSig;
-              break;
-            }
-          }
-        }
-        qType = 'multiple-choice';
-      }
-
-      // Handle most-least-choice type
-      if (qType === 'most-least-choice') {
-        let mostLeastOptions = json?.most_least_options;
-        if (!mostLeastOptions || mostLeastOptions.length < 4) {
-          // Use predefined option set as fallback
-          mostLeastOptions = MOST_LEAST_OPTION_SETS[0];
-        }
-      }
-
-      setCurrentQuestion({
-        question: questionText!,
-        type: qType,
-        options,
-        most_least_options: json?.most_least_options || (qType === 'most-least-choice' ? MOST_LEAST_OPTION_SETS[0] : undefined),
-        scale_info: json?.scale_info
-      } as any);
-    } catch (_e) {
-      // Fallbacks with no duplicates for first phase
-      const mustBeMC = mcAskedCount < 4;
-      const fallbackText = ensureUniqueQuestion(
-        mustBeMC ? MC_FALLBACK_TEXTS[0] : OPEN_FALLBACK_TEXTS[0],
-        mustBeMC
-      );
-      setCurrentQuestion({
-        question: fallbackText,
-        type: mustBeMC ? 'multiple-choice' : 'open-ended',
-        options: mustBeMC ? MC_OPTION_SETS[mcAskedCount % MC_OPTION_SETS.length] : undefined
-      } as any);
     }
     
+    // Phase 2: Leadership Style Analysis (After Question 4)
+    if (askedCount === 4 && !detectedLeadershipStyle) {
+      console.log('🧠 Analyzing Leadership Style from MCQ answers...');
+      
+      // Extract answers from the first 4 questions
+      const userMessages = messages.filter(msg => msg.type === 'user');
+      const styleAnswers = userMessages.slice(0, 4).map(msg => msg.content);
+      
+      console.log('Style Detection Answers:', styleAnswers);
+      
+      if (styleAnswers.length >= 4) {
+        const detectedStyle = determineLeadershipStyle(styleAnswers);
+        setDetectedLeadershipStyle(detectedStyle);
+        
+        // Get the style-specific questions
+        const questionsForStyle = getQuestionsForStyle(detectedStyle);
+        setStyleQuestions(questionsForStyle);
+        
+        const styleInfo = LEADERSHIP_STYLE_DESCRIPTIONS[detectedStyle];
+        console.log(`✅ Leadership Style Detected: ${styleInfo.name}`);
+        console.log(`📚 Loaded ${questionsForStyle.length} style-specific questions`);
+        
+        // Show style confirmation message
+        await addMessage('bot', `Based on your responses, I've identified you as a **${styleInfo.name}**. ${styleInfo.description} 
+
+The next questions will focus on your growth areas: ${styleInfo.growthAreas.join(', ')}.`);
+      }
+    }
+    
+    // Phase 3: Style-Specific Questions (Questions 5-15)
+    if (askedCount >= 4 && detectedLeadershipStyle && styleQuestions.length > 0) {
+      const questionIndex = askedCount - 4; // Questions 5-15 map to indices 0-10
+      
+      if (questionIndex < styleQuestions.length) {
+        console.log(`🎯 Using ${detectedLeadershipStyle} Question ${questionIndex + 1} of ${styleQuestions.length}`);
+        const next = styleQuestions[questionIndex];
+        const q = {
+          question: next.text,
+          type: next.type,
+          options: next.options,
+          most_least_options: next.most_least_options,
+          scale_info: next.scale_info
+        } as any;
+        setCurrentQuestion(q);
+        setAiProcessing(false);
+        return;
+      }
+    }
+    
+    // Phase 4: Assessment Complete
+    console.log('🏁 Assessment Complete - All questions answered');
+    setIsComplete(true);
     setAiProcessing(false);
   };
 
@@ -511,23 +322,14 @@ BIAS INSTRUCTIONS:
       
       // Clear current question first to ensure clean state
       setCurrentQuestion(null);
-      // Stop after minimum number of questions
+      
+      // Check if assessment is complete (15 total questions)
       if (askedQuestionsRef.current.size >= MIN_QUESTIONS) {
         setIsComplete(true);
         return;
       }
-      // If the current asked question has a follow-up pattern and answer seems weak, ask follow-up
-      const idx = askedQuestionsRef.current.size; // already incremented after showing
-      const prevFramework = ASSESSMENT_FRAMEWORK[idx - 1];
-      if (prevFramework && prevFramework.type === 'multiple-choice') {
-        const weak = !answer || answer.length < 4;
-        if (weak && prevFramework.followups.insufficient) {
-          const fText = prevFramework.followups.insufficient.replace('[X]', answer || 'your choice');
-          setCurrentQuestion({ question: ensureUniqueQuestion(fText, false), type: 'open-ended' } as any);
-          return;
-        }
-      }
-      // Ask the model for the next question
+      
+      // Continue to next question in the routing system
       await getNextQuestionFromAI();
     } finally {
       setMcPending(false);
@@ -544,13 +346,13 @@ BIAS INSTRUCTIONS:
     // Clear current question first to ensure clean state
     setCurrentQuestion(null);
 
-    // Stop after minimum number of questions
+    // Check if assessment is complete (15 total questions)
     if (askedQuestionsRef.current.size >= MIN_QUESTIONS) {
       setIsComplete(true);
       return;
     }
     
-    // Ask the model for the next question
+    // Continue to next question in the routing system
     await getNextQuestionFromAI();
   };
 
@@ -563,13 +365,13 @@ BIAS INSTRUCTIONS:
     // Clear current question first to ensure clean state
     setCurrentQuestion(null);
 
-    // Stop after minimum number of questions
+    // Check if assessment is complete (15 total questions)
     if (askedQuestionsRef.current.size >= MIN_QUESTIONS) {
       setIsComplete(true);
       return;
     }
     
-    // Ask the model for the next question
+    // Continue to next question in the routing system
     await getNextQuestionFromAI();
   };
 
@@ -583,13 +385,13 @@ BIAS INSTRUCTIONS:
     // Clear current question first to ensure clean state
     setCurrentQuestion(null);
 
-    // Stop after minimum number of questions
+    // Check if assessment is complete (15 total questions)
     if (askedQuestionsRef.current.size >= MIN_QUESTIONS) {
       setIsComplete(true);
       return;
     }
     
-    // Ask the model for the next question
+    // Continue to next question in the routing system
     await getNextQuestionFromAI();
   };
 
