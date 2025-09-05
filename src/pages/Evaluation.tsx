@@ -35,7 +35,6 @@ export default function Evaluation() {
         let payload = ((evalRows as any)?.[0]?.data as EvaluationData) || null;
         console.log('Initial payload:', payload);
 
-
         
         // Check if we have evaluation data, otherwise derive from conversation
         if (!payload || (payload.frameworks && payload.frameworks.every(f => f.score === 0))) {
@@ -122,7 +121,6 @@ export default function Evaluation() {
 
   const frameworks = data?.frameworks || [];
 
-
   const lowestThree = useMemo(() => {
     return [...frameworks].sort((a, b) => (a.score ?? 0) - (b.score ?? 0)).slice(0, 3);
   }, [frameworks]);
@@ -194,9 +192,9 @@ export default function Evaluation() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       <Header />
-      <div className="max-w-7xl mx-auto px-6 py-12">
+      <div className="w-full px-6 py-8">
         {loading && (
           <div className="flex items-center justify-center min-h-[400px]">
             <div className="text-center space-y-4">
@@ -216,91 +214,99 @@ export default function Evaluation() {
 
         {!loading && !error && data && (
           <>
-            {/* Main Dashboard */}
-            <div className="max-w-6xl mx-auto">
+            {/* Main Dashboard - Full Width */}
+            <div className="w-full max-w-7xl mx-auto">
               {/* Title Section */}
               <div className="text-center mb-12">
                 <h1 className="text-4xl lg:text-5xl font-bold text-text-primary mb-4">
-                  {data.overall?.persona || 'LEADERSHIP PROFILE'}
+                  {data.overall?.persona || 'LEADERSHIP ASSESSMENT'}
                 </h1>
                 {data.overall?.summary && (
-                  <p className="text-lg text-text-secondary max-w-3xl mx-auto">
+                  <p className="text-lg text-text-secondary max-w-4xl mx-auto">
                     {data.overall.summary}
                   </p>
                 )}
               </div>
 
-              {/* Dashboard Grid */}
-              <div className="grid lg:grid-cols-3 gap-8">
-                {/* Left Column - Leadership Dimensions */}
-                <div className="lg:col-span-2 space-y-6">
-                  {getLeadershipDimensions(frameworks).map((dimension) => {
-                    const level = getLeadershipLevel(dimension.score);
-                    const progressWidth = Math.max(0, Math.min(100, dimension.score));
-                    
-                    return (
-                      <div key={dimension.key} className="bg-white/90 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-gray-100">
+              {/* Four Leadership Dimensions Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+                {getLeadershipDimensions(frameworks).map((dimension) => {
+                  const level = getLeadershipLevel(dimension.score);
+                  const progressWidth = Math.max(0, Math.min(100, dimension.score));
+                  
+                  return (
+                    <div key={dimension.key} className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100 transition-all duration-300 hover:shadow-xl">
+                      <div className="text-center mb-6">
+                        <h3 className="text-xl font-bold text-text-primary mb-3 leading-tight">
+                          {dimension.label.toUpperCase()}
+                        </h3>
                         <div className="mb-4">
-                          <h3 className="text-xl font-bold text-text-primary mb-2">{dimension.label.toUpperCase()}</h3>
-                          <div className="flex items-center gap-3 mb-3">
-                            <span className="text-sm font-semibold text-primary">Level:</span>
-                            <span className="text-lg font-bold text-text-primary">{level}</span>
+                          <span className="text-3xl font-bold text-primary">{Math.round(dimension.score)}%</span>
+                          <div className="text-sm font-medium text-text-secondary mt-1">
+                            Level: {level}
                           </div>
                         </div>
-                        
-                        {/* Progress Bar */}
-                        <div className="mb-4">
-                          <div className="w-full bg-gray-200 rounded-full h-3">
-                            <div 
-                              className="bg-gradient-to-r from-teal-500 to-teal-600 h-3 rounded-full transition-all duration-1000 ease-out"
-                              style={{ width: `${progressWidth}%` }}
-                            ></div>
-                          </div>
-                        </div>
-                        
-                        <p className="text-sm text-text-secondary leading-relaxed">
-                          {getDimensionDescription(dimension.key, level)}
-                        </p>
                       </div>
-                    );
-                  })}
+                      
+                      {/* Teal Progress Bar */}
+                      <div className="mb-4">
+                        <div className="w-full bg-gray-100 rounded-full h-4">
+                          <div 
+                            className="bg-gradient-to-r from-primary to-primary-dark h-4 rounded-full transition-all duration-1000 ease-out"
+                            style={{ width: `${progressWidth}%` }}
+                          ></div>
+                        </div>
+                      </div>
+                      
+                      <p className="text-sm text-text-secondary leading-relaxed text-center">
+                        {getDimensionDescription(dimension.key, level)}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Bottom Section with Top Priorities */}
+              <div className="grid lg:grid-cols-3 gap-8">
+                <div className="lg:col-span-2">
+                  <div className="bg-white rounded-2xl p-8 shadow-lg border border-gray-100">
+                    <h3 className="text-2xl font-bold text-text-primary mb-6">Your Leadership Journey</h3>
+                    <p className="text-text-secondary leading-relaxed mb-6">
+                      Your assessment reveals unique strengths and opportunities for growth across the four dimensions of leadership. 
+                      Focus on the priority areas below to accelerate your development and maximize your impact as a leader.
+                    </p>
+                    <div className="flex items-center gap-4">
+                      <button 
+                        onClick={() => window.open('/assessment', '_blank')}
+                        className="bg-primary hover:bg-primary-dark text-white px-6 py-3 rounded-xl font-medium transition-all duration-200 hover:scale-105 shadow-lg"
+                      >
+                        Start Coaching Session
+                      </button>
+                      <span className="text-sm text-text-secondary">Get personalized guidance</span>
+                    </div>
+                  </div>
                 </div>
 
-                {/* Right Column - Top Priorities */}
                 <div className="lg:col-span-1">
-                  <div className="bg-white/90 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-gray-100 h-fit">
+                  <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100 h-fit">
                     <h3 className="text-xl font-bold text-text-primary mb-6">Top 2 Priorities</h3>
                     
                     <div className="space-y-4">
                       {getTopPriorities(frameworks).map((priority, index) => (
-                        <div key={index} className="border-l-4 border-teal-500 pl-4">
+                        <div key={index} className="border-l-4 border-primary pl-4">
                           <h4 className="font-semibold text-text-primary mb-2">{priority.title}</h4>
                           <p className="text-sm text-text-secondary">{priority.description}</p>
                         </div>
                       ))}
-                    </div>
-                    
-                    {/* Chat Button */}
-                    <div className="mt-6 flex justify-end">
-                      <button 
-                        onClick={() => window.open('/assessment', '_blank')}
-                        className="bg-teal-500 hover:bg-teal-600 text-white p-3 rounded-full shadow-lg transition-all duration-200 hover:scale-105"
-                        title="Start coaching conversation"
-                      >
-                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                          <path d="M20 2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h4l4 4 4-4h4c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"/>
-                        </svg>
-                      </button>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
 
-
             {/* Growth Opportunities */}
             {lowestThree.length > 0 && (
-              <div className="bg-gradient-to-br from-primary/10 via-primary/5 to-white rounded-3xl p-8 shadow-lg border border-primary/20">
+              <div className="bg-gradient-to-br from-primary/10 via-primary/5 to-white rounded-3xl p-8 shadow-lg border border-primary/20 mt-12">
                 <div className="text-center mb-8">
                   <h2 className="text-3xl font-bold text-text-primary mb-4">Your Growth <span className="text-primary">Opportunities</span></h2>
                   <p className="text-xl text-text-secondary max-w-3xl mx-auto">
@@ -349,62 +355,6 @@ export default function Evaluation() {
                     </div>
                   ))}
                 </div>
-                
-                {/* WhatsApp Coaching CTA */}
-                <div className="text-center mt-8">
-                  <div className="bg-gradient-to-r from-green-50 to-green-100 rounded-2xl p-6 border border-green-200 shadow-lg">
-                    <div className="flex items-center justify-center gap-3 mb-4">
-                      <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center">
-                        <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
-                          <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893A11.821 11.821 0 0020.885 3.488"/>
-                        </svg>
-                      </div>
-                      <div className="text-left">
-                        <h3 className="text-xl font-bold text-text-primary">Accelerate Your Growth</h3>
-                        <p className="text-sm text-text-secondary">Get personal coaching on WhatsApp</p>
-                      </div>
-                    </div>
-                    
-                    <p className="text-text-secondary mb-6 max-w-2xl mx-auto">
-                      Ready to turn these insights into real leadership growth? Our AI coach provides personalized guidance, 
-                      weekly check-ins, and accountability to help you develop these areas systematically.
-                    </p>
-                    
-                    <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-                      <button
-                        onClick={() => {
-                          const topGrowthAreas = lowestThree.map(f => f.label).join(', ');
-                          const message = encodeURIComponent(`Hi! I just viewed my EVOLVE Leadership evaluation and I'd like personal coaching to develop my growth areas: ${topGrowthAreas}. Can you help me create a development plan?`);
-                          window.open(`https://wa.me/1234567890?text=${message}`, '_blank');
-                        }}
-                        className="inline-flex items-center gap-3 bg-green-500 hover:bg-green-600 text-white font-semibold px-8 py-4 rounded-xl transition-all duration-300 hover:scale-105 shadow-lg hover:shadow-xl"
-                      >
-                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                          <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893A11.821 11.821 0 0020.885 3.488"/>
-                        </svg>
-                        Get Personal Coaching
-                      </button>
-                      
-                      <div className="flex items-center gap-2 text-sm text-text-secondary">
-                        <div className="flex text-yellow-400">
-                          {'★'.repeat(5)}
-                        </div>
-                        <span>500+ leaders coached</span>
-                      </div>
-                    </div>
-                    
-                    <div className="mt-4 text-center">
-                      <p className="text-xs text-text-secondary">
-                        💬 Instant responses • 📈 Weekly progress tracking • 🎯 Personalized action plans
-                      </p>
-                    </div>
-                  </div>
-                  
-                  <div className="inline-flex items-center gap-2 bg-white/80 backdrop-blur-sm rounded-full px-6 py-3 shadow-md mt-6">
-                    <div className="w-2 h-2 bg-primary rounded-full animate-pulse"></div>
-                    <span className="text-sm font-medium text-text-secondary">Focus on one area at a time for maximum impact</span>
-                  </div>
-                </div>
               </div>
             )}
           </>
@@ -439,403 +389,215 @@ export default function Evaluation() {
 
 // --- Enhanced Scoring System with 12 Principles Framework ---
 
-// Enhanced scoring system with 12 principles framework
-const LEADERSHIP_PRINCIPLES = {
-  self_awareness: {
-    key: 'self_awareness',
-    label: 'Self‑Awareness',
-    description: 'Understanding one\'s own emotions, strengths, and weaknesses',
-    levels: {
-      1: { name: 'Unaware and reactive', keywords: ['rarely reflect', 'make decisions based on habits', 'not sure', 'don\'t know', 'never thought', 'not aware'] },
-      2: { name: 'Emerging awareness', keywords: ['sometimes notice', 'recognize when overreacted', 'beginning to understand', 'sometimes reflect'] },
-      3: { name: 'Developing awareness', keywords: ['can identify emotions', 'reflect on experiences', 'growing understanding', 'aware of', 'recognize'] },
-      4: { name: 'High awareness', keywords: ['strong understanding', 'frequently reflect', 'deep self-knowledge', 'self-assessment'] },
-      5: { name: 'Evolved awareness', keywords: ['highly aware', 'reflect deeply', 'mastery of self-understanding', 'authentic self'] }
-    }
-  },
-  self_responsibility: {
-    key: 'self_responsibility',
-    label: 'Self‑Responsibility',
-    description: 'Taking ownership of actions and outcomes',
-    levels: {
-      1: { name: 'Blame and victimhood', keywords: ['not my fault', 'blame others', 'can\'t control', 'victim mentality', 'not responsible'] },
-      2: { name: 'Some responsibility', keywords: ['sometimes take responsibility', 'when things are easy', 'partial ownership'] },
-      3: { name: 'Active responsibility', keywords: ['responsible for my growth', 'accepts feedback', 'takes ownership', 'accountable'] },
-      4: { name: 'Proactive responsibility', keywords: ['take responsibility for actions', 'own successes/failures', 'core part of who I am', 'take charge'] },
-      5: { name: 'Full responsibility', keywords: ['100% responsible', 'maintains strong sense', 'complete ownership', 'lead by example'] }
-    }
-  },
-  growth: {
-    key: 'growth',
-    label: 'Continuous Personal Growth',
-    description: 'Commitment to ongoing learning and development',
-    levels: {
-      1: { name: 'Resistance to growth', keywords: ['don\'t need to grow', 'already know', 'waste of time', 'not interested', 'don\'t need'] },
-      2: { name: 'Passive acceptance', keywords: ['know I could grow', 'engages in growth activities', 'basic learning', 'sometimes learn'] },
-      3: { name: 'Openness to growth', keywords: ['accepts feedback', 'believes in growth', 'actively learns', 'develop', 'improve'] },
-      4: { name: 'Growth-seeking', keywords: ['core part of who I am', 'regularly practices', 'seeks development', 'training', 'courses'] },
-      5: { name: 'Lifelong learner', keywords: ['lifelong', 'models vulnerability', 'constant evolution', 'mentor', 'skill building'] }
-    }
-  },
-  psych_safety: {
-    key: 'psych_safety',
-    label: 'Trust & Psychological Safety',
-    description: 'Creating an environment of trust and security',
-    levels: {
-      1: { name: 'Fear-based', keywords: ['afraid to speak', 'fear', 'intimidating', 'not safe', 'worried', 'afraid'] },
-      2: { name: 'Cautious trust', keywords: ['want to trust but remain', 'delegate tasks but still feel', 'cautious approach', 'safe space'] },
-      3: { name: 'Developing trust', keywords: ['believe trust needs to be', 'give trust gradually', 'building safety', 'trust', 'open communication'] },
-      4: { name: 'Trust-building', keywords: ['trust colleagues', 'foster culture of trust', 'open communication', 'psychological safety'] },
-      5: { name: 'Deep psychological safety', keywords: ['models vulnerability', 'authentic self', 'deep trust', 'speak up', 'comfortable'] }
-    }
-  },
-  empathy: {
-    key: 'empathy',
-    label: 'Empathy & Awareness of Others',
-    description: 'Understanding and valuing others\' perspectives and feelings',
-    levels: {
-      1: { name: 'Self-focused', keywords: ['don\'t care', 'not my problem', 'just get work done', 'emotions don\'t matter'] },
-      2: { name: 'Basic consideration', keywords: ['occasionally consider', 'listen but struggle', 'basic empathy', 'listen'] },
-      3: { name: 'Growing empathy', keywords: ['acknowledge people', 'pay more attention', 'developing understanding', 'understand others'] },
-      4: { name: 'High emotional intelligence', keywords: ['lead with emotional intelligence', 'consistently adapt', 'deep understanding', 'perspective'] },
-      5: { name: 'Systemic empathy', keywords: ['deep emotional', 'instinctively understand', 'systemic perspective', 'feelings', 'empathy'] }
-    }
-  },
-  shared_resp: {
-    key: 'shared_resp',
-    label: 'Empowered & Shared Responsibility',
-    description: 'Distributing authority and fostering collective ownership',
-    levels: {
-      1: { name: 'Control-focused', keywords: ['do everything myself', 'can\'t trust others', 'micromanage', 'control everything'] },
-      2: { name: 'Selective delegation', keywords: ['delegate selectively', 'want to trust but', 'limited empowerment', 'delegate'] },
-      3: { name: 'Growing empowerment', keywords: ['recognize need to empower', 'delegate selectively', 'developing trust', 'empower'] },
-      4: { name: 'Active empowerment', keywords: ['empower my team', 'give real authority', 'coaching approach', 'shared responsibility'] },
-      5: { name: 'Fully distributed', keywords: ['responsible for building', 'deeply empowering', 'mentor/coach', 'team decisions'] }
-    }
-  },
-  purpose: {
-    key: 'purpose',
-    label: 'Purpose, Vision & Outcomes',
-    description: 'Defining and working towards a clear, shared future',
-    levels: {
-      1: { name: 'Task-focused', keywords: ['just a job', 'don\'t see point', 'unclear goals', 'no direction'] },
-      2: { name: 'Understanding importance', keywords: ['understand importance', 'refer to vision/goals', 'basic purpose', 'purpose'] },
-      3: { name: 'Purpose-conscious', keywords: ['see value in', 'create clarity', 'meaningful work', 'vision'] },
-      4: { name: 'Purpose-led', keywords: ['help define/communicate', 'facilitates creation', 'vision-driven', 'goals'] },
-      5: { name: 'Visionary architecture', keywords: ['crafts compelling purpose', 'deeply empowering', 'systemic vision', 'mission'] }
-    }
-  },
-  culture: {
-    key: 'culture',
-    label: 'Culture of Leadership',
-    description: 'Building an environment where leadership is practiced at all levels',
-    levels: {
-      1: { name: 'Toxic culture', keywords: ['toxic', 'bad culture', 'don\'t fit in', 'negative environment'] },
-      2: { name: 'Basic support', keywords: ['basic support', 'recognize conflict', 'minimal culture building', 'culture'] },
-      3: { name: 'Encouraging growth', keywords: ['encourage team members', 'create clarity', 'positive environment', 'values'] },
-      4: { name: 'Active culture building', keywords: ['act as coach/guide', 'facilitate discussions', 'culture shaping', 'team spirit'] },
-      5: { name: 'Culture cultivation', keywords: ['catalyst for growth', 'built a culture where', 'systemic culture', 'belonging'] }
-    }
-  },
-  tensions: {
-    key: 'tensions',
-    label: 'Harnessing Tensions for Collaboration',
-    description: 'Managing disagreements constructively to drive innovation',
-    levels: {
-      1: { name: 'Conflict avoidance', keywords: ['avoid conflict', 'can\'t handle', 'makes me uncomfortable', 'not good with', 'tension'] },
-      2: { name: 'Basic conflict handling', keywords: ['recognize conflict', 'address tensions', 'basic resolution', 'conflict'] },
-      3: { name: 'Collaborative approach', keywords: ['see value in collaboration', 'actively listen', 'constructive conflict', 'collaboration'] },
-      4: { name: 'Productive conflict', keywords: ['understand/value positive', 'co-create value', 'productive tension', 'resolve conflict'] },
-      5: { name: 'Conflict as catalyst', keywords: ['built a culture where conflict', 'catalyst for innovation', 'systemic conflict resolution', 'manage tensions'] }
-    }
-  },
-  stakeholders: {
-    key: 'stakeholders',
-    label: 'Positive Impact on Stakeholders',
-    description: 'Ensuring actions benefit all parties involved',
-    levels: {
-      1: { name: 'Internal focus only', keywords: ['only care about team', 'not my concern', 'internal focus only'] },
-      2: { name: 'Basic stakeholder awareness', keywords: ['know stakeholders', 'meets minimum expectations', 'basic awareness', 'stakeholders'] },
-      3: { name: 'Growing stakeholder focus', keywords: ['see stakeholders as part of', 'seeks feedback', 'broader perspective', 'customers'] },
-      4: { name: 'Stakeholder partnership', keywords: ['engages stakeholders as partners', 'opportunity to learn', 'collaborative impact', 'community'] },
-      5: { name: 'Systemic stakeholder impact', keywords: ['embeds stakeholder impact', 'systemic thinking', 'regenerative approach', 'impact'] }
-    }
-  },
-  change: {
-    key: 'change',
-    label: 'Embracing Change & Innovation',
-    description: 'Adapting to new circumstances and fostering creativity',
-    levels: {
-      1: { name: 'Change resistance', keywords: ['resist change', 'stick to old ways', 'don\'t like change', 'too risky'] },
-      2: { name: 'Reactive to change', keywords: ['reacts to change', 'complies with rules', 'basic adaptation', 'change'] },
-      3: { name: 'Adaptive approach', keywords: ['useful if managed', 'supports new ideas', 'flexible approach', 'adapt'] },
-      4: { name: 'Proactive creativity', keywords: ['champions innovation', 'lead with awareness', 'builds strategies', 'innovation'] },
-      5: { name: 'Evolving and regenerative', keywords: ['constant/beautiful', 'embodies curiosity/adaptability', 'regenerative practices', 'experiment'] }
-    }
-  },
-  stewardship: {
-    key: 'stewardship',
-    label: 'Social & Ethical Stewardship',
-    description: 'Leading with a commitment to societal and environmental well-being',
-    levels: {
-      1: { name: 'Profit-focused only', keywords: ['just business', 'profit only', 'don\'t care about ethics'] },
-      2: { name: 'Basic compliance', keywords: ['sometimes necessary', 'meets requirements', 'basic ethics', 'ethical'] },
-      3: { name: 'Values-aligned', keywords: ['want to lead in a way that reflects', 'acts in accordance', 'ethical consideration', 'responsible'] },
-      4: { name: 'Purpose-driven inclusivity', keywords: ['lead with awareness', 'builds strategies', 'ethical leadership', 'sustainable'] },
-      5: { name: 'System-conscious leadership', keywords: ['part of an interconnected', 'embeds regenerative values', 'systemic stewardship', 'social impact'] }
-    }
-  }
-};
-
-// const FRAMEWORKS = Object.values(LEADERSHIP_PRINCIPLES).map(p => ({ key: p.key, label: p.label }));
-
-// Enhanced response analysis functions
-// Helper functions for the new dashboard design
-
-function getLeadershipDimensions(frameworks: FrameworkScore[]): Array<{ key: string; label: string; score: number }> {
-  // Group frameworks by leadership dimension
-  const dimensions = {
+// Helper function to group frameworks into dimensions (4 leadership dimensions)
+const getLeadershipDimensions = (frameworks: FrameworkScore[]) => {
+  const dimensionMap = {
     'self_leadership': {
+      key: 'self_leadership',
       label: 'Self-Leadership',
-      keys: ['self_awareness', 'self_responsibility', 'continuous_growth']
+      frameworks: ['self_awareness', 'self_responsibility', 'continuous_growth']
     },
     'relational_leadership': {
-      label: 'Relational Leadership', 
-      keys: ['trust_safety', 'empathy', 'empowerment']
+      key: 'relational_leadership', 
+      label: 'Relational Leadership',
+      frameworks: ['trust_safety', 'empathy', 'empowerment']
     },
     'organizational_leadership': {
+      key: 'organizational_leadership',
+      label: 'Organizational Leadership', 
+      frameworks: ['vision', 'culture', 'tension']
+    },
+    'leadership_beyond_organization': {
+      key: 'leadership_beyond_organization',
       label: 'Leadership Beyond the Organization',
-      keys: ['vision', 'culture', 'tension', 'innovation', 'stakeholder', 'stewardship']
+      frameworks: ['innovation', 'stakeholder', 'stewardship']
     }
   };
 
-  return Object.entries(dimensions).map(([key, dimension]) => {
-    // Calculate average score for this dimension
-    const dimensionFrameworks = frameworks.filter(fr => dimension.keys.includes(fr.key));
-    const averageScore = dimensionFrameworks.length > 0 
-      ? dimensionFrameworks.reduce((sum, fr) => sum + fr.score, 0) / dimensionFrameworks.length
+  return Object.values(dimensionMap).map(dimension => {
+    const relevantFrameworks = frameworks.filter(f => dimension.frameworks.includes(f.key));
+    const averageScore = relevantFrameworks.length > 0 
+      ? relevantFrameworks.reduce((sum, f) => sum + (f.score || 0), 0) / relevantFrameworks.length
       : 0;
-
+    
     return {
-      key,
-      label: dimension.label,
-      score: averageScore
+      ...dimension,
+      score: averageScore,
+      frameworks: relevantFrameworks
     };
   });
-}
+};
 
-function getLeadershipLevel(score: number): string {
-  if (score >= 90) return 'TRANSFORMATIONAL';
-  if (score >= 75) return 'ADVANCED';
-  if (score >= 60) return 'DEVELOPING';
-  if (score >= 40) return 'EMERGING';
-  return 'BEGINNER';
-}
+const getLeadershipLevel = (score: number): string => {
+  if (score >= 85) return 'Transformational';
+  if (score >= 70) return 'Advanced';
+  if (score >= 55) return 'Proficient';
+  if (score >= 40) return 'Developing';
+  return 'Emerging';
+};
 
-function getDimensionDescription(key: string, level: string): string {
-  const descriptions: { [key: string]: { [level: string]: string } } = {
-    self_leadership: {
-      'TRANSFORMATIONAL': 'You demonstrate exceptional self-awareness and continuous growth, serving as a model for others.',
-      'ADVANCED': 'You demonstrate a strong ability to reflect on your thoughts, emotions, and behaviors with clarity and purpose.',
-      'DEVELOPING': 'You show growing awareness of your strengths and areas for development.',
-      'EMERGING': 'You\'re beginning to recognize your personal leadership patterns and growth opportunities.',
-      'BEGINNER': 'You\'re starting to develop self-awareness and personal leadership skills.'
+const getDimensionDescription = (dimensionKey: string, level: string): string => {
+  const descriptions: Record<string, Record<string, string>> = {
+    'self_leadership': {
+      'Transformational': 'You demonstrate exceptional self-awareness and personal mastery, serving as a role model for continuous growth and authentic leadership.',
+      'Advanced': 'You show strong self-leadership skills with consistent self-awareness and responsibility for your actions and development.',
+      'Proficient': 'You have good self-awareness and take responsibility for your growth, with room to deepen your self-leadership practices.',
+      'Developing': 'You are building self-awareness and beginning to take ownership of your leadership development journey.',
+      'Emerging': 'Focus on developing self-awareness and taking greater responsibility for your personal and professional growth.'
     },
-    relational_leadership: {
-      'TRANSFORMATIONAL': 'You lead with heart and deep emotional intelligence, creating spaces of trust and psychological safety.',
-      'ADVANCED': 'You excel at building relationships and creating inclusive, empowering environments.',
-      'DEVELOPING': 'You show strong interpersonal skills and team-building capabilities.',
-      'EMERGING': 'You\'re developing your ability to connect with and lead others effectively.',
-      'BEGINNER': 'You\'re learning the fundamentals of relational leadership.'
+    'relational_leadership': {
+      'Transformational': 'You excel at building deep trust, demonstrating empathy, and empowering others to reach their full potential.',
+      'Advanced': 'You effectively build relationships, show empathy, and work to empower team members in their roles.',
+      'Proficient': 'You maintain good relationships and show care for others, with opportunities to enhance empowerment skills.',
+      'Developing': 'You are working on building stronger relationships and developing your ability to connect with and empower others.',
+      'Emerging': 'Focus on building trust through consistent actions, practicing empathy, and learning to empower others.'
     },
-    organizational_leadership: {
-      'TRANSFORMATIONAL': 'You drive organizational transformation through visionary leadership and cultural development.',
-      'ADVANCED': 'You effectively align teams with organizational vision and foster leadership at all levels.',
-      'DEVELOPING': 'You show strong organizational leadership and strategic thinking capabilities.',
-      'EMERGING': 'You\'re beginning to recognize your broader organizational impact and influence.',
-      'BEGINNER': 'You\'re developing your organizational leadership skills and strategic thinking.'
+    'organizational_leadership': {
+      'Transformational': 'You masterfully articulate vision, shape positive culture, and navigate organizational tensions with wisdom.',
+      'Advanced': 'You effectively communicate vision, contribute to positive culture, and handle organizational challenges well.',
+      'Proficient': 'You understand organizational dynamics and contribute to vision and culture, with room to handle tensions more effectively.',
+      'Developing': 'You are learning to navigate organizational complexities and contribute more effectively to vision and culture.',
+      'Emerging': 'Focus on understanding organizational dynamics, clarifying vision, and learning to address cultural and structural tensions.'
+    },
+    'leadership_beyond_organization': {
+      'Transformational': 'You drive innovation, effectively engage stakeholders, and demonstrate exceptional stewardship of resources and relationships.',
+      'Advanced': 'You encourage innovation, manage stakeholder relationships well, and show good stewardship practices.',
+      'Proficient': 'You support innovation and maintain stakeholder relationships, with opportunities to enhance stewardship.',
+      'Developing': 'You are learning to foster innovation, build external relationships, and develop stewardship mindset.',
+      'Emerging': 'Focus on thinking beyond immediate boundaries, building stakeholder relationships, and developing long-term stewardship perspective.'
     }
   };
+
+  return descriptions[dimensionKey]?.[level] || 'Continue developing your leadership skills in this area.';
+};
+
+const getTopPriorities = (frameworks: FrameworkScore[]) => {
+  const sorted = [...frameworks].sort((a, b) => (a.score || 0) - (b.score || 0));
+  const lowest = sorted.slice(0, 2);
   
-  return descriptions[key]?.[level] || 'You\'re developing your leadership capabilities in this area.';
-}
-
-function getTopPriorities(frameworks: FrameworkScore[]): Array<{ title: string; description: string }> {
-  // Sort frameworks by score (lowest first) to identify areas needing improvement
-  const sortedFrameworks = [...frameworks].sort((a, b) => a.score - b.score);
-  
-  const priorities: { [key: string]: { title: string; description: string } } = {
-    self_awareness: { title: 'Self-Awareness', description: 'Develop deeper understanding of your leadership impact and blind spots.' },
-    self_responsibility: { title: 'Self-Responsibility', description: 'Take greater ownership of outcomes and decision-making processes.' },
-    continuous_growth: { title: 'Continuous Growth', description: 'Establish regular learning and development practices.' },
-    trust_safety: { title: 'Trust & Safety', description: 'Create environments where people feel safe to take risks and be vulnerable.' },
-    empathy: { title: 'Empathy & Awareness', description: 'Develop deeper understanding of others\' perspectives and needs.' },
-    empowerment: { title: 'Empowerment', description: 'Delegate meaningful authority and hold others accountable for results.' },
-    vision: { title: 'Purpose-Driven Goals', description: 'Set and articulate a compelling vision for the future.' },
-    culture: { title: 'Culture Building', description: 'Foster leadership development at every level of the organization.' },
-    tension: { title: 'Tension Management', description: 'Use productive conflict and differences to drive better decisions.' },
-    innovation: { title: 'Change & Innovation', description: 'Embrace change and drive innovation through experimentation.' },
-    stakeholder: { title: 'Stakeholder Impact', description: 'Create positive value for all stakeholders beyond immediate team.' },
-    stewardship: { title: 'Ethical Stewardship', description: 'Lead with responsibility for societal and environmental impact.' }
-  };
-  
-  return sortedFrameworks.slice(0, 2).map(fr => priorities[fr.key] || { 
-    title: fr.label, 
-    description: 'Focus on developing this leadership capability.' 
-  });
-}
-
-// Legacy function removed - now handled by AI evaluation
-
-// function parseScaleAnswer(content: string): number | null {
-//   const m = content?.match(/(\d{1,2})\s*out\s*of\s*10/i);
-//   if (!m) return null;
-//   const raw = parseInt(m[1], 10);
-//   if (Number.isNaN(raw)) return null;
-//   return Math.max(0, Math.min(100, Math.round((raw / 10) * 100)));
-// }
-
-// Function moved inside React component to fix useCallback error
-
-// Legacy functions removed - all evaluation logic now handled by AI
-
-
-// Legacy functions removed - using AI evaluation instead
-
-// Legacy function removed - now handled by AI evaluation
-
-// function getTeamSizeModifier(frameworkKey: string, teamSize: string): number {
-//   const size = parseInt(teamSize) || 0;
-//   const leadershipFrameworks = ['shared_resp', 'psych_safety', 'culture', 'tensions'];
-//   
-//   if (leadershipFrameworks.includes(frameworkKey)) {
-//     if (size > 20) return 10; // Large teams = more experience with these
-//     if (size > 10) return 5;
-//     if (size > 5) return 2;
-//     if (size < 3) return -5; // Small teams = less experience
-//   }
-//   
-//   return 0;
-// }
-
-// function getRoleModifier(frameworkKey: string, role: string): number {
-//   const roleStr = role.toLowerCase();
-//   const modifiers: Record<string, Record<string, number>> = {
-//     operations: { self_responsibility: 5, purpose: 5, stakeholders: 3 },
-//     engineering: { growth: 5, change: 8, tensions: 3 },
-//     hr: { empathy: 8, psych_safety: 8, culture: 8 },
-//     sales: { stakeholders: 8, empathy: 5, purpose: 3 },
-//     marketing: { stakeholders: 5, purpose: 5, change: 5 },
-//     finance: { self_responsibility: 5, stewardship: 5, purpose: 3 }
-//   };
-//   
-//   for (const [roleKey, frameworkMods] of Object.entries(modifiers)) {
-//     if (roleStr.includes(roleKey)) {
-//       return frameworkMods[frameworkKey] || 0;
-//     }
-//   }
-//   
-//   return 0;
-// }
-
-// Legacy functions removed - all evaluation logic now handled by AI
-
-// Legacy function removed - now handled by AI evaluation
+  return lowest.map(framework => ({
+    title: framework.label,
+    description: `Current score: ${Math.round(framework.score)}%. Focus on specific actions to improve this critical leadership competency.`
+  }));
+};
 
 const getDefaultEvaluation = (): EvaluationData => {
-  const frameworks: FrameworkScore[] = Object.values(LEADERSHIP_PRINCIPLES).map((principle) => ({
-    key: principle.key,
-    label: principle.label,
-    score: Math.floor(Math.random() * 30) + 50, // Random score between 50-80
-    summary: `Your ${principle.label.toLowerCase()} shows potential for growth with focused development.`,
-    confidence: 0.6,
-    level: 3
-  }));
-
   return {
-    frameworks,
+    frameworks: [
+      { key: 'self_awareness', label: 'Self-Awareness', score: Math.floor(Math.random() * 30) + 50 },
+      { key: 'self_responsibility', label: 'Self-Responsibility', score: Math.floor(Math.random() * 30) + 50 },
+      { key: 'continuous_growth', label: 'Continuous Growth', score: Math.floor(Math.random() * 30) + 50 },
+      { key: 'trust_safety', label: 'Trust & Safety', score: Math.floor(Math.random() * 30) + 50 },
+      { key: 'empathy', label: 'Empathy', score: Math.floor(Math.random() * 30) + 50 },
+      { key: 'empowerment', label: 'Empowerment', score: Math.floor(Math.random() * 30) + 50 },
+      { key: 'vision', label: 'Vision', score: Math.floor(Math.random() * 30) + 50 },
+      { key: 'culture', label: 'Culture', score: Math.floor(Math.random() * 30) + 50 },
+      { key: 'tension', label: 'Tension Management', score: Math.floor(Math.random() * 30) + 50 },
+      { key: 'innovation', label: 'Innovation', score: Math.floor(Math.random() * 30) + 50 },
+      { key: 'stakeholder', label: 'Stakeholder Management', score: Math.floor(Math.random() * 30) + 50 },
+      { key: 'stewardship', label: 'Stewardship', score: Math.floor(Math.random() * 30) + 50 }
+    ],
     overall: {
-      persona: 'The Developing Leader',
-      summary: 'Your leadership assessment is complete. Continue developing your skills through practice and feedback to unlock your full potential.'
+      persona: 'Developing Leader',
+      summary: 'You show promise as a leader with strengths to build upon and clear areas for growth and development.'
     }
   };
 };
 
 const generateFallbackEvaluation = (responses: string[], _conversationContext: string): EvaluationData => {
-  console.log('Generating fallback evaluation using rule-based approach');
-  
-  // Simplified rule-based scoring as fallback
-  const frameworks: FrameworkScore[] = Object.values(LEADERSHIP_PRINCIPLES).map((principle) => {
-    let score = 55; // Conservative base score
-    
-    // Simple keyword matching for fallback
-    const keywords = getKeywordsForPrinciple(principle.key);
-    const responseText = responses.join(' ').toLowerCase();
-    const matches = keywords.filter(keyword => responseText.includes(keyword.toLowerCase()));
-    
-    score += matches.length * 3; // Less generous than before
-    
-    // Response quality bonus
-    const avgLength = responses.reduce((sum, r) => sum + r.length, 0) / responses.length;
-    if (avgLength > 100) score += 5;
-    
-    score = Math.min(85, Math.max(40, score)); // Cap between 40-85
-    
-    return {
-      key: principle.key,
-      label: principle.label,
-      score,
-      summary: `Based on available data, your ${principle.label.toLowerCase()} shows ${score >= 70 ? 'good' : 'developing'} capabilities.`,
-      confidence: 0.5,
-      level: Math.ceil(score / 20)
-    };
-  });
-
-  const avgScore = frameworks.reduce((sum, f) => sum + f.score, 0) / frameworks.length;
+  // Simple rule-based scoring based on response characteristics
+  const responseLength = responses.join(' ').length;
+  const baseScore = Math.min(80, Math.max(30, responseLength / 10));
   
   return {
-    frameworks,
+    frameworks: [
+      { key: 'self_awareness', label: 'Self-Awareness', score: baseScore + Math.random() * 20 - 10 },
+      { key: 'self_responsibility', label: 'Self-Responsibility', score: baseScore + Math.random() * 20 - 10 },
+      { key: 'continuous_growth', label: 'Continuous Growth', score: baseScore + Math.random() * 20 - 10 },
+      { key: 'trust_safety', label: 'Trust & Safety', score: baseScore + Math.random() * 20 - 10 },
+      { key: 'empathy', label: 'Empathy', score: baseScore + Math.random() * 20 - 10 },
+      { key: 'empowerment', label: 'Empowerment', score: baseScore + Math.random() * 20 - 10 },
+      { key: 'vision', label: 'Vision', score: baseScore + Math.random() * 20 - 10 },
+      { key: 'culture', label: 'Culture', score: baseScore + Math.random() * 20 - 10 },
+      { key: 'tension', label: 'Tension Management', score: baseScore + Math.random() * 20 - 10 },
+      { key: 'innovation', label: 'Innovation', score: baseScore + Math.random() * 20 - 10 },
+      { key: 'stakeholder', label: 'Stakeholder Management', score: baseScore + Math.random() * 20 - 10 },
+      { key: 'stewardship', label: 'Stewardship', score: baseScore + Math.random() * 20 - 10 }
+    ],
     overall: {
-      persona: avgScore >= 70 ? 'The Strategic Leader' : 'The Developing Leader',
-      summary: `Your assessment indicates ${avgScore >= 70 ? 'strong developing' : 'emerging'} leadership capabilities. Continue focusing on growth and practical application of leadership principles.`
+      persona: 'Reflective Leader',
+      summary: 'Based on your responses, you demonstrate thoughtful consideration of leadership challenges with opportunities for continued growth.'
     }
   };
 };
 
-const getKeywordsForPrinciple = (principleKey: string): string[] => {
-  const keywordMap: Record<string, string[]> = {
-    'self_awareness': ['self', 'aware', 'reflect', 'personal', 'values', 'discipline'],
-    'self_responsibility': ['responsible', 'ownership', 'accountability', 'take charge'],
-    'growth': ['learn', 'develop', 'improve', 'growth', 'feedback'],
-    'psych_safety': ['trust', 'safe', 'open', 'comfortable', 'psychological safety'],
-    'empathy': ['empathy', 'understand', 'feelings', 'perspective', 'emotional'],
-    'shared_resp': ['delegate', 'empower', 'shared', 'team responsibility'],
-    'purpose': ['vision', 'purpose', 'goals', 'direction', 'outcomes'],
-    'change': ['change', 'adapt', 'innovation', 'transform', 'evolve'],
-    'facilitation': ['facilitate', 'coordinate', 'organize', 'guide'],
-    'communication': ['communicate', 'listen', 'feedback', 'clear', 'message'],
-    'develop_people': ['mentor', 'coach', 'develop', 'teach', 'guide'],
-    'systemic': ['system', 'holistic', 'big picture', 'interconnected']
+const defaultSuggestions = (frameworkKey: string): string[] => {
+  const suggestions: Record<string, string[]> = {
+    'self_awareness': [
+      'Practice daily reflection on your leadership decisions',
+      'Seek 360-degree feedback from colleagues and team members',
+      'Keep a leadership journal to track patterns and growth'
+    ],
+    'self_responsibility': [
+      'Take ownership of team outcomes, both positive and negative',
+      'Set clear personal development goals and track progress',
+      'Address mistakes openly and focus on learning opportunities'
+    ],
+    'continuous_growth': [
+      'Establish a regular learning routine with leadership content',
+      'Seek out challenging assignments that stretch your abilities',
+      'Find a mentor or coach to guide your development'
+    ],
+    'trust_safety': [
+      'Be consistent in your words and actions',
+      'Create space for open dialogue and psychological safety',
+      'Follow through on commitments and communicate proactively'
+    ],
+    'empathy': [
+      'Practice active listening in all interactions',
+      'Ask questions to understand others\' perspectives',
+      'Acknowledge and validate team members\' feelings and concerns'
+    ],
+    'empowerment': [
+      'Delegate meaningful work and provide necessary resources',
+      'Encourage team members to take calculated risks',
+      'Celebrate others\' successes and support their growth'
+    ],
+    'vision': [
+      'Communicate the bigger picture and purpose regularly',
+      'Connect daily tasks to larger organizational goals',
+      'Involve team members in vision creation and refinement'
+    ],
+    'culture': [
+      'Model the values and behaviors you want to see',
+      'Recognize and reinforce positive cultural behaviors',
+      'Address cultural misalignments quickly and fairly'
+    ],
+    'tension': [
+      'Learn to identify and address tensions early',
+      'Develop skills in conflict resolution and mediation',
+      'Create processes for healthy debate and decision-making'
+    ],
+    'innovation': [
+      'Encourage experimentation and creative problem-solving',
+      'Allocate time and resources for innovation initiatives',
+      'Learn from failures and iterate quickly'
+    ],
+    'stakeholder': [
+      'Map key stakeholders and understand their interests',
+      'Develop regular communication and feedback loops',
+      'Build relationships before you need them'
+    ],
+    'stewardship': [
+      'Consider long-term impact of decisions on all stakeholders',
+      'Invest in sustainable practices and team development',
+      'Balance short-term results with long-term value creation'
+    ]
   };
-  return keywordMap[principleKey] || [];
+
+  return suggestions[frameworkKey] || [
+    'Continue developing your skills in this area',
+    'Seek feedback and guidance from experienced leaders',
+    'Practice and reflect on your leadership approach'
+  ];
 };
-
-function defaultSuggestions(key: string): string[] {
-  switch (key) {
-    case 'psych_safety':
-      return ['Open meetings by inviting concerns and questions', 'Commit to 1:1 feedback every two weeks', 'Celebrate attempts, not just outcomes'];
-    case 'empathy':
-      return ['Use active listening (reflect back, clarify)', 'Shadow a teammate for a day', 'Run a short empathy-mapping exercise'];
-    case 'self_awareness':
-      return ['Keep a weekly reflection journal', 'Ask a peer for blind-spot feedback', 'Define 1 growth area for the next sprint'];
-    case 'shared_resp':
-      return ['Delegate a decision with clear guardrails', 'Pair a junior lead with you for a project', 'Document RACI for a key workflow'];
-    case 'purpose':
-      return ['Revisit quarterly OKRs with the team', 'Write a 1-paragraph vision for a project', 'Define 3 measurable outcomes'];
-    case 'change':
-      return ['Pilot a small experiment this week', 'Timebox a spike for a risky idea', 'Retrospect experiments openly'];
-    default:
-      return ['Schedule one action this week', 'Share intent with the team', 'Review progress in one week'];
-  }
-}
-
