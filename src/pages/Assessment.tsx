@@ -108,11 +108,17 @@ export const Assessment = () => {
         questionType: msg.questionType
       }));
 
+      // Extract question type history for variety enforcement
+      const questionTypeHistory = messages
+        .filter(msg => msg.isQuestion && msg.questionType)
+        .map(msg => msg.questionType!);
+
       console.log('Calling dynamic-question-generator with:', {
         conversationId,
         profile,
         questionCount: askedCount,
-        historyLength: conversationHistory.length
+        historyLength: conversationHistory.length,
+        questionTypeHistory
       });
 
       // Call the AI service to generate the next question
@@ -121,7 +127,8 @@ export const Assessment = () => {
           conversationId,
           profile,
           conversationHistory,
-          questionCount: askedCount
+          questionCount: askedCount,
+          questionTypeHistory
         }
       });
 

@@ -19,6 +19,7 @@ interface GenerateQuestionRequest {
     questionType?: string;
   }>;
   questionCount: number;
+  questionTypeHistory?: string[];
 }
 
 interface QuestionResponse {
@@ -79,7 +80,8 @@ serve(async (req) => {
       conversationId, 
       profile,
       conversationHistory, 
-      questionCount
+      questionCount,
+      questionTypeHistory = []
     } = await req.json() as GenerateQuestionRequest;
 
     console.log('Generating question for conversation:', conversationId);
@@ -87,11 +89,14 @@ serve(async (req) => {
     console.log('Profile:', profile);
     console.log('Conversation history length:', conversationHistory.length);
 
+    console.log('Question type history:', questionTypeHistory);
+
     // Generate contextual question based on full conversation history
     const questionResponse = await generateContextualQuestion(
       profile,
       conversationHistory,
       questionCount,
+      questionTypeHistory,
       openAIApiKey
     );
 
@@ -117,6 +122,7 @@ async function generateContextualQuestion(
   profile: any,
   conversationHistory: any[],
   questionCount: number,
+  questionTypeHistory: string[],
   apiKey: string
 ): Promise<QuestionResponse> {
   try {
@@ -126,6 +132,20 @@ async function generateContextualQuestion(
     const formattedHistory = conversationHistory
       .map(msg => `${msg.type === 'bot' ? 'Assistant' : 'User'}: ${msg.content}`)
       .join('\n');
+
+    // Analyze question type variety and progression
+    const questionTypeCount = questionTypeHistory.reduce((acc, type) => {
+      acc[type] = (acc[type] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    const allowedTypes = questionCount < 5 
+      ? ['multiple-choice', 'scale', 'most-least-choice']
+      : questionCount < 10
+      ? ['multiple-choice', 'scale', 'most-least-choice', 'open-ended'] // Gradual introduction
+      : ['multiple-choice', 'scale', 'most-least-choice', 'open-ended'];
+
+    const varietyGuidance = generateVarietyGuidance(questionTypeCount, allowedTypes, questionCount);
 
     // Build the comprehensive prompt with all context
     const prompt = `You are an expert leadership assessment coach conducting a personalized leadership evaluation. Your goal is to deeply understand this person's leadership style, capabilities, and growth areas through strategic questioning.
@@ -142,7 +162,12 @@ ${formattedHistory}
 ASSESSMENT PROGRESS:
 - Current question number: ${questionCount + 1}
 - Target: 15 total questions
-- Assessment phase: ${questionCount < 5 ? 'Initial exploration' : questionCount < 10 ? 'Deep dive' : 'Validation & synthesis'}
+- Assessment phase: ${questionCount < 5 ? 'Initial exploration (simple question types)' : questionCount < 10 ? 'Deep dive (gradual complexity)' : 'Validation & synthesis (full complexity)'}
+
+QUESTION TYPE VARIETY & PROGRESSION:
+${varietyGuidance}
+- Allowed question types for this phase: ${allowedTypes.join(', ')}
+- Question type usage so far: ${Object.entries(questionTypeCount).map(([type, count]) => `${type}: ${count}`).join(', ') || 'None yet'}
 
 LEADERSHIP PRINCIPLES TO ASSESS:
 1. Self-Leadership: Self-awareness, emotional regulation, personal growth mindset
@@ -155,13 +180,22 @@ QUESTION GENERATION RULES:
 2. BUILD ON PREVIOUS ANSWERS - reference specific things they've shared
 3. AVOID REPETITION - don't ask similar questions to what's already been covered
 4. PROGRESS LOGICALLY from general to specific, surface to deep
-5. ADAPT question type based on what will yield the most insight
+5. ENSURE VARIETY - avoid overusing the same question type (max 2-3 consecutive of same type)
+6. RESPECT PHASE RESTRICTIONS - only use allowed question types for current phase
+7. CHOOSE question type based on what will yield the most insight AND variety needs
 
-QUESTION TYPES TO USE:
-- multiple-choice: For preferences, style identification, or quick assessments
-- open-ended: For detailed experiences, stories, and deeper reflection
-- scale: For self-assessment of skills, confidence, or frequency (1-10 scale)
-- most-least-choice: For prioritization and values clarification
+QUESTION TYPE SELECTION STRATEGY:
+- multiple-choice: Quick preferences, style identification, baseline assessments
+- scale: Self-assessment of confidence, frequency, importance (choose contextual scale topic based on previous answers)
+- most-least-choice: Prioritization, values clarification, behavioral preferences
+- open-ended: Detailed experiences, stories, deeper reflection (gradually introduced from question 6+)
+
+SCALE QUESTION GUIDANCE:
+When using scale questions, choose the measurement based on previous responses:
+- If they mentioned challenges → confidence in handling similar situations
+- If they discussed team → frequency of team behaviors or team satisfaction
+- If they shared leadership style → importance of different leadership qualities
+- If they talked about goals → confidence in achieving specific outcomes
 
 RESPONSE FORMAT (JSON only):
 {
@@ -281,7 +315,7 @@ Generate the next question that will provide the most valuable insight into thei
       console.error('Raw response:', data.choices[0]?.message?.content);
       
       // Fallback question based on conversation context
-      const contextualFallback = generateContextualFallback(profile, conversationHistory, questionCount);
+      const contextualFallback = generateContextualFallback(profile, conversationHistory, questionCount, questionTypeHistory);
       questionData = contextualFallback;
     }
 
@@ -322,11 +356,46 @@ Generate the next question that will provide the most valuable insight into thei
   }
 }
 
+// Generate variety guidance for the AI prompt
+function generateVarietyGuidance(
+  questionTypeCount: Record<string, number>,
+  allowedTypes: string[],
+  questionCount: number
+): string {
+  if (questionCount === 0) {
+    return "- Start with any of the allowed simple question types\n- Focus on getting baseline information";
+  }
+
+  const overusedTypes = Object.entries(questionTypeCount)
+    .filter(([_, count]) => count >= 3)
+    .map(([type, _]) => type);
+
+  const underusedTypes = allowedTypes.filter(type => (questionTypeCount[type] || 0) < 2);
+
+  let guidance = "";
+  if (overusedTypes.length > 0) {
+    guidance += `- AVOID overused types: ${overusedTypes.join(', ')}\n`;
+  }
+  if (underusedTypes.length > 0) {
+    guidance += `- PREFER underused types: ${underusedTypes.join(', ')}\n`;
+  }
+  if (questionCount < 5) {
+    guidance += "- Keep it simple: use multiple-choice, scale, or most-least-choice only\n";
+  } else if (questionCount < 10) {
+    guidance += "- Can introduce 1-2 open-ended questions but balance with simpler types\n";
+  } else {
+    guidance += "- Full flexibility but maintain variety\n";
+  }
+  
+  return guidance;
+}
+
 // Generate contextual fallback question based on conversation and profile
 function generateContextualFallback(
   profile: any,
   conversationHistory: any[],
-  questionCount: number
+  questionCount: number,
+  questionTypeHistory: string[]
 ): QuestionResponse {
   console.log('Generating contextual fallback question');
   
@@ -346,9 +415,20 @@ function generateContextualFallback(
     msg.content.toLowerCase().includes('approach')
   );
 
-  // Early stage questions (0-4)
+  // Determine variety-conscious question type for early stage
+  const questionTypeCount = questionTypeHistory.reduce((acc, type) => {
+    acc[type] = (acc[type] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+
+  // Early stage questions (0-4) - simple types only with variety
   if (questionCount < 5) {
-    if (!hasDiscussedStyle) {
+    const allowedTypes = ['multiple-choice', 'scale', 'most-least-choice'];
+    const leastUsedType = allowedTypes.reduce((least, type) => 
+      (questionTypeCount[type] || 0) < (questionTypeCount[least] || 0) ? type : least
+    );
+
+    if (!hasDiscussedStyle && leastUsedType === 'multiple-choice') {
       return {
         question: `As a ${profile.position} in ${profile.role} leading ${profile.teamSize} people, how would you describe your natural leadership approach?`,
         type: "multiple-choice",
@@ -360,11 +440,29 @@ function generateContextualFallback(
         ],
         reasoning: `Contextual fallback exploring leadership style for ${profile.position} role`
       };
+    } else if (leastUsedType === 'scale') {
+      return {
+        question: `On a scale of 1-10, how confident do you feel in your ability to ${profile.motivation.toLowerCase()} as a leader?`,
+        type: "scale",
+        scale_info: {
+          min: 1,
+          max: 10,
+          min_label: "Not confident at all",
+          max_label: "Extremely confident"
+        },
+        reasoning: `Contextual fallback assessing confidence in achieving ${profile.motivation}`
+      };
     } else {
       return {
-        question: `Given your motivation to ${profile.motivation.toLowerCase()}, what's the biggest leadership challenge you're facing right now with your team of ${profile.teamSize}?`,
-        type: "open-ended",
-        reasoning: `Contextual fallback connecting motivation to current challenges`
+        question: "When making important leadership decisions, which approach most and least reflects your style?",
+        type: "most-least-choice",
+        most_least_options: [
+          "Gather extensive input from team members",
+          "Make quick decisions based on experience", 
+          "Focus on data and analytical evidence",
+          "Consider long-term strategic implications"
+        ],
+        reasoning: "Contextual fallback exploring decision-making preferences"
       };
     }
   }
