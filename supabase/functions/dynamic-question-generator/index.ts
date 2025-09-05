@@ -126,7 +126,12 @@ async function generateContextualQuestion(
   apiKey: string
 ): Promise<QuestionResponse> {
   try {
-    console.log('Generating contextual question with GPT-5');
+    console.log('Generating contextual question with GPT-4.1');
+
+    // Add 25-second timeout for the entire operation
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error('Question generation timeout after 25 seconds')), 25000);
+    });
 
     // Format conversation history for the prompt
     const formattedHistory = conversationHistory
@@ -184,16 +189,17 @@ JSON FORMAT:
   "reasoning": "Why this question"
 }`;
 
-    console.log('Sending prompt to GPT-5...');
+    console.log('Sending prompt to GPT-4.1...');
     
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    // Wrap the API call with timeout
+    const apiCall = fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-5-2025-08-07',
+        model: 'gpt-4.1-2025-04-14',
         messages: [
           {
             role: 'system',
@@ -204,7 +210,8 @@ JSON FORMAT:
             content: prompt
           }
         ],
-        max_completion_tokens: 1000,
+        max_tokens: 800,
+        temperature: 0.7,
         response_format: {
           type: "json_schema",
           json_schema: {
@@ -254,6 +261,8 @@ JSON FORMAT:
       }),
     });
 
+    const response = await Promise.race([apiCall, timeoutPromise]);
+
     if (!response.ok) {
       const errorText = await response.text();
       console.error('OpenAI API error:', response.status, errorText);
@@ -261,7 +270,7 @@ JSON FORMAT:
     }
 
     const data = await response.json();
-    console.log('GPT-5 response:', data);
+    console.log('GPT-4.1 response:', data);
     console.log('Token usage:', data.usage);
 
     let questionData;
@@ -270,7 +279,7 @@ JSON FORMAT:
       console.log('Raw content:', content);
       
       if (!content || content.trim() === '') {
-        throw new Error('Empty response from GPT-5');
+        throw new Error('Empty response from GPT-4.1');
       }
       
       questionData = JSON.parse(content);
@@ -281,7 +290,7 @@ JSON FORMAT:
       }
       
     } catch (parseError) {
-      console.error('Failed to parse GPT-5 response as JSON:', parseError);
+      console.error('Failed to parse GPT-4.1 response as JSON:', parseError);
       console.error('Raw response:', data.choices[0]?.message?.content);
       
       // Fallback question based on conversation context
