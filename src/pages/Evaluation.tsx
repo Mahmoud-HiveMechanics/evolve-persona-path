@@ -120,10 +120,13 @@ export default function Evaluation() {
   }, []);
 
   const frameworks = data?.frameworks || [];
+  
+  // Normalize frameworks for backward compatibility
+  const normalizedFrameworks = useMemo(() => normalizeFrameworks(frameworks), [frameworks]);
 
   const lowestThree = useMemo(() => {
-    return [...frameworks].sort((a, b) => (a.score ?? 0) - (b.score ?? 0)).slice(0, 3);
-  }, [frameworks]);
+    return [...normalizedFrameworks].sort((a, b) => (a.score ?? 0) - (b.score ?? 0)).slice(0, 3);
+  }, [normalizedFrameworks]);
 
   // AI-powered evaluation derivation with enhanced analysis
   const deriveEvaluationFromMessages = useCallback(async (msgs: Array<{ message_type: string; content: string; question_type: string | null; created_at: string }>): Promise<EvaluationData> => {
@@ -229,8 +232,8 @@ export default function Evaluation() {
               </div>
 
               {/* Four Leadership Dimensions Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-                {getLeadershipDimensions(frameworks).map((dimension) => {
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+                {getLeadershipDimensions(normalizedFrameworks).map((dimension) => {
                   const level = getLeadershipLevel(dimension.score);
                   const progressWidth = Math.max(0, Math.min(100, dimension.score));
                   
@@ -303,7 +306,7 @@ export default function Evaluation() {
                     <h3 className="text-xl font-bold text-text-primary mb-6">Top 2 Priorities</h3>
                     
                     <div className="space-y-4">
-                      {getTopPriorities(frameworks).map((priority, index) => (
+                      {getTopPriorities(normalizedFrameworks).map((priority, index) => (
                         <div key={index} className="border-l-4 border-primary pl-4">
                           <h4 className="font-semibold text-text-primary mb-2">{priority.title}</h4>
                           <p className="text-sm text-text-secondary">{priority.description}</p>
@@ -414,8 +417,95 @@ export default function Evaluation() {
 
 // --- Enhanced Scoring System with 12 Principles Framework ---
 
+// OLD to NEW framework mapping for backward compatibility
+const OLD_TO_NEW_FRAMEWORK_MAPPING: Record<string, string> = {
+  // Old framework keys → New framework keys
+  'communication': 'empathy',
+  'decision_making': 'vision', 
+  'team_building': 'trust_safety',
+  'strategic_thinking': 'vision',
+  'emotional_intelligence': 'empathy',
+  'change_management': 'tension',
+  'conflict_resolution': 'tension',
+  'delegation': 'empowerment',
+  'performance_management': 'empowerment',
+  'adaptability': 'continuous_growth',
+  'accountability': 'self_responsibility',
+  'leadership_presence': 'self_awareness',
+  'coaching_mentoring': 'empowerment',
+  'innovation_creativity': 'innovation',
+  'stakeholder_management': 'stakeholder',
+  'ethical_leadership': 'stewardship',
+  'cultural_awareness': 'culture',
+  'resilience': 'self_responsibility',
+  'influence': 'stakeholder',
+  'time_management': 'self_responsibility'
+};
+
+// Function to normalize frameworks for backward compatibility
+const normalizeFrameworks = (frameworks: FrameworkScore[]): FrameworkScore[] => {
+  const newFrameworkKeys = [
+    'self_awareness', 'self_responsibility', 'continuous_growth',
+    'trust_safety', 'empathy', 'empowerment', 
+    'vision', 'culture', 'tension',
+    'innovation', 'stakeholder', 'stewardship'
+  ];
+
+  // Check if we already have new frameworks
+  const hasNewFrameworks = frameworks.some(f => newFrameworkKeys.includes(f.key));
+  
+  if (hasNewFrameworks) {
+    // Already using new structure, return as-is
+    return frameworks;
+  }
+
+  // Map old frameworks to new ones
+  const mappedFrameworks: Record<string, FrameworkScore> = {};
+  
+  // Initialize all new frameworks with default values
+  const newFrameworkLabels: Record<string, string> = {
+    'self_awareness': 'Self-Awareness',
+    'self_responsibility': 'Self-Responsibility', 
+    'continuous_growth': 'Continuous Growth',
+    'trust_safety': 'Trust & Safety',
+    'empathy': 'Empathy',
+    'empowerment': 'Empowerment',
+    'vision': 'Vision',
+    'culture': 'Culture', 
+    'tension': 'Tension Management',
+    'innovation': 'Innovation',
+    'stakeholder': 'Stakeholder Management',
+    'stewardship': 'Stewardship'
+  };
+
+  newFrameworkKeys.forEach(key => {
+    mappedFrameworks[key] = {
+      key,
+      label: newFrameworkLabels[key],
+      score: 50 // Default score
+    };
+  });
+
+  // Map old framework scores to new ones
+  frameworks.forEach(oldFramework => {
+    const newKey = OLD_TO_NEW_FRAMEWORK_MAPPING[oldFramework.key];
+    if (newKey && mappedFrameworks[newKey]) {
+      // Average with existing score if multiple old frameworks map to same new one
+      const currentScore = mappedFrameworks[newKey].score || 0;
+      mappedFrameworks[newKey].score = (currentScore + (oldFramework.score || 0)) / 2;
+      mappedFrameworks[newKey].summary = oldFramework.summary || mappedFrameworks[newKey].summary;
+      mappedFrameworks[newKey].confidence = oldFramework.confidence || mappedFrameworks[newKey].confidence;
+    }
+  });
+
+  return Object.values(mappedFrameworks);
+};
+
 // Helper function to group frameworks into dimensions (4 leadership dimensions)
 const getLeadershipDimensions = (frameworks: FrameworkScore[]) => {
+  // Normalize frameworks for backward compatibility
+  const normalizedFrameworks = normalizeFrameworks(frameworks);
+  
   const dimensionMap = {
     'self_leadership': {
       key: 'self_leadership',
@@ -440,7 +530,7 @@ const getLeadershipDimensions = (frameworks: FrameworkScore[]) => {
   };
 
   return Object.values(dimensionMap).map(dimension => {
-    const relevantFrameworks = frameworks.filter(f => dimension.frameworks.includes(f.key));
+    const relevantFrameworks = normalizedFrameworks.filter(f => dimension.frameworks.includes(f.key));
     const averageScore = relevantFrameworks.length > 0 
       ? relevantFrameworks.reduce((sum, f) => sum + (f.score || 0), 0) / relevantFrameworks.length
       : 0;
