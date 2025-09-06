@@ -30,26 +30,19 @@ interface EvaluationResult {
   };
 }
 
+// Updated framework to match frontend 4-dimension structure
 const LEADERSHIP_FRAMEWORKS = [
-  // Self-Leadership (3 frameworks)
-  { key: 'self_responsibility', label: 'Self Responsibility' },
-  { key: 'trust_safety', label: 'Trust & Safety' },
-  { key: 'empathy', label: 'Empathy' },
+  // Self-Leadership
+  { key: 'self_leadership', label: 'Self-Leadership', dimension: 'Self-Leadership' },
   
-  // Relational Leadership (3 frameworks)
-  { key: 'communication', label: 'Communication' },
-  { key: 'team_building', label: 'Team Building' },
-  { key: 'conflict_resolution', label: 'Conflict Resolution' },
+  // Relational Leadership  
+  { key: 'relational_leadership', label: 'Relational Leadership', dimension: 'Relational Leadership' },
   
-  // Organizational Leadership (3 frameworks)
-  { key: 'strategic_thinking', label: 'Strategic Thinking' },
-  { key: 'change_management', label: 'Change Management' },
-  { key: 'performance_management', label: 'Performance Management' },
+  // Organizational Leadership
+  { key: 'organizational_leadership', label: 'Organizational Leadership', dimension: 'Organizational Leadership' },
   
-  // Leadership Beyond Organization (3 frameworks)
-  { key: 'innovation', label: 'Innovation' },
-  { key: 'mentoring', label: 'Mentoring' },
-  { key: 'vision', label: 'Vision' }
+  // Leadership Beyond Organization
+  { key: 'leadership_beyond_organization', label: 'Leadership Beyond Organization', dimension: 'Leadership Beyond Organization' }
 ];
 
 const LEADERSHIP_PERSONAS = [
@@ -177,30 +170,41 @@ serve(async (req) => {
 });
 
 async function analyzeFramework(framework: any, responses: string[], conversationContext: string): Promise<FrameworkScore> {
-  const prompt = `You are an expert leadership coach analyzing a leadership assessment response.
+  // Enhanced prompt with conversation context analysis
+  const prompt = `You are an expert leadership coach analyzing a leadership assessment.
 
-Framework: ${framework.label}
+Framework: ${framework.label} (${framework.dimension})
 Description: ${getFrameworkDescription(framework.key)}
 
-User Responses: ${responses.join('\n\n')}
+User Responses: ${responses.slice(0, 10).join('\n\n')}
 
-Conversation Context: ${conversationContext.slice(-1000)}
+Full Conversation Context:
+${conversationContext.slice(-1500)}
 
-Analyze the user's responses for this specific leadership framework. Consider:
-1. Evidence of competency in this area
-2. Growth mindset and self-awareness
-3. Practical application and real-world examples
-4. Areas for improvement and development
+Analyze this leadership dimension based on:
+1. Quality and depth of responses across the conversation
+2. Self-awareness and growth mindset demonstrated
+3. Practical examples and real-world application
+4. Consistency between different answers
+5. Leadership maturity shown in scenario responses
+
+Score this dimension from 0-100 based on:
+- 90-100: Exceptional leadership capability with transformational impact
+- 80-89: Strong leadership competency with consistent effectiveness  
+- 70-79: Developing leadership skills with good foundation
+- 60-69: Emerging leadership potential with areas for growth
+- 50-59: Basic leadership awareness with significant development needed
+- Below 50: Early-stage leadership development required
 
 Return a JSON object with exactly this structure:
 {
   "score": [0-100 integer],
-  "summary": "[2-3 sentence assessment]",
+  "summary": "[2-3 sentence specific assessment]",
   "confidence": [0.0-1.0 float],
   "level": [1-5 integer where 1=emerging, 5=transformational]
 }
 
-Be specific, constructive, and actionable in your assessment.`;
+Be specific, constructive, and actionable.`;
 
   try {
     console.log(`Sending request to OpenAI for framework: ${framework.label}`);
@@ -221,11 +225,11 @@ Be specific, constructive, and actionable in your assessment.`;
         messages: [
           { 
             role: 'system', 
-            content: 'You are an expert leadership assessment analyst. Always respond with valid JSON only.' 
+            content: 'You are an expert leadership assessment analyst. Always respond with valid JSON only. Be specific and actionable in your assessments.' 
           },
           { role: 'user', content: prompt }
         ],
-        max_completion_tokens: 400,
+        max_completion_tokens: 500,
         response_format: { type: 'json_object' }
       }),
     });
@@ -292,20 +296,12 @@ function calculateFallbackScore(responses: string[], frameworkKey: string): Fram
   if (responseLength > 100) score += 10;
   if (responseLength > 200) score += 5;
   
-  // Look for framework-specific keywords
+  // Updated keyword map for new framework structure
   const keywordMap: Record<string, string[]> = {
-    self_responsibility: ['responsibility', 'accountable', 'ownership', 'self-aware', 'growth'],
-    trust_safety: ['trust', 'safety', 'secure', 'psychological', 'safe'],
-    empathy: ['empathy', 'understand', 'feeling', 'perspective', 'compassion'],
-    communication: ['communicate', 'speak', 'listen', 'message', 'feedback'],
-    team_building: ['team', 'group', 'collaborate', 'together', 'unity'],
-    conflict_resolution: ['conflict', 'resolve', 'mediate', 'problem', 'solution'],
-    strategic_thinking: ['strategy', 'plan', 'future', 'goal', 'systems'],
-    change_management: ['change', 'transition', 'adapt', 'implement', 'transform'],
-    performance_management: ['performance', 'manage', 'improve', 'feedback', 'develop'],
-    innovation: ['innovate', 'creative', 'new', 'improve', 'ideas'],
-    mentoring: ['mentor', 'teach', 'guide', 'develop', 'coach'],
-    vision: ['vision', 'future', 'direction', 'purpose', 'inspire']
+    self_leadership: ['responsibility', 'accountable', 'ownership', 'self-aware', 'growth', 'empathy', 'trust', 'values', 'integrity'],
+    relational_leadership: ['communication', 'team', 'collaborate', 'relationship', 'trust', 'feedback', 'listen', 'connect'],
+    organizational_leadership: ['strategy', 'vision', 'change', 'performance', 'manage', 'systems', 'goals', 'direction'],
+    leadership_beyond_organization: ['innovation', 'mentor', 'inspire', 'influence', 'impact', 'future', 'transform', 'community']
   };
   
   const keywords = keywordMap[frameworkKey] || [];
@@ -437,18 +433,10 @@ function generatePersonalizedSummary(avgScore: number, topFrameworks: FrameworkS
 
 function getFrameworkDescription(frameworkKey: string): string {
   const descriptions: Record<string, string> = {
-    self_responsibility: 'Taking ownership of actions, decisions, and outcomes while maintaining accountability for personal and professional growth.',
-    trust_safety: 'Creating psychological safety, building trust through consistent actions, and fostering an environment where people feel secure to take risks.',
-    empathy: 'Understanding and relating to others\' perspectives, demonstrating emotional intelligence, and showing genuine care for team members.',
-    communication: 'Effectively conveying ideas, actively listening, providing clear feedback, and facilitating open dialogue.',
-    team_building: 'Bringing people together, fostering collaboration, building strong working relationships, and creating team cohesion.',
-    conflict_resolution: 'Addressing disagreements constructively, mediating disputes, and turning conflicts into opportunities for growth.',
-    strategic_thinking: 'Thinking systematically about long-term goals, analyzing complex situations, and making decisions that align with organizational vision.',
-    change_management: 'Leading transitions effectively, managing resistance to change, and helping others adapt to new circumstances.',
-    performance_management: 'Setting clear expectations, providing feedback, developing others, and driving results through people.',
-    innovation: 'Encouraging creativity, fostering new ideas, supporting experimentation, and driving continuous improvement.',
-    mentoring: 'Developing others, sharing knowledge and experience, providing guidance, and helping people reach their potential.',
-    vision: 'Articulating a compelling future state, inspiring others toward common goals, and connecting daily work to larger purpose.'
+    self_leadership: 'Personal mastery including self-awareness, emotional intelligence, values alignment, personal responsibility, and continuous growth mindset.',
+    relational_leadership: 'Building and maintaining effective relationships through communication, empathy, trust-building, team collaboration, and interpersonal skills.',
+    organizational_leadership: 'Driving organizational success through strategic thinking, vision setting, change management, performance optimization, and systems leadership.',
+    leadership_beyond_organization: 'Creating broader impact through innovation, mentoring others, community influence, and driving positive change beyond immediate organizational boundaries.'
   };
-  return descriptions[frameworkKey] || 'Core leadership competency focused on effective leadership practice.';
+  return descriptions[frameworkKey] || 'A key leadership dimension for comprehensive leadership effectiveness.';
 }

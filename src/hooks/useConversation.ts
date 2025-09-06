@@ -19,7 +19,7 @@ export const useConversation = () => {
           .from('profiles')
           .select('thread_id')
           .eq('user_id', user.id)
-          .single();
+          .maybeSingle();
 
         if (profile?.thread_id) {
           setThreadId(profile.thread_id);
@@ -94,12 +94,15 @@ export const useConversation = () => {
           status: 'active'
         })
         .select()
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
       
-      setConversationId(data.id);
-      return data.id;
+      if (data) {
+        setConversationId(data.id);
+        return data.id;
+      }
+      return null;
     } catch (error) {
       console.error('Error creating conversation:', error);
       return null;

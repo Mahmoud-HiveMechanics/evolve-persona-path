@@ -39,13 +39,13 @@ export default function Evaluation() {
         // Check if we have evaluation data, otherwise derive from conversation
         if (!payload || (payload.frameworks && payload.frameworks.every(f => f.score === 0))) {
           console.log('No evaluation data found or all scores are zero, deriving from conversation...');
-          const { data: conv, error: convError } = await supabase
-            .from('conversations')
-            .select('id')
-            .eq('user_id', userId)
-            .order('started_at', { ascending: false })
-            .limit(1)
-            .single();
+        const { data: conv, error: convError } = await supabase
+          .from('conversations')
+          .select('id')
+          .eq('user_id', userId)
+          .order('started_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
           
           if (convError) {
             console.error('Error fetching conversation:', convError);
@@ -166,19 +166,20 @@ export default function Evaluation() {
         return getDefaultEvaluation();
       }
 
-      // Call AI evaluation function with timeout
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error('AI evaluation timeout')), 60000);
+      // Call AI evaluation function with enhanced error handling
+      console.log('Calling AI evaluation function with data:', { 
+        responseCount: allResponses.length, 
+        contextLength: conversationContext.length 
       });
 
-      const evaluationPromise = supabase.functions.invoke('ai-evaluation', {
+      const response = await supabase.functions.invoke('ai-evaluation', {
         body: {
           responses: allResponses,
           conversationContext: conversationContext
         }
       });
 
-      const response = await Promise.race([evaluationPromise, timeoutPromise]) as any;
+      console.log('AI evaluation response:', response);
 
       if (response.error) {
         console.error('AI evaluation error:', response.error);
