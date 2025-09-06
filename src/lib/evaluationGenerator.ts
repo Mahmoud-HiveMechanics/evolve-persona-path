@@ -2,27 +2,36 @@
 import type { EvaluationData, FrameworkScore } from '@/types/shared';
 
 const LEADERSHIP_FRAMEWORKS = [
-  { key: 'self_awareness', label: 'Self-Awareness' },
-  { key: 'emotional_intelligence', label: 'Emotional Intelligence' },
+  // Self-Leadership (3 frameworks)
+  { key: 'self_responsibility', label: 'Self Responsibility' },
+  { key: 'trust_safety', label: 'Trust & Safety' },
+  { key: 'empathy', label: 'Empathy' },
+  
+  // Relational Leadership (3 frameworks)
   { key: 'communication', label: 'Communication' },
-  { key: 'decision_making', label: 'Decision Making' },
   { key: 'team_building', label: 'Team Building' },
   { key: 'conflict_resolution', label: 'Conflict Resolution' },
-  { key: 'adaptability', label: 'Adaptability' },
+  
+  // Organizational Leadership (3 frameworks)
   { key: 'strategic_thinking', label: 'Strategic Thinking' },
-  { key: 'coaching_development', label: 'Coaching & Development' },
-  { key: 'accountability', label: 'Accountability' },
+  { key: 'change_management', label: 'Change Management' },
+  { key: 'performance_management', label: 'Performance Management' },
+  
+  // Leadership Beyond Organization (3 frameworks)
   { key: 'innovation', label: 'Innovation' },
-  { key: 'resilience', label: 'Resilience' }
+  { key: 'mentoring', label: 'Mentoring' },
+  { key: 'vision', label: 'Vision' }
 ];
 
 const LEADERSHIP_PERSONAS = [
-  'The Visionary Leader',
-  'The Collaborative Leader', 
-  'The Strategic Leader',
-  'The Empowering Leader',
-  'The Adaptive Leader',
-  'The Results-Driven Leader'
+  "The Self-Aware Leader - You have deep self-understanding and take responsibility for your actions and growth.",
+  "The Relational Connector - You excel at building trust, communicating effectively, and fostering meaningful relationships.",
+  "The Strategic Organizer - You think systematically, manage change well, and drive organizational performance.",
+  "The Visionary Innovator - You inspire others with bold ideas, mentor future leaders, and drive innovation.",
+  "The Balanced Leader - You demonstrate strength across all leadership dimensions with consistent growth.",
+  "The Emerging Leader - You show great potential with developing capabilities across multiple areas.",
+  "The Adaptive Leader - You adjust your leadership style effectively based on situational needs.",
+  "The Transformational Leader - You create lasting positive change and develop other leaders."
 ];
 
 export const generateEvaluationFromResponses = (responses: string[]): EvaluationData => {
@@ -78,18 +87,18 @@ export const generateEvaluationFromResponses = (responses: string[]): Evaluation
 
 const getKeywordsForFramework = (key: string): string[] => {
   const keywordMap: Record<string, string[]> = {
-    self_awareness: ['aware', 'reflect', 'understand', 'recognize', 'know myself'],
-    emotional_intelligence: ['emotion', 'empathy', 'feeling', 'understand people', 'social'],
-    communication: ['communicate', 'listen', 'speak', 'explain', 'feedback', 'clear'],
-    decision_making: ['decide', 'choice', 'evaluate', 'analyze', 'judgment', 'rational'],
-    team_building: ['team', 'collaborate', 'together', 'group', 'unity', 'cooperation'],
-    conflict_resolution: ['conflict', 'resolve', 'disagreement', 'mediate', 'solution'],
-    adaptability: ['adapt', 'change', 'flexible', 'adjust', 'evolve', 'pivot'],
-    strategic_thinking: ['strategy', 'plan', 'vision', 'future', 'long-term', 'goal'],
-    coaching_development: ['coach', 'develop', 'mentor', 'grow', 'teach', 'guide'],
-    accountability: ['accountable', 'responsible', 'ownership', 'deliver', 'commit'],
-    innovation: ['innovate', 'creative', 'new', 'improve', 'change', 'idea'],
-    resilience: ['resilient', 'overcome', 'persevere', 'bounce back', 'tough', 'handle']
+    self_responsibility: ['responsibility', 'accountable', 'ownership', 'self-aware', 'growth', 'personal'],
+    trust_safety: ['trust', 'safety', 'secure', 'psychological', 'safe', 'reliable'],
+    empathy: ['empathy', 'understand', 'feeling', 'perspective', 'compassion', 'connect'],
+    communication: ['communicate', 'speak', 'listen', 'message', 'feedback', 'clear'],
+    team_building: ['team', 'group', 'collaborate', 'together', 'unity', 'culture'],
+    conflict_resolution: ['conflict', 'resolve', 'mediate', 'problem', 'solution', 'disagree'],
+    strategic_thinking: ['strategy', 'plan', 'future', 'goal', 'systems', 'analyze'],
+    change_management: ['change', 'transition', 'adapt', 'implement', 'resistance', 'transform'],
+    performance_management: ['performance', 'manage', 'improve', 'feedback', 'develop', 'results'],
+    innovation: ['innovate', 'creative', 'new', 'improve', 'ideas', 'breakthrough'],
+    mentoring: ['mentor', 'teach', 'guide', 'develop', 'coach', 'knowledge'],
+    vision: ['vision', 'future', 'direction', 'purpose', 'inspire', 'goals']
   };
   return keywordMap[key] || [];
 };
@@ -101,12 +110,14 @@ const generateFrameworkSummary = (label: string, score: number): string => {
 };
 
 const getPersonaForScore = (avgScore: number): string => {
-  if (avgScore >= 85) return LEADERSHIP_PERSONAS[0]; // Visionary
-  if (avgScore >= 75) return LEADERSHIP_PERSONAS[1]; // Collaborative  
-  if (avgScore >= 65) return LEADERSHIP_PERSONAS[2]; // Strategic
-  if (avgScore >= 55) return LEADERSHIP_PERSONAS[3]; // Empowering
-  if (avgScore >= 45) return LEADERSHIP_PERSONAS[4]; // Adaptive
-  return LEADERSHIP_PERSONAS[5]; // Results-Driven
+  if (avgScore >= 85) return LEADERSHIP_PERSONAS[0]; // Self-Aware Leader
+  if (avgScore >= 75) return LEADERSHIP_PERSONAS[1]; // Relational Connector
+  if (avgScore >= 65) return LEADERSHIP_PERSONAS[2]; // Strategic Organizer
+  if (avgScore >= 55) return LEADERSHIP_PERSONAS[3]; // Visionary Innovator
+  if (avgScore >= 45) return LEADERSHIP_PERSONAS[4]; // Balanced Leader
+  if (avgScore >= 35) return LEADERSHIP_PERSONAS[5]; // Emerging Leader
+  if (avgScore >= 25) return LEADERSHIP_PERSONAS[6]; // Adaptive Leader
+  return LEADERSHIP_PERSONAS[7]; // Transformational Leader
 };
 
 const getScoreDescription = (score: number): string => {

@@ -211,8 +211,14 @@ BE CRITICAL. Most people score in the 30-60 range. High scores (75+) require exc
     const analysisText = data.choices[0].message.content;
     console.log(`Analysis text for ${framework.label}:`, analysisText.substring(0, 200) + '...');
     
-    // Parse the JSON response
-    const analysis = JSON.parse(analysisText);
+    // Parse the JSON response safely
+    let analysis;
+    try {
+      analysis = JSON.parse(analysisText);
+    } catch (parseError) {
+      console.error(`JSON parse error for ${framework.label}:`, parseError);
+      throw new Error(`Failed to parse AI response: ${parseError.message}`);
+    }
     
     const result = {
       key: framework.key,
@@ -364,7 +370,13 @@ Provide your response in this exact JSON format:
     const analysisText = data.choices[0].message.content;
     console.log('Overall assessment generated successfully');
     
-    const analysis = JSON.parse(analysisText);
+    let analysis;
+    try {
+      analysis = JSON.parse(analysisText);
+    } catch (parseError) {
+      console.error('JSON parse error for overall assessment:', parseError);
+      throw new Error(`Failed to parse AI response: ${parseError.message}`);
+    }
     
     return {
       persona: analysis.persona,
