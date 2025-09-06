@@ -166,13 +166,19 @@ export default function Evaluation() {
         return getDefaultEvaluation();
       }
 
-      // Call AI evaluation function
-      const response = await supabase.functions.invoke('ai-evaluation', {
+      // Call AI evaluation function with timeout
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('AI evaluation timeout')), 60000);
+      });
+
+      const evaluationPromise = supabase.functions.invoke('ai-evaluation', {
         body: {
           responses: allResponses,
           conversationContext: conversationContext
         }
       });
+
+      const response = await Promise.race([evaluationPromise, timeoutPromise]) as any;
 
       if (response.error) {
         console.error('AI evaluation error:', response.error);
@@ -181,6 +187,14 @@ export default function Evaluation() {
       }
 
       console.log('AI evaluation completed successfully');
+      console.log('AI response data:', response.data);
+      
+      // Validate response structure
+      if (!response.data || !response.data.frameworks || !Array.isArray(response.data.frameworks)) {
+        console.warn('Invalid AI response structure, using fallback');
+        return generateFallbackEvaluation(allResponses, conversationContext);
+      }
+
       return response.data;
 
     } catch (error) {
