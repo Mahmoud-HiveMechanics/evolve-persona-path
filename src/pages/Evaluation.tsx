@@ -241,18 +241,29 @@ export default function Evaluation() {
                           {dimension.label.toUpperCase()}
                         </h3>
                         <div className="mb-4">
-                          <span className="text-3xl font-bold text-primary">{Math.round(dimension.score)}%</span>
-                          <div className="text-sm font-medium text-text-secondary mt-1">
-                            Level: {level}
+                          <div className="text-2xl font-bold text-primary mb-2">{level}</div>
+                          <div className="flex justify-center">
+                            <div className="flex space-x-1">
+                              {[1, 2, 3, 4, 5].map((dot) => (
+                                <div
+                                  key={dot}
+                                  className={`w-2 h-2 rounded-full ${
+                                    dot <= getLeadershipLevelNumber(dimension.score)
+                                      ? 'bg-primary'
+                                      : 'bg-gray-200'
+                                  }`}
+                                />
+                              ))}
+                            </div>
                           </div>
                         </div>
                       </div>
                       
-                      {/* Teal Progress Bar */}
+                      {/* Progress Bar */}
                       <div className="mb-4">
-                        <div className="w-full bg-gray-100 rounded-full h-4">
+                        <div className="w-full bg-gray-100 rounded-full h-3">
                           <div 
-                            className="bg-gradient-to-r from-primary to-primary-dark h-4 rounded-full transition-all duration-1000 ease-out"
+                            className="bg-gradient-to-r from-primary to-primary-dark h-3 rounded-full transition-all duration-1000 ease-out"
                             style={{ width: `${progressWidth}%` }}
                           ></div>
                         </div>
@@ -337,7 +348,7 @@ export default function Evaluation() {
                       </div>
                       
                       <div className="mb-4">
-                        <div className="text-sm text-text-secondary mb-2">Current Score: {Math.round(fr.score)}%</div>
+                        <div className="text-sm text-text-secondary mb-2">Current Level: {getLeadershipLevel(fr.score)}</div>
                         <Progress value={fr.score} className="h-2" />
                       </div>
                       
@@ -357,6 +368,20 @@ export default function Evaluation() {
                 </div>
               </div>
             )}
+
+            {/* Chat Curiosity Section */}
+            <div className="bg-gradient-to-r from-primary/10 to-primary/5 rounded-3xl p-8 shadow-lg border border-primary/20 mt-12 text-center">
+              <h3 className="text-2xl font-bold text-text-primary mb-4">Ready to Go Deeper?</h3>
+              <p className="text-lg text-text-secondary mb-6 max-w-2xl mx-auto">
+                Your assessment revealed some fascinating patterns in how you approach leadership. There are usually deeper stories behind these patterns - stories that can unlock even more potential. Curious what those might be for you?
+              </p>
+              <button 
+                onClick={() => window.open('/assessment', '_blank')}
+                className="bg-primary hover:bg-primary-dark text-white px-8 py-4 rounded-xl font-medium transition-all duration-200 hover:scale-105 shadow-lg text-lg"
+              >
+                Discover your leadership story →
+              </button>
+            </div>
           </>
         )}
 
@@ -436,6 +461,14 @@ const getLeadershipLevel = (score: number): string => {
   return 'Emerging';
 };
 
+const getLeadershipLevelNumber = (score: number): number => {
+  if (score >= 85) return 5;
+  if (score >= 70) return 4;
+  if (score >= 55) return 3;
+  if (score >= 40) return 2;
+  return 1;
+};
+
 const getDimensionDescription = (dimensionKey: string, level: string): string => {
   const descriptions: Record<string, Record<string, string>> = {
     'self_leadership': {
@@ -477,7 +510,7 @@ const getTopPriorities = (frameworks: FrameworkScore[]) => {
   
   return lowest.map(framework => ({
     title: framework.label,
-    description: `Current score: ${Math.round(framework.score)}%. Focus on specific actions to improve this critical leadership competency.`
+    description: `Current level: ${getLeadershipLevel(framework.score)}. Focus on specific actions to improve this critical leadership competency.`
   }));
 };
 

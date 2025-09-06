@@ -348,12 +348,23 @@ export const Assessment = () => {
       // Clear current question first to ensure clean state
       setCurrentQuestion(null);
       
-      // Check if assessment is complete (15 total questions)
-      if (askedQuestionsRef.current.size >= MIN_QUESTIONS) {
-        setIsComplete(true);
-        setEvaluationGenerating(true);
-        return;
-      }
+    // Check if assessment is complete (15 total questions)
+    if (askedQuestionsRef.current.size >= MIN_QUESTIONS) {
+      setIsComplete(true);
+      setEvaluationGenerating(true);
+      
+      // Add timeout to prevent infinite loading
+      setTimeout(() => {
+        if (!hasNavigated) {
+          console.log('Timeout reached, navigating to evaluation page');
+          setEvaluationGenerating(false);
+          setHasNavigated(true);
+          navigate('/evaluation');
+        }
+      }, 30000); // 30 second timeout
+      
+      return;
+    }
       
       // Continue to next question in the routing system
       await getNextQuestionFromAI();
@@ -376,6 +387,17 @@ export const Assessment = () => {
     if (askedQuestionsRef.current.size >= MIN_QUESTIONS) {
       setIsComplete(true);
       setEvaluationGenerating(true);
+      
+      // Add timeout to prevent infinite loading
+      setTimeout(() => {
+        if (!hasNavigated) {
+          console.log('Timeout reached, navigating to evaluation page');
+          setEvaluationGenerating(false);
+          setHasNavigated(true);
+          navigate('/evaluation');
+        }
+      }, 30000); // 30 second timeout
+      
       return;
     }
     
@@ -396,6 +418,17 @@ export const Assessment = () => {
     if (askedQuestionsRef.current.size >= MIN_QUESTIONS) {
       setIsComplete(true);
       setEvaluationGenerating(true);
+      
+      // Add timeout to prevent infinite loading
+      setTimeout(() => {
+        if (!hasNavigated) {
+          console.log('Timeout reached, navigating to evaluation page');
+          setEvaluationGenerating(false);
+          setHasNavigated(true);
+          navigate('/evaluation');
+        }
+      }, 30000); // 30 second timeout
+      
       return;
     }
     
@@ -417,6 +450,17 @@ export const Assessment = () => {
     if (askedQuestionsRef.current.size >= MIN_QUESTIONS) {
       setIsComplete(true);
       setEvaluationGenerating(true);
+      
+      // Add timeout to prevent infinite loading
+      setTimeout(() => {
+        if (!hasNavigated) {
+          console.log('Timeout reached, navigating to evaluation page');
+          setEvaluationGenerating(false);
+          setHasNavigated(true);
+          navigate('/evaluation');
+        }
+      }, 30000); // 30 second timeout
+      
       return;
     }
     
@@ -451,9 +495,12 @@ export const Assessment = () => {
         // Generate evaluation based on user responses using AI
         console.log('User responses for evaluation:', messages?.length);
 
-        // Use the enhanced AI evaluation system
+        // Use the enhanced AI evaluation system with proper response format
         const { data: aiEvaluation, error: aiError } = await supabase.functions.invoke('ai-evaluation', {
-          body: { messages: messages || [] }
+          body: { 
+            responses: messages?.filter(msg => msg.message_type === 'user').map(msg => msg.content) || [],
+            conversationContext: messages?.map(msg => `${msg.message_type}: ${msg.content}`).join('\n') || ''
+          }
         });
 
         let evaluationData;
@@ -491,12 +538,30 @@ export const Assessment = () => {
         // Mark conversation as complete
         await markConversationComplete();
 
-        setHasNavigated(true);
+        // Clear evaluation generating state
+        setEvaluationGenerating(false);
+
+        // Navigate to evaluation page
+        setTimeout(() => {
+          if (!hasNavigated) {
+            setHasNavigated(true);
+            navigate('/evaluation');
+          }
+        }, 1000);
       } catch (e) {
         console.error('Failed to persist evaluation', e);
+        // Clear evaluation generating state even on error
+        setEvaluationGenerating(false);
+        // Navigate to evaluation page which will handle fallback
+        setTimeout(() => {
+          if (!hasNavigated) {
+            setHasNavigated(true);
+            navigate('/evaluation');
+          }
+        }, 2000);
       }
     })();
-  }, [isComplete, conversationId, hasNavigated]);
+  }, [isComplete, conversationId, hasNavigated, navigate, markConversationComplete]);
 
   // No assistant error handling needed for predefined questions
 

@@ -31,18 +31,25 @@ interface EvaluationResult {
 }
 
 const LEADERSHIP_FRAMEWORKS = [
+  // Self-Leadership Dimension
   { key: 'self_awareness', label: 'Self-Awareness' },
-  { key: 'emotional_intelligence', label: 'Emotional Intelligence' },
-  { key: 'communication', label: 'Communication' },
-  { key: 'decision_making', label: 'Decision Making' },
-  { key: 'team_building', label: 'Team Building' },
-  { key: 'conflict_resolution', label: 'Conflict Resolution' },
-  { key: 'adaptability', label: 'Adaptability' },
-  { key: 'strategic_thinking', label: 'Strategic Thinking' },
-  { key: 'coaching_development', label: 'Coaching & Development' },
-  { key: 'accountability', label: 'Accountability' },
+  { key: 'self_responsibility', label: 'Self-Responsibility' },
+  { key: 'continuous_growth', label: 'Continuous Growth' },
+  
+  // Relational Leadership Dimension  
+  { key: 'trust_safety', label: 'Trust & Safety' },
+  { key: 'empathy', label: 'Empathy' },
+  { key: 'empowerment', label: 'Empowerment' },
+  
+  // Organizational Leadership Dimension
+  { key: 'vision', label: 'Vision' },
+  { key: 'culture', label: 'Culture' },
+  { key: 'tension', label: 'Tension Navigation' },
+  
+  // Leadership Beyond Organization Dimension
   { key: 'innovation', label: 'Innovation' },
-  { key: 'resilience', label: 'Resilience' }
+  { key: 'stakeholder', label: 'Stakeholder Management' },
+  { key: 'stewardship', label: 'Stewardship' }
 ];
 
 const LEADERSHIP_PERSONAS = [
@@ -259,17 +266,17 @@ function calculateFallbackScore(responses: string[], frameworkKey: string): numb
   // Framework-specific keywords
   const frameworkKeywords: Record<string, string[]> = {
     'self_awareness': ['reflect', 'aware', 'understand myself', 'emotions', 'strengths', 'weaknesses'],
-    'emotional_intelligence': ['emotional', 'feelings', 'empathy', 'others', 'understand'],
-    'communication': ['communicate', 'listen', 'speak', 'message', 'clear', 'explain'],
-    'decision_making': ['decide', 'choice', 'analyze', 'consider', 'evaluate', 'options'],
-    'team_building': ['team', 'collaborate', 'together', 'support', 'build', 'unity'],
-    'conflict_resolution': ['conflict', 'disagree', 'resolve', 'mediate', 'tension', 'solution'],
-    'adaptability': ['adapt', 'change', 'flexible', 'adjust', 'pivot', 'respond'],
-    'strategic_thinking': ['strategy', 'plan', 'future', 'vision', 'long-term', 'think ahead'],
-    'coaching_development': ['coach', 'mentor', 'develop', 'teach', 'guide', 'grow others'],
-    'accountability': ['accountable', 'responsible', 'ownership', 'deliver', 'commit', 'follow through'],
+    'self_responsibility': ['accountable', 'responsible', 'ownership', 'deliver', 'commit', 'follow through'],
+    'continuous_growth': ['learn', 'improve', 'develop', 'feedback', 'growth', 'better'],
+    'trust_safety': ['trust', 'safe', 'honest', 'reliable', 'integrity', 'dependable'],
+    'empathy': ['empathy', 'understand others', 'feelings', 'perspective', 'care', 'support'],
+    'empowerment': ['empower', 'delegate', 'enable', 'support others', 'develop others', 'autonomy'],
+    'vision': ['vision', 'future', 'direction', 'purpose', 'goal', 'inspire'],
+    'culture': ['culture', 'values', 'environment', 'team dynamics', 'workplace', 'atmosphere'],
+    'tension': ['tension', 'conflict', 'disagree', 'resolve', 'mediate', 'balance'],
     'innovation': ['innovate', 'creative', 'new ideas', 'improve', 'change', 'solve'],
-    'resilience': ['resilient', 'bounce back', 'persevere', 'overcome', 'stress', 'pressure']
+    'stakeholder': ['stakeholder', 'client', 'customer', 'partner', 'collaborate', 'relationship'],
+    'stewardship': ['stewardship', 'responsibility', 'legacy', 'sustainability', 'future', 'care']
   };
   
   const specificKeywords = frameworkKeywords[frameworkKey] || [];
