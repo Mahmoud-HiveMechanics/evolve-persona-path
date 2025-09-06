@@ -31,34 +31,36 @@ interface EvaluationResult {
 }
 
 const LEADERSHIP_FRAMEWORKS = [
-  // Self-Leadership Dimension
-  { key: 'self_awareness', label: 'Self-Awareness' },
-  { key: 'self_responsibility', label: 'Self-Responsibility' },
-  { key: 'continuous_growth', label: 'Continuous Growth' },
-  
-  // Relational Leadership Dimension  
+  // Self-Leadership (3 frameworks)
+  { key: 'self_responsibility', label: 'Self Responsibility' },
   { key: 'trust_safety', label: 'Trust & Safety' },
   { key: 'empathy', label: 'Empathy' },
-  { key: 'empowerment', label: 'Empowerment' },
   
-  // Organizational Leadership Dimension
-  { key: 'vision', label: 'Vision' },
-  { key: 'culture', label: 'Culture' },
-  { key: 'tension', label: 'Tension Navigation' },
+  // Relational Leadership (3 frameworks)
+  { key: 'communication', label: 'Communication' },
+  { key: 'team_building', label: 'Team Building' },
+  { key: 'conflict_resolution', label: 'Conflict Resolution' },
   
-  // Leadership Beyond Organization Dimension
+  // Organizational Leadership (3 frameworks)
+  { key: 'strategic_thinking', label: 'Strategic Thinking' },
+  { key: 'change_management', label: 'Change Management' },
+  { key: 'performance_management', label: 'Performance Management' },
+  
+  // Leadership Beyond Organization (3 frameworks)
   { key: 'innovation', label: 'Innovation' },
-  { key: 'stakeholder', label: 'Stakeholder Management' },
-  { key: 'stewardship', label: 'Stewardship' }
+  { key: 'mentoring', label: 'Mentoring' },
+  { key: 'vision', label: 'Vision' }
 ];
 
 const LEADERSHIP_PERSONAS = [
-  'The Visionary Leader',
-  'The Collaborative Leader', 
-  'The Strategic Leader',
-  'The Empowering Leader',
-  'The Adaptive Leader',
-  'The Results-Driven Leader'
+  "The Self-Aware Leader - You have deep self-understanding and take responsibility for your actions and growth.",
+  "The Relational Connector - You excel at building trust, communicating effectively, and fostering meaningful relationships.",
+  "The Strategic Organizer - You think systematically, manage change well, and drive organizational performance.",
+  "The Visionary Innovator - You inspire others with bold ideas, mentor future leaders, and drive innovation.",
+  "The Balanced Leader - You demonstrate strength across all leadership dimensions with consistent growth.",
+  "The Emerging Leader - You show great potential with developing capabilities across multiple areas.",
+  "The Adaptive Leader - You adjust your leadership style effectively based on situational needs.",
+  "The Transformational Leader - You create lasting positive change and develop other leaders."
 ];
 
 serve(async (req) => {
@@ -265,18 +267,18 @@ function calculateFallbackScore(responses: string[], frameworkKey: string): numb
   
   // Framework-specific keywords
   const frameworkKeywords: Record<string, string[]> = {
-    'self_awareness': ['reflect', 'aware', 'understand myself', 'emotions', 'strengths', 'weaknesses'],
-    'self_responsibility': ['accountable', 'responsible', 'ownership', 'deliver', 'commit', 'follow through'],
-    'continuous_growth': ['learn', 'improve', 'develop', 'feedback', 'growth', 'better'],
-    'trust_safety': ['trust', 'safe', 'honest', 'reliable', 'integrity', 'dependable'],
-    'empathy': ['empathy', 'understand others', 'feelings', 'perspective', 'care', 'support'],
-    'empowerment': ['empower', 'delegate', 'enable', 'support others', 'develop others', 'autonomy'],
-    'vision': ['vision', 'future', 'direction', 'purpose', 'goal', 'inspire'],
-    'culture': ['culture', 'values', 'environment', 'team dynamics', 'workplace', 'atmosphere'],
-    'tension': ['tension', 'conflict', 'disagree', 'resolve', 'mediate', 'balance'],
-    'innovation': ['innovate', 'creative', 'new ideas', 'improve', 'change', 'solve'],
-    'stakeholder': ['stakeholder', 'client', 'customer', 'partner', 'collaborate', 'relationship'],
-    'stewardship': ['stewardship', 'responsibility', 'legacy', 'sustainability', 'future', 'care']
+    'self_responsibility': ['responsibility', 'accountable', 'ownership', 'self-aware', 'growth', 'personal'],
+    'trust_safety': ['trust', 'safety', 'secure', 'psychological', 'safe', 'reliable'],
+    'empathy': ['empathy', 'understand', 'feeling', 'perspective', 'compassion', 'connect'],
+    'communication': ['communicate', 'speak', 'listen', 'message', 'feedback', 'clear'],
+    'team_building': ['team', 'group', 'collaborate', 'together', 'unity', 'culture'],
+    'conflict_resolution': ['conflict', 'resolve', 'mediate', 'problem', 'solution', 'disagree'],
+    'strategic_thinking': ['strategy', 'plan', 'future', 'goal', 'systems', 'analyze'],
+    'change_management': ['change', 'transition', 'adapt', 'implement', 'resistance', 'transform'],
+    'performance_management': ['performance', 'manage', 'improve', 'feedback', 'develop', 'results'],
+    'innovation': ['innovate', 'creative', 'new', 'improve', 'ideas', 'breakthrough'],
+    'mentoring': ['mentor', 'teach', 'guide', 'develop', 'coach', 'knowledge'],
+    'vision': ['vision', 'future', 'direction', 'purpose', 'inspire', 'goals']
   };
   
   const specificKeywords = frameworkKeywords[frameworkKey] || [];
