@@ -84,15 +84,15 @@ serve(async (req) => {
   }
 
   try {
-    const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+    const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
     const DEFAULT_ASSISTANT_ID = Deno.env.get("ASSISTANT_ID") || "asst_0IGtbLANauxTpbn8rSj7MVy5";
 
-    console.log("OPENAI_API_KEY set:", !!OPENAI_API_KEY);
+    console.log("OPENROUTER_API_KEY set:", !!OPENROUTER_API_KEY);
     console.log("DEFAULT_ASSISTANT_ID:", !!DEFAULT_ASSISTANT_ID);
 
-    if (!OPENAI_API_KEY) {
+    if (!OPENROUTER_API_KEY) {
       return new Response(
-        JSON.stringify({ ok: false, status: 500, error: { message: "OPENAI_API_KEY missing. Set the secret in Supabase dashboard." } }),
+        JSON.stringify({ ok: false, status: 500, error: { message: "OPENROUTER_API_KEY missing. Set the secret in Supabase dashboard." } }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -117,14 +117,13 @@ serve(async (req) => {
       );
     }
 
-    const openaiHeaders = {
-      "Authorization": `Bearer ${OPENAI_API_KEY}`,
-      "Content-Type": "application/json",
-      "OpenAI-Beta": "assistants=v2"
+    const openRouterHeaders = {
+      "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
+      "Content-Type": "application/json"
     };
     // For multipart requests (audio transcription), let fetch set Content-Type
     const authOnlyHeaders = {
-      "Authorization": `Bearer ${OPENAI_API_KEY}`
+      "Authorization": `Bearer ${OPENROUTER_API_KEY}`
     };
 
     let response;
@@ -140,11 +139,11 @@ serve(async (req) => {
           );
         }
         
-        response = await fetch("https://api.openai.com/v1/chat/completions", {
+        response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
           method: "POST",
-          headers: openaiHeaders,
+          headers: openRouterHeaders,
           body: JSON.stringify({
-            model: "gpt-4o-mini",
+            model: "openai/gpt-4o-mini",
             messages: [
               {
                 role: "system",
@@ -168,15 +167,15 @@ serve(async (req) => {
             { headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         } else {
-          // Handle OpenAI API errors properly
+          // Handle OpenRouter API errors properly
           const errorData = await response.json();
-          console.error("OpenAI API error:", errorData);
+          console.error("OpenRouter API error:", errorData);
           return new Response(
             JSON.stringify({ 
               ok: false, 
               status: response.status, 
               error: { 
-                message: `OpenAI API error: ${errorData.error?.message || 'Unknown error'}` 
+                message: `OpenRouter API error: ${errorData.error?.message || 'Unknown error'}` 
               } 
             }),
             { headers: { ...corsHeaders, "Content-Type": "application/json" } }

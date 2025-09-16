@@ -1,7 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
-const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
+const openRouterApiKey = Deno.env.get('OPENROUTER_API_KEY');
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -28,6 +28,17 @@ interface EvaluationResult {
     persona: string;
     summary: string;
   };
+  patterns?: LeadershipPattern[];
+  adaptiveInsights?: string[];
+}
+
+interface LeadershipPattern {
+  name: string;
+  indicators: string[];
+  strength: number;
+  examples: string[];
+  development: string[];
+  category: 'strength' | 'growth_area' | 'emerging';
 }
 
 // Updated framework to match frontend 4-dimension structure
@@ -118,10 +129,23 @@ serve(async (req) => {
       timeoutPromise
     ]) as FrameworkScore[];
 
+    console.log('Analyzing leadership patterns...');
+    let leadershipPatterns: LeadershipPattern[] = [];
+    let adaptiveInsights: string[] = [];
+    try {
+      const patternAnalysis = await analyzeLeadershipPatterns(responses, conversationContext);
+      leadershipPatterns = patternAnalysis.patterns;
+      adaptiveInsights = patternAnalysis.insights;
+    } catch (error) {
+      console.error('Pattern analysis failed:', error);
+      leadershipPatterns = [];
+      adaptiveInsights = [];
+    }
+
     console.log('Generating overall assessment...');
     let overallAssessment;
     try {
-      overallAssessment = await generateOverallAssessment(frameworkAnalyses, responses, conversationContext);
+      overallAssessment = await generateOverallAssessment(frameworkAnalyses, responses, conversationContext, leadershipPatterns);
     } catch (error) {
       console.error('Overall assessment failed, using fallback:', error);
       const avgScore = frameworkAnalyses.reduce((sum, f) => sum + f.score, 0) / frameworkAnalyses.length;
@@ -133,7 +157,9 @@ serve(async (req) => {
 
     const result: EvaluationResult = {
       frameworks: frameworkAnalyses,
-      overall: overallAssessment
+      overall: overallAssessment,
+      patterns: leadershipPatterns,
+      adaptiveInsights: adaptiveInsights
     };
 
     console.log('AI Evaluation completed successfully');
@@ -207,21 +233,21 @@ Return a JSON object with exactly this structure:
 Be specific, constructive, and actionable.`;
 
   try {
-    console.log(`Sending request to OpenAI for framework: ${framework.label}`);
+    console.log(`Sending request to OpenRouter for framework: ${framework.label}`);
     
     // Create timeout for individual framework analysis (10 seconds)
     const analysisTimeoutPromise = new Promise<never>((_, reject) => {
       setTimeout(() => reject(new Error('Framework analysis timeout')), 10000);
     });
     
-    const analysisPromise = fetch('https://api.openai.com/v1/chat/completions', {
+    const analysisPromise = fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
+        'Authorization': `Bearer ${openRouterApiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4.1-mini-2025-04-14',
+        model: 'openai/gpt-4o-mini',
         messages: [
           { 
             role: 'system', 
@@ -238,15 +264,15 @@ Be specific, constructive, and actionable.`;
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`OpenAI API error for ${framework.label}:`, response.status, errorText);
-      throw new Error(`OpenAI API error: ${response.status}`);
+      console.error(`OpenRouter API error for ${framework.label}:`, response.status, errorText);
+      throw new Error(`OpenRouter API error: ${response.status}`);
     }
 
     const data = await response.json();
-    console.log(`OpenAI response for ${framework.label}:`, data.choices?.[0]?.message?.content?.substring(0, 100));
+    console.log(`OpenRouter response for ${framework.label}:`, data.choices?.[0]?.message?.content?.substring(0, 100));
 
     if (!data.choices || !data.choices[0] || !data.choices[0].message) {
-      throw new Error('Invalid OpenAI response structure');
+      throw new Error('Invalid OpenRouter response structure');
     }
 
     const content = data.choices[0].message.content;
@@ -256,7 +282,7 @@ Be specific, constructive, and actionable.`;
       analysis = JSON.parse(content);
     } catch (parseError) {
       console.error(`JSON parse error for ${framework.label}:`, parseError);
-      throw new Error('Failed to parse OpenAI response as JSON');
+      throw new Error('Failed to parse OpenRouter response as JSON');
     }
 
     // Validate and clean the response structure
@@ -323,7 +349,7 @@ function calculateFallbackScore(responses: string[], frameworkKey: string): Fram
   };
 }
 
-async function generateOverallAssessment(frameworks: FrameworkScore[], responses: string[], conversationContext: string): Promise<{ persona: string; summary: string; }> {
+async function generateOverallAssessment(frameworks: FrameworkScore[], responses: string[], conversationContext: string, patterns?: LeadershipPattern[]): Promise<{ persona: string; summary: string; }> {
   // Calculate average score and identify patterns
   const avgScore = frameworks.reduce((sum, f) => sum + f.score, 0) / frameworks.length;
   const topFrameworks = frameworks
@@ -333,41 +359,62 @@ async function generateOverallAssessment(frameworks: FrameworkScore[], responses
     .sort((a, b) => a.score - b.score)
     .slice(0, 3);
 
-  const prompt = `You are an expert leadership coach creating an overall assessment summary.
+  // Enhanced prompt with pattern analysis
+  const patternSummary = patterns ? `
+Leadership Patterns Identified:
+${patterns.map(p => `- ${p.name}: ${p.category} (${Math.round(p.strength * 100)}% strength)`).join('\n')}
 
-Framework Scores:
+Key Insights:
+${patterns.filter(p => p.category === 'strength').map(p => `- ${p.name} is a significant strength`).join('\n')}
+${patterns.filter(p => p.category === 'growth_area').map(p => `- ${p.name} represents a growth opportunity`).join('\n')}
+` : '';
+
+  const prompt = `You are an expert leadership coach creating a personalized assessment summary.
+
+FRAMEWORK SCORES:
 ${frameworks.map(f => `${f.label}: ${f.score}/100 - ${f.summary}`).join('\n')}
 
 Average Score: ${avgScore.toFixed(1)}
 Top Strengths: ${topFrameworks.map(f => f.label).join(', ')}
 Growth Areas: ${lowestFrameworks.map(f => f.label).join(', ')}
 
-User Responses: ${responses.slice(0, 3).join('\n\n')}
-Context: ${conversationContext.slice(-500)}
+${patternSummary}
 
-Create an overall leadership assessment. Return a JSON object with:
+CONVERSATION ANALYSIS:
+User Responses: ${responses.slice(0, 3).join('\n\n')}
+Full Context: ${conversationContext.slice(-800)}
+
+INSTRUCTIONS:
+Create a personalized leadership assessment that:
+1. Incorporates identified leadership patterns and strengths
+2. Addresses specific growth areas with actionable recommendations
+3. Reflects the user's unique communication style and experiences
+4. Provides specific, achievable next steps
+5. Acknowledges authentic leadership qualities beyond scores
+
+Return a JSON object:
 {
-  "persona": "[One of the personas that best fits]",
-  "summary": "[3-4 sentence personalized summary highlighting key strengths and growth opportunities]"
+  "persona": "[Best-fitting persona from the list]",
+  "summary": "[4-5 sentence personalized summary that tells their unique leadership story]"
 }
 
-Choose persona from: ${LEADERSHIP_PERSONAS.map(p => p.split(' - ')[0]).join(', ')}
+Available Personas: ${LEADERSHIP_PERSONAS.map(p => p.split(' - ')[0]).join(', ')}
 
-Be encouraging, specific, and actionable.`;
+Focus on their authentic leadership journey and potential.`;
 
   try {
     const timeoutPromise = new Promise<never>((_, reject) => {
       setTimeout(() => reject(new Error('Overall assessment timeout')), 15000);
     });
 
-    const assessmentPromise = fetch('https://api.openai.com/v1/chat/completions', {
+    const assessmentPromise = fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
+        'Authorization': `Bearer ${openRouterApiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4.1-mini-2025-04-14',
+        model: 'openai/gpt-4o-mini',
         messages: [
           { 
             role: 'system', 
@@ -383,7 +430,7 @@ Be encouraging, specific, and actionable.`;
     const response = await Promise.race([assessmentPromise, timeoutPromise]) as Response;
 
     if (!response.ok) {
-      throw new Error(`OpenAI API error: ${response.status}`);
+      throw new Error(`OpenRouter API error: ${response.status}`);
     }
 
     const data = await response.json();
@@ -439,4 +486,174 @@ function getFrameworkDescription(frameworkKey: string): string {
     leadership_beyond_organization: 'Creating broader impact through innovation, mentoring others, community influence, and driving positive change beyond immediate organizational boundaries.'
   };
   return descriptions[frameworkKey] || 'A key leadership dimension for comprehensive leadership effectiveness.';
+}
+
+// Enhanced Pattern Recognition Functions
+async function analyzeLeadershipPatterns(responses: string[], conversationContext: string): Promise<{ patterns: LeadershipPattern[], insights: string[] }> {
+  const allText = responses.join(' ').toLowerCase();
+  const patterns: LeadershipPattern[] = [];
+  const insights: string[] = [];
+
+  // Collaborative Leadership Pattern
+  const collaborativeIndicators = ['team input', 'collaboration', 'shared decision', 'group consensus', 'team perspective', 'collective approach'];
+  const collaborativeMatches = responses.filter(r =>
+    collaborativeIndicators.some(indicator => r.toLowerCase().includes(indicator))
+  );
+
+  if (collaborativeMatches.length > 0) {
+    const strength = collaborativeMatches.length / responses.length;
+    patterns.push({
+      name: 'Collaborative Leadership',
+      indicators: collaborativeIndicators,
+      strength: strength,
+      examples: collaborativeMatches.slice(0, 2),
+      development: [
+        'Building consensus across diverse stakeholders',
+        'Facilitating team decision-making processes',
+        'Creating inclusive communication environments'
+      ],
+      category: strength > 0.6 ? 'strength' : 'emerging'
+    });
+
+    if (strength > 0.5) {
+      insights.push('You demonstrate strong collaborative instincts, which is a significant leadership strength');
+    }
+  }
+
+  // Strategic Thinking Pattern
+  const strategicIndicators = ['strategy', 'vision', 'long.term', 'future', 'plan', 'objective', 'direction'];
+  const strategicMatches = responses.filter(r =>
+    strategicIndicators.some(indicator => r.toLowerCase().includes(indicator))
+  );
+
+  if (strategicMatches.length > 0) {
+    const strength = strategicMatches.length / responses.length;
+    patterns.push({
+      name: 'Strategic Thinking',
+      indicators: strategicIndicators,
+      strength: strength,
+      examples: strategicMatches.slice(0, 2),
+      development: [
+        'Developing long-term strategic perspective',
+        'Connecting operational work to organizational vision',
+        'Planning for future scenarios and challenges'
+      ],
+      category: strength > 0.4 ? 'strength' : 'growth_area'
+    });
+
+    if (strength < 0.3) {
+      insights.push('Consider strengthening your strategic thinking by connecting daily work to long-term organizational goals');
+    }
+  }
+
+  // Change Leadership Pattern
+  const changeIndicators = ['change', 'transformation', 'adapt', 'innovation', 'growth', 'improve', 'evolve'];
+  const changeMatches = responses.filter(r =>
+    changeIndicators.some(indicator => r.toLowerCase().includes(indicator))
+  );
+
+  if (changeMatches.length > 0) {
+    const strength = changeMatches.length / responses.length;
+    patterns.push({
+      name: 'Change Leadership',
+      indicators: changeIndicators,
+      strength: strength,
+      examples: changeMatches.slice(0, 2),
+      development: [
+        'Leading through organizational transitions',
+        'Building change capability in teams',
+        'Managing resistance and uncertainty'
+      ],
+      category: strength > 0.5 ? 'strength' : 'emerging'
+    });
+  }
+
+  // Relationship-Focused Pattern
+  const relationshipIndicators = ['relationship', 'trust', 'empathy', 'support', 'develop', 'mentor', 'care'];
+  const relationshipMatches = responses.filter(r =>
+    relationshipIndicators.some(indicator => r.toLowerCase().includes(indicator))
+  );
+
+  if (relationshipMatches.length > 0) {
+    const strength = relationshipMatches.length / responses.length;
+    patterns.push({
+      name: 'Relationship Building',
+      indicators: relationshipIndicators,
+      strength: strength,
+      examples: relationshipMatches.slice(0, 2),
+      development: [
+        'Developing deeper interpersonal connections',
+        'Building trust in professional relationships',
+        'Practicing empathetic leadership'
+      ],
+      category: strength > 0.5 ? 'strength' : 'growth_area'
+    });
+  }
+
+  // Operational Excellence Pattern
+  const operationalIndicators = ['process', 'efficiency', 'execution', 'implementation', 'workflow', 'systems'];
+  const operationalMatches = responses.filter(r =>
+    operationalIndicators.some(indicator => r.toLowerCase().includes(indicator))
+  );
+
+  if (operationalMatches.length > 0) {
+    const strength = operationalMatches.length / responses.length;
+    patterns.push({
+      name: 'Operational Excellence',
+      indicators: operationalIndicators,
+      strength: strength,
+      examples: operationalMatches.slice(0, 2),
+      development: [
+        'Streamlining processes and systems',
+        'Improving operational efficiency',
+        'Managing complex implementation projects'
+      ],
+      category: strength > 0.6 ? 'strength' : 'emerging'
+    });
+  }
+
+  // Identify contradictions
+  const contradictions = detectContradictions(responses);
+  if (contradictions.length > 0) {
+    insights.push(`I noticed some interesting tensions in your responses: ${contradictions.join(', ')}. This suggests areas for further exploration and integration.`);
+  }
+
+  // Generate adaptive insights
+  if (patterns.length >= 3) {
+    insights.push('You show well-rounded leadership capabilities across multiple domains');
+  }
+
+  const strengthPatterns = patterns.filter(p => p.category === 'strength');
+  if (strengthPatterns.length > 0) {
+    insights.push(`Your strongest leadership patterns appear to be: ${strengthPatterns.map(p => p.name).join(', ')}`);
+  }
+
+  return { patterns, insights };
+}
+
+function detectContradictions(responses: string[]): string[] {
+  const contradictions: string[] = [];
+  const allText = responses.join(' ').toLowerCase();
+
+  // Leadership style contradictions
+  if (allText.includes('collaborative') && allText.includes('authoritative')) {
+    contradictions.push('balancing collaborative and authoritative approaches');
+  }
+
+  // Decision-making contradictions
+  if (allText.includes('quick decision') && allText.includes('thorough analysis')) {
+    contradictions.push('reconciling quick decisions with thorough analysis');
+  }
+
+  // Risk contradictions
+  if (allText.includes('risk taker') && allText.includes('risk averse')) {
+    contradictions.push('navigating risk-taking vs risk-averse tendencies');
+  }
+
+  // Communication contradictions
+  if (allText.includes('direct communication') && allText.includes('diplomatic approach')) {
+    contradictions.push('balancing directness with diplomacy');
+  }
+
+  return contradictions;
 }

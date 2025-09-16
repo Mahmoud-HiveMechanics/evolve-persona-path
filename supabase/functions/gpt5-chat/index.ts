@@ -23,34 +23,34 @@ serve(async (req) => {
   }
 
   try {
-    const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
-    if (!openAIApiKey) {
-      throw new Error('OPENAI_API_KEY not found in environment variables');
+    const openRouterApiKey = Deno.env.get('OPENROUTER_API_KEY');
+    if (!openRouterApiKey) {
+      throw new Error('OPENROUTER_API_KEY not found in environment variables');
     }
 
     const { messages, conversationId }: ChatRequest = await req.json();
 
     console.log('GPT-5 Chat request:', { messagesCount: messages.length, conversationId });
 
-    // Call OpenAI GPT-5 API
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    // Call OpenRouter API
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
+        'Authorization': `Bearer ${openRouterApiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-5-2025-08-07',
+        model: 'openai/gpt-4o',
         messages: messages,
         max_completion_tokens: 1000,
-        // Note: temperature not supported for GPT-5
+        temperature: 0.7,
       }),
     });
 
     if (!response.ok) {
       const errorData = await response.text();
-      console.error('OpenAI API error:', errorData);
-      throw new Error(`OpenAI API error: ${response.status} ${errorData}`);
+      console.error('OpenRouter API error:', errorData);
+      throw new Error(`OpenRouter API error: ${response.status} ${errorData}`);
     }
 
     const data = await response.json();

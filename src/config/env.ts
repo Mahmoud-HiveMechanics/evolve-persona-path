@@ -2,7 +2,8 @@
 // Make sure to set these in your .env.local file
 
 export const env = {
-  // OpenAI Configuration
+  // OpenRouter Configuration
+  OPENROUTER_API_KEY: import.meta.env.VITE_OPENROUTER_API_KEY,
   OPENAI_ASSISTANT_ID: import.meta.env.VITE_OPENAI_ASSISTANT_ID || 'asst_0IGtbLANauxTpbn8rSj7MVy5',
   
   // Application Settings
