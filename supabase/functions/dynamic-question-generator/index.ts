@@ -132,13 +132,13 @@ function buildUserContext(conversationHistory: any[], profile: any): UserContext
     strengths: [],
     growthAreas: [],
     questionPhase: 'structured',
-    questionCount: conversationHistory.length,
+    questionCount: questionCount,
     confidenceLevels: {},
     keyThemes: []
   };
 
   // Determine phase (5 structured + 15 adaptive = 20 total)
-  context.questionPhase = conversationHistory.length < 5 ? 'structured' : 'adaptive';
+  context.questionPhase = questionCount < 5 ? 'structured' : 'adaptive';
 
   // Analyze conversation for patterns
   const userResponses = conversationHistory
@@ -1091,13 +1091,13 @@ async function generateContextualQuestion(
 
     // Use intelligent structured templates for first 5 questions
     if (questionCount < 5) {
-      console.log(`Using intelligent structured template for question ${questionCount + 1}`);
+      console.log(`✅ Using structured template for Q${questionCount + 1} (questionCount: ${questionCount}, phase: ${userContext.questionPhase})`);
       return generateStructuredQuestion(questionCount + 1, profile);
     }
 
     // Use intelligent adaptive templates for Q6-Q20
     if (questionCount >= 5 && questionCount < 20) {
-      console.log(`Using adaptive template for question ${questionCount + 1}`);
+      console.log(`✅ Using adaptive template for Q${questionCount + 1} (questionCount: ${questionCount}, phase: ${userContext.questionPhase})`);
       return generateAdaptiveQuestion(questionCount + 1, userContext, conversationHistory);
     }
 
@@ -1469,7 +1469,7 @@ const STRUCTURED_QUESTION_TEMPLATES = [
   },
   {
     questionNumber: 5,
-    template: "Given your experience as a {position} with {teamSize} team members, how much do you prioritize each of these aspects of leadership?",
+    template: "Given your experience as a {position} with {teamSize} team members, how much do you prioritize developing your team's skills and capabilities?",
     type: "scale" as const,
     scale_info: {
       min: 1,
@@ -1478,7 +1478,7 @@ const STRUCTURED_QUESTION_TEMPLATES = [
       max_label: "Top priority"
     },
     context: ['position', 'teamSize'],
-    reasoning: "Personalized priority assessment for their leadership context"
+    reasoning: "Personalized priority assessment for team development"
   }
 ];
 
@@ -1620,11 +1620,6 @@ function generateStructuredQuestion(questionNumber: number, profile: any): Quest
     .replace('{position}', profile.position || 'leader')
     .replace('{teamSize}', profile.teamSize?.toString() || 'your team')
     .replace('{motivation}', profile.motivation || 'develop as a leader');
-
-  // For Q5 scale question, make it about leadership aspects
-  if (questionNumber === 5) {
-    personalizedQuestion = `As a ${profile.position || 'leader'} with ${profile.teamSize || 'a team'} of people, how much do you prioritize developing your team's skills and capabilities?`;
-  }
 
   return {
     question: personalizedQuestion,
@@ -1822,8 +1817,7 @@ function generateContextualFallback(
   // Final stage questions (10+)
   return {
     question: `Looking at your journey as a ${profile.position}, what's one leadership behavior or skill you'd most like to develop further?`,
-    type: "open-ended", 
+    type: "open-ended",
     reasoning: "Contextual fallback for growth and development focus"
   };
-}
 }
