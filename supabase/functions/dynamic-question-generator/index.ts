@@ -1071,7 +1071,7 @@ async function generateContextualQuestion(
 
     const allowedTypes = questionCount < 5
       ? ['multiple-choice', 'scale', 'most-least-choice'] // First 5: Structured formats
-      : ['open-ended']; // Questions 6-20: Adaptive open-ended
+      : ['open-ended']; // Questions 6-20: STRICTLY open-ended only
 
     const varietyGuidance = generateVarietyGuidance(questionTypeCount, allowedTypes, questionCount);
     
@@ -1350,28 +1350,29 @@ EXAMPLES OF GOOD QUESTIONS:
 `;
   } else {
     prompt += `
-PHASE 2+: ADAPTIVE CONVERSATION (Questions 6+)
-🎯 OBJECTIVE: Deepen understanding through personalized, intelligent questioning
+PHASE 2+: DEEP LEADERSHIP COACHING (Questions 6-20)
+🎯 OBJECTIVE: Explore real leadership challenges through authentic conversation
 
-ADAPT TO USER'S STYLE:
-- Communication Style: ${userContext.communicationStyle}
-- Use language and examples that match their communication preferences
-- Build on their identified patterns: ${userContext.leadershipPatterns.join(', ')}
-- Explore their growth areas: ${userContext.growthAreas.join(', ')}
+CRITICAL REQUIREMENTS:
+- ONLY GENERATE OPEN-ENDED QUESTIONS - NO SCALE, MULTIPLE CHOICE, OR STRUCTURED FORMATS
+- Draw inspiration from behavioral interview questions about self-awareness, trust, innovation, etc.
+- Avoid logistics-focused questions - use broader leadership themes
+- Make questions challenging and thought-provoking, not easy or surface level
+- Reference their specific role and context briefly, but don't make it the core topic
 
-INTELLIGENT QUESTIONING STRATEGY:
-- Connect to previous responses and identified themes
-- Use their examples and language from conversation history
-- Focus on areas where they've shown interest or concern
-- Build natural conversation flow rather than rigid structures
-- Allow diverse response styles (not everyone uses STAR method)
+QUESTION BANK INSPIRATION:
+- Self-awareness: "Recall feedback that initially stung but proved valuable"
+- Trust building: "Time when you built trust in a skeptical team"
+- Innovation: "Time you drove significant change and handled resistance"
+- Ethical dilemmas: "Balancing business interests with social considerations"
+- Growth: "Deliberately stepping outside comfort zone to grow as leader"
 
 CONVERSATION FLOW:
-- Reference specific elements from their previous answers
-- Connect ideas across different responses
+- Build on their previous answers authentically
 - Ask about impact and learning from experiences
-- Explore contradictions or tensions in their responses
-- Help them see patterns in their leadership approach
+- Explore contradictions or tensions in their leadership approach
+- Help them reflect on patterns in their behavior
+- Challenge their assumptions gently
 `;
   }
 
@@ -1382,17 +1383,31 @@ QUALITY REQUIREMENTS:
 - Choose question type that maximizes insight for their context
 - Avoid repetition of similar questions
 - Progress naturally from their current understanding
-- Generate questions that feel like a genuine coaching conversation
+- Generate questions that feel like a genuine coaching conversation`;
 
-RESPONSE FORMAT:
+  // Dynamic response format based on allowed types
+  if (allowedTypes.includes('open-ended') && allowedTypes.length === 1) {
+    // Q6+ - Only open-ended
+    prompt += `
+RESPONSE FORMAT (OPEN-ENDED ONLY):
 {
-  "question": "Natural, personalized question that fits their communication style",
-  "type": "${allowedTypes.join('|')}",
-  "options": ["A", "B", "C", "D"],
-  "most_least_options": ["Option A", "Option B", "Option C", "Option D"],
-  "scale_info": {"min": 1, "max": 10, "min_label": "Description", "max_label": "Description"},
+  "question": "Natural, personalized open-ended question that invites deep reflection",
+  "type": "open-ended",
   "reasoning": "Why this specific question based on their context and conversation history"
 }`;
+  } else {
+    // Q1-5 - Structured formats
+    prompt += `
+RESPONSE FORMAT (STRUCTURED):
+{
+  "question": "Clear, focused question for baseline data collection",
+  "type": "${allowedTypes.join('|')}",
+  "options": ["A", "B", "C", "D"] (for multiple-choice),
+  "most_least_options": ["Option A", "Option B", "Option C", "Option D"] (for most-least-choice),
+  "scale_info": {"min": 1, "max": 10, "min_label": "Description", "max_label": "Description"} (for scale),
+  "reasoning": "Why this specific question based on their context"
+}`;
+  }
 
   return prompt;
 }
@@ -1467,96 +1482,116 @@ const STRUCTURED_QUESTION_TEMPLATES = [
   }
 ];
 
-// Pure Open-Ended Question Templates for Q6-Q20 Adaptive Phase
+// Question Bank Inspired Templates for Q6-Q20 - Real Leadership Questions
 const ADAPTIVE_QUESTION_TEMPLATES = {
   self_leadership: [
     {
-      template: "Tell me about a recent situation where you needed to have a difficult conversation with someone on your team. What made it challenging, and how did you approach it?",
+      template: "Recall a time when you received feedback that initially stung but later proved valuable. How did you process it, and what changed in your leadership as a result?",
       context: [],
-      themes: ['self-awareness', 'emotional-regulation']
+      themes: ['self-awareness', 'growth', 'feedback']
     },
     {
-      template: "Can you share an example of how your leadership approach has helped you build stronger relationships with your team? What impact did it have?",
+      template: "Describe a recent situation where greater self-awareness could have changed the outcome. What would you do differently?",
       context: [],
-      themes: ['self-awareness', 'relationship-building']
+      themes: ['self-awareness', 'reflection', 'decision-making']
     },
     {
-      template: "What's one leadership challenge you've faced recently, and how did you work through it? What did you learn about yourself in the process?",
+      template: "How do you typically reflect on your emotions and decisions? Do you have a method that works for you?",
       context: [],
-      themes: ['self-awareness', 'growth']
+      themes: ['self-awareness', 'emotional-regulation', 'reflection']
+    },
+    {
+      template: "What is one insight about yourself that you've discovered recently, and how has it influenced your actions?",
+      context: [],
+      themes: ['self-awareness', 'personal-growth', 'action']
     }
   ],
   relational_leadership: [
     {
-      template: "Describe how you typically help team members grow and develop in their roles. What's one success story you're particularly proud of?",
+      template: "Tell me about a time when you successfully built trust within a team that was initially skeptical or guarded. What specific actions did you take?",
       context: [],
-      themes: ['empathy', 'trust', 'team-building']
+      themes: ['trust', 'psychological-safety', 'relationship-building']
     },
     {
-      template: "Tell me about a time when you successfully influenced a decision or change within your organization. What strategies did you use, and what did you learn?",
+      template: "Describe a situation where you needed to adapt your leadership approach to meet the needs of a specific team member. How did you recognize their needs?",
       context: [],
-      themes: ['communication', 'influence', 'collaboration']
+      themes: ['empathy', 'awareness-of-others', 'adaptability']
     },
     {
-      template: "How do you typically handle conflicts or disagreements within your team? Can you walk me through a recent example and what you learned from it?",
+      template: "Tell me about a time when you delegated a high-stakes project. How did you decide what to delegate and how did you support them while maintaining their autonomy?",
       context: [],
-      themes: ['conflict-resolution', 'communication']
+      themes: ['empowerment', 'delegation', 'shared-responsibility']
+    },
+    {
+      template: "How have you modeled behavioral expectations that foster psychological safety and trust? Can you share a specific example?",
+      context: [],
+      themes: ['psychological-safety', 'modeling', 'trust']
     }
   ],
   organizational_leadership: [
     {
-      template: "Let's explore your approach to long-term thinking. Can you describe a situation where you connected day-to-day work to your organization's larger purpose or vision? How did this connection influence your decisions?",
+      template: "Describe a time when you needed to align your team around a shared purpose or vision. How did you approach this and what impact did it have?",
       context: [],
-      themes: ['strategic-thinking', 'vision', 'purpose']
+      themes: ['vision', 'purpose', 'alignment']
     },
     {
-      template: "Tell me about a time when you led or supported an innovation or change initiative. What were the biggest obstacles, and how did you overcome them?",
+      template: "Tell me about a time when you drove significant innovation or change. How did you approach resistance and what results came from embracing this change?",
       context: [],
-      themes: ['change-management', 'innovation', 'adaptation']
+      themes: ['innovation', 'change-management', 'resistance']
     },
     {
-      template: "How do you typically balance short-term operational needs with long-term strategic goals? Can you share an example where you had to make this balance, and what you learned?",
+      template: "Tell me about a time when you shifted from directing a team to empowering them to lead themselves. What approach did you take and what were the results?",
       context: [],
-      themes: ['strategic-planning', 'balance', 'decision-making']
+      themes: ['empowerment', 'culture-of-leadership', 'transformation']
+    },
+    {
+      template: "Describe a time when you were completely in a flow state at work. What made that possible?",
+      context: [],
+      themes: ['purpose', 'flow', 'meaningful-work']
     }
   ],
   leadership_beyond_organization: [
     {
-      template: "Looking at the bigger picture, can you share an example of how your work has positively impacted stakeholders beyond your immediate team - perhaps customers, other departments, or the broader organization?",
+      template: "How do you or your organization leave positive impact on customers or clients. What approach do you take?",
       context: [],
-      themes: ['stakeholder-impact', 'broader-purpose']
+      themes: ['stakeholder-impact', 'positive-impact', 'customer-focus']
     },
     {
-      template: "Describe a situation where you had to balance business objectives with ethical considerations or broader societal impact. How did you navigate this tension, and what was the outcome?",
+      template: "Describe a time when you had to balance business interests with broader social or ethical considerations. How did you approach this?",
       context: [],
-      themes: ['ethical-leadership', 'societal-impact', 'values']
+      themes: ['ethical-leadership', 'social-stewardship', 'balance']
     },
     {
-      template: "How do you think about your role in contributing to the broader industry or community? Can you share an example where you extended your leadership influence beyond your immediate organization?",
+      template: "Tell me about a time when conflict within your team led to a better outcome than would have been possible without the tension. What was your approach?",
       context: [],
-      themes: ['industry-influence', 'community-impact']
+      themes: ['harnessing-tensions', 'conflict', 'collaboration']
+    },
+    {
+      template: "How do you ensure that your work remains aligned with both your personal purpose and your organization's mission?",
+      context: [],
+      themes: ['purpose', 'alignment', 'personal-values']
     }
   ],
   harnessing_tensions: [
     {
-      template: "Every leader faces tensions and conflicts. Tell me about a time when you successfully harnessed a disagreement or tension within your team to create a better outcome. What was your approach?",
+      template: "What are the biggest challenges you face when trying to embrace change, and how do you work through them?",
       context: [],
-      themes: ['conflict-resolution', 'tension-harnessing', 'collaboration']
+      themes: ['continuous-growth', 'change', 'resilience']
     },
     {
-      template: "Looking back at our conversation, what's one leadership behavior or skill you've developed that you think will have the most lasting impact on your team and organization? Why does this matter to you?",
+      template: "Tell me about a time when you deliberately stepped outside your comfort zone to grow as a leader. What was difficult about it?",
       context: [],
-      themes: ['leadership-reflection', 'growth', 'legacy']
+      themes: ['continuous-growth', 'comfort-zone', 'leadership-development']
     },
     {
-      template: "What's one tension or paradox you've learned to embrace as a leader - something that seemed contradictory at first but turned out to be complementary? How did you learn to work with both sides?",
+      template: "Describe how you leverage tension or allow conflict within your team. How do you create safety for difficult conversations?",
       context: [],
-      themes: ['paradox-navigation', 'leadership-wisdom']
+      themes: ['harnessing-tensions', 'conflict-management', 'safety']
     },
     {
-      template: "If you could give one piece of advice to your younger self about leadership, what would it be? What experience or insight led you to this conclusion?",
+      template: "What's one tension or paradox you've learned to embrace as a leader - something that seemed contradictory at first but turned out to be complementary?",
       context: [],
-      themes: ['wisdom', 'reflection', 'growth']
+      themes: ['paradox-navigation', 'leadership-wisdom', 'complexity']
     }
   ]
 };
@@ -1790,4 +1825,5 @@ function generateContextualFallback(
     type: "open-ended", 
     reasoning: "Contextual fallback for growth and development focus"
   };
+}
 }
