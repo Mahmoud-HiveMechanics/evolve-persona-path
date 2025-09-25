@@ -3,8 +3,7 @@ import { Header } from '../components/Header';
 import { Button } from '../components/ui/button';
 import { Textarea } from '../components/ui/textarea';
 import { Slider } from '../components/ui/slider';
-import { Progress } from '../components/ui/progress';
-import { ArrowRight, Send, User, Bot, Mic, Square, Check, BookOpen, Users, Target, Award, ArrowLeft } from 'lucide-react';
+import { ArrowRight, Send, User, Bot, Mic, Square, Check } from 'lucide-react';
 import { Skeleton } from '../components/ui/skeleton';
 import { MostLeastChoice } from '../components/MostLeastChoice';
 import { supabase } from '@/integrations/supabase/client';
@@ -17,51 +16,9 @@ import type { Profile } from '@/config/assessment';
 
 
 
-/**
- * USER JOURNEY SUMMARY - LEADERSHIP ASSESSMENT
- *
- * Phase 1: Landing & Introduction (Stage: 'intro')
- * - User lands on assessment page with compelling introduction
- * - Clear expectations: 15 questions, 10 minutes, conversational interface
- * - "Start Assessment" button initiates the journey
- *
- * Phase 2: Personalization Setup (Stage: 'foundation')
- * - Intro form collects: Position, Role, Team Size, Motivation
- * - Data used to personalize subsequent questions
- * - Builds user profile for AI question generation
- *
- * Phase 3: Assessment Questions (Questions 1-15)
- * - Q1-Q5: Structured questions (multiple-choice, scale, most-least)
- * - Q6-Q15: AI-generated adaptive questions (primarily open-ended)
- * - Progress tracking with visual indicators and stage descriptions
- * - Users can go back to review/change previous answers
- * - Real-time question counting and progress visualization
- *
- * Phase 4: AI Analysis & Generation (Stage: 'reflection')
- * - 15+ questions completed triggers completion
- * - AI evaluates responses and generates personalized insights
- * - Loading state with engaging animations and messaging
- * - Timeout protection (30 seconds) with fallback navigation
- *
- * Phase 5: Results & Next Steps (Stage: 'complete')
- * - Celebration with achievement indicators
- * - Clear call-to-action to view personalized report
- * - Navigation to evaluation page with full leadership insights
- *
- * KEY FEATURES IMPLEMENTED:
- * ✅ Progress tracking with visual stages and progress bar
- * ✅ Back navigation to review/edit previous answers
- * ✅ Smooth animations and transitions throughout
- * ✅ Engaging completion celebration with achievements
- * ✅ Responsive design for all screen sizes
- * ✅ Real-time question counter and stage indicators
- * ✅ Error handling and fallback mechanisms
- */
-
 export const Assessment = () => {
   const navigate = useNavigate();
   const MIN_QUESTIONS = 15; // 4 style detection + 11 style-specific questions
-  const TOTAL_QUESTIONS = 15;
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isStarted, setIsStarted] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
@@ -123,45 +80,10 @@ export const Assessment = () => {
   const [introMotivation, setIntroMotivation] = useState('');
   // Finalization state
   const [hasNavigated, setHasNavigated] = useState(false);
-  const [canGoBack, setCanGoBack] = useState(false);
 
   // Follow-ups handled by AI; local flags removed
 
   const { conversationId, createConversation, saveMessage, markConversationComplete } = useConversation();
-
-  // Function to handle going back to previous question
-  const handleGoBack = () => {
-    if (messages.length >= 2) {
-      const lastQuestionIndex = messages
-        .map((msg, index) => ({ msg, index }))
-        .reverse()
-        .find(({ msg }) => msg.isQuestion)?.index;
-
-      if (lastQuestionIndex !== undefined && lastQuestionIndex > 0) {
-        // Remove the last question and answer
-        const updatedMessages = messages.slice(0, lastQuestionIndex);
-        setMessages(updatedMessages);
-        setQuestionCount(Math.max(0, questionCount - 1));
-        setShowCurrentQuestion(false);
-        setCurrentQuestion(null);
-
-        // Re-enable the previous question for answering
-        if (updatedMessages.length > 0) {
-          const lastMsg = updatedMessages[updatedMessages.length - 1];
-          if (lastMsg.isQuestion) {
-            setCurrentQuestion({
-              question: lastMsg.content,
-              type: lastMsg.questionType,
-              options: lastMsg.options,
-              most_least_options: lastMsg.mostLeastOptions,
-              scale_info: lastMsg.scaleInfo
-            });
-            setShowCurrentQuestion(true);
-          }
-        }
-      }
-    }
-  };
 
   // OpenAI assistant not needed for predefined questions
   const [currentQuestion, setCurrentQuestion] = useState<any>(null);
@@ -643,54 +565,9 @@ export const Assessment = () => {
 
   // No assistant error handling needed for predefined questions
 
-  // Assessment progress calculations
-  const progress = Math.min((questionCount / TOTAL_QUESTIONS) * 100, 100);
-  const currentStage = questionCount === 0 ? 'intro' :
-                      questionCount <= 5 ? 'foundation' :
-                      questionCount <= 10 ? 'deep-dive' :
-                      questionCount <= 15 ? 'reflection' : 'complete';
-
-  const getStageInfo = () => {
-    switch (currentStage) {
-      case 'intro':
-        return {
-          title: 'Getting Started',
-          description: 'Setting up your personalized assessment',
-          icon: BookOpen,
-          color: 'text-blue-600'
-        };
-      case 'foundation':
-        return {
-          title: 'Foundation Building',
-          description: 'Understanding your leadership basics',
-          icon: Users,
-          color: 'text-green-600'
-        };
-      case 'deep-dive':
-        return {
-          title: 'Deep Exploration',
-          description: 'Exploring your leadership challenges',
-          icon: Target,
-          color: 'text-purple-600'
-        };
-      case 'reflection':
-        return {
-          title: 'Reflection & Growth',
-          description: 'Reflecting on your leadership journey',
-          icon: Award,
-          color: 'text-orange-600'
-        };
-      default:
-        return {
-          title: 'Complete',
-          description: 'Your assessment is ready',
-          icon: Check,
-          color: 'text-green-600'
-        };
-    }
-  };
-
-  const stageInfo = getStageInfo();
+  // Assessment progress calculations (currently unused but available for future use)
+  // const progress = Math.min((questionCount / totalQuestions) * 100, 100);
+  // const milestones = [Math.round(totalQuestions / 3), Math.round((2 * totalQuestions) / 3)];
 
   if (!isStarted) {
     return (
@@ -712,59 +589,11 @@ export const Assessment = () => {
             </div>
 
             <div className="bg-white/60 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-primary/10 space-y-6">
-              <h3 className="text-2xl font-bold text-text-primary">Your <span className="text-primary">journey</span> ahead:</h3>
-
-              {/* Journey Timeline */}
-              <div className="space-y-4">
-                <div className="flex items-center gap-4">
-                  <div className="flex-shrink-0 w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                    <BookOpen size={16} className="text-blue-600" />
-                  </div>
-                  <div className="flex-1">
-                    <h4 className="font-semibold text-text-primary">Quick Setup</h4>
-                    <p className="text-sm text-text-secondary">Tell us about your role and goals (2 minutes)</p>
-                  </div>
-                  <div className="text-xs text-text-secondary">Phase 1</div>
-                </div>
-
-                <div className="flex items-center gap-4">
-                  <div className="flex-shrink-0 w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                    <Users size={16} className="text-green-600" />
-                  </div>
-                  <div className="flex-1">
-                    <h4 className="font-semibold text-text-primary">Foundation Building</h4>
-                    <p className="text-sm text-text-secondary">5 structured questions about your leadership basics</p>
-                  </div>
-                  <div className="text-xs text-text-secondary">Phase 2</div>
-                </div>
-
-                <div className="flex items-center gap-4">
-                  <div className="flex-shrink-0 w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
-                    <Target size={16} className="text-purple-600" />
-                  </div>
-                  <div className="flex-1">
-                    <h4 className="font-semibold text-text-primary">Deep Exploration</h4>
-                    <p className="text-sm text-text-secondary">10 personalized questions exploring your unique challenges</p>
-                  </div>
-                  <div className="text-xs text-text-secondary">Phase 3</div>
-                </div>
-
-                <div className="flex items-center gap-4">
-                  <div className="flex-shrink-0 w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center">
-                    <Award size={16} className="text-orange-600" />
-                  </div>
-                  <div className="flex-1">
-                    <h4 className="font-semibold text-text-primary">Your Insights</h4>
-                    <p className="text-sm text-text-secondary">AI-powered analysis and personalized leadership report</p>
-                  </div>
-                  <div className="text-xs text-text-secondary">Phase 4</div>
-                </div>
-              </div>
-
-              <div className="grid md:grid-cols-2 gap-6 pt-4 border-t border-primary/10">
+              <h3 className="text-2xl font-bold text-text-primary">What to <span className="text-primary">expect</span>:</h3>
+              <div className="grid md:grid-cols-2 gap-6">
                 <div className="flex items-center gap-4 p-4 rounded-xl bg-primary/5">
                   <div className="w-4 h-4 bg-primary rounded-full flex-shrink-0"></div>
-                  <span className="font-medium text-text-primary">15 thoughtful questions</span>
+                  <span className="font-medium text-text-primary">10 thoughtful questions + personalized follow-ups</span>
                 </div>
                 <div className="flex items-center gap-4 p-4 rounded-xl bg-primary/5">
                   <div className="w-4 h-4 bg-primary rounded-full flex-shrink-0"></div>
@@ -872,55 +701,15 @@ export const Assessment = () => {
 
       <div className="max-w-5xl mx-auto px-6 py-8">
 
-        {/* Progress Header */}
-        {(isStarted || questionCount > 0) && (
-          <div className="mb-6 bg-white/60 backdrop-blur-sm rounded-xl border border-primary/10 p-6 shadow-sm">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleGoBack}
-                  disabled={questionCount === 0 || isComplete}
-                  className="mr-2 p-2 hover:bg-primary/10 disabled:opacity-50"
-                >
-                  <ArrowLeft size={16} />
-                </Button>
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${stageInfo.color} bg-current/10 transition-colors duration-300`}>
-                  <stageInfo.icon size={20} />
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-text-primary">{stageInfo.title}</h3>
-                  <p className="text-sm text-text-secondary">{stageInfo.description}</p>
-                </div>
-              </div>
-              <div className="text-right">
-                <div className="text-2xl font-bold text-primary">{questionCount}/{TOTAL_QUESTIONS}</div>
-                <div className="text-sm text-text-secondary">Questions completed</div>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Progress value={progress} className="h-2 transition-all duration-500" />
-              <div className="flex justify-between text-xs text-text-secondary">
-                <span>Start</span>
-                <span>Foundation (1-5)</span>
-                <span>Deep Dive (6-10)</span>
-                <span>Reflection (11-15)</span>
-                <span>Complete</span>
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* Chat Container */}
         <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-primary/10 h-[700px] flex flex-col shadow-lg">
           {/* Chat Messages */}
           <div className="flex-1 p-8 overflow-y-auto space-y-6 max-h-full">
-            {messages.map((message, index) => (
+            {messages.map((message) => (
               <div
                 key={message.id}
-                className={`flex gap-3 ${message.type === 'user' ? 'justify-end' : 'justify-start'} animate-in fade-in-50 slide-in-from-bottom-2 duration-300`}
-                style={{ animationDelay: `${index * 50}ms` }}
+                className={`flex gap-3 ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
               >
                 {message.type === 'bot' && (
                   <div className="w-12 h-12 bg-gradient-to-br from-primary to-primary/80 rounded-full flex items-center justify-center flex-shrink-0 shadow-lg">
@@ -1173,91 +962,41 @@ export const Assessment = () => {
 
             {/* Assessment Complete */}
             {isComplete && (
-              <div className="bg-gradient-to-br from-primary/10 via-primary/5 to-white rounded-2xl p-8 border border-primary/20 shadow-lg animate-in fade-in-50 slide-in-from-bottom-4 duration-700">
+              <div className="bg-gradient-to-br from-primary/10 via-primary/5 to-white rounded-2xl p-8 border border-primary/20 shadow-lg">
                 <div className="text-center space-y-6">
                   {evaluationGenerating ? (
                     <>
-                      <div className="relative">
-                        <div className="w-20 h-20 mx-auto bg-gradient-to-br from-primary to-primary/80 rounded-full flex items-center justify-center shadow-lg">
-                          <div className="w-12 h-12 border-4 border-white border-t-transparent rounded-full animate-spin"></div>
-                        </div>
-                        <div className="absolute -top-1 -right-1 w-6 h-6 bg-yellow-400 rounded-full flex items-center justify-center animate-pulse">
-                          <Award size={12} className="text-white" />
-                        </div>
+                      <div className="w-16 h-16 mx-auto bg-primary/20 rounded-full flex items-center justify-center">
+                        <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
                       </div>
                       <div>
-                        <h2 className="text-3xl font-bold text-text-primary mb-3 bg-gradient-to-r from-primary to-primary/80 bg-clip-text text-transparent">
-                          Analyzing Your Leadership Journey
-                        </h2>
-                        <p className="text-text-secondary max-w-md mx-auto leading-relaxed">
-                          Our AI is carefully analyzing your responses to create a personalized leadership assessment.
-                          This usually takes 10-15 seconds.
+                        <h2 className="text-2xl font-bold text-text-primary mb-3">Generating Your Evaluation...</h2>
+                        <p className="text-text-secondary max-w-md mx-auto">
+                          Our AI is analyzing your responses to create a personalized leadership assessment. This will take about 10-15 seconds.
                         </p>
-                        <div className="mt-4 flex justify-center">
-                          <div className="flex gap-1">
-                            {[0, 1, 2].map((i) => (
-                              <div
-                                key={i}
-                                className="w-2 h-2 bg-primary rounded-full animate-pulse"
-                                style={{ animationDelay: `${i * 0.2}s` }}
-                              ></div>
-                            ))}
-                          </div>
-                        </div>
                       </div>
                     </>
                   ) : (
                     <>
-                      <div className="relative">
-                        <div className="w-20 h-20 mx-auto bg-gradient-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center shadow-lg animate-bounce">
-                          <Check className="w-10 h-10 text-white" />
-                        </div>
-                        <div className="absolute -top-2 -right-2">
-                          <div className="w-8 h-8 bg-yellow-400 rounded-full flex items-center justify-center animate-pulse shadow-lg">
-                            <Award size={16} className="text-white" />
-                          </div>
-                        </div>
+                      <div className="w-16 h-16 mx-auto bg-green-100 rounded-full flex items-center justify-center">
+                        <Check className="w-8 h-8 text-green-600" />
                       </div>
-                      <div className="space-y-4">
-                        <h2 className="text-3xl font-bold text-text-primary bg-gradient-to-r from-green-600 to-green-700 bg-clip-text text-transparent">
-                          🎉 Assessment Complete!
-                        </h2>
-                        <p className="text-text-secondary max-w-lg mx-auto leading-relaxed">
-                          Congratulations! You've completed your leadership assessment journey.
-                          Your personalized evaluation is now ready with insights tailored to your unique leadership style.
-                        </p>
-                        <div className="bg-white/50 rounded-xl p-4 max-w-md mx-auto">
-                          <div className="text-sm text-text-secondary">
-                            <div className="flex items-center justify-center gap-2 mb-2">
-                              <Check size={16} className="text-green-600" />
-                              <span>15 thoughtful questions answered</span>
-                            </div>
-                            <div className="flex items-center justify-center gap-2 mb-2">
-                              <Check size={16} className="text-green-600" />
-                              <span>AI-powered analysis completed</span>
-                            </div>
-                            <div className="flex items-center justify-center gap-2">
-                              <Check size={16} className="text-green-600" />
-                              <span>Personalized insights ready</span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="space-y-3">
-                        <Button
-                          onClick={() => {
-                            setHasNavigated(true);
-                            navigate('/evaluation');
-                          }}
-                          className="bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary text-white px-10 py-4 rounded-xl font-semibold text-lg transition-all duration-300 hover:scale-105 shadow-xl hover:shadow-2xl"
-                        >
-                          View My Leadership Report
-                          <ArrowRight className="w-6 h-6 ml-3" />
-                        </Button>
-                        <p className="text-xs text-text-secondary">
-                          Takes you to your personalized leadership insights
+                      <div>
+                        <h2 className="text-2xl font-bold text-text-primary mb-3">Assessment Complete!</h2>
+                        <p className="text-text-secondary max-w-md mx-auto">
+                          Thank you for completing your leadership assessment. Your personalized evaluation is now ready.
                         </p>
                       </div>
+                      <Button 
+                        onClick={() => {
+                          setHasNavigated(true);
+                          navigate('/evaluation');
+                        }}
+                        className="bg-primary hover:bg-primary-dark text-white px-8 py-3 rounded-xl font-medium transition-all duration-300 hover:scale-105 shadow-lg"
+                      >
+                        View My Report
+                        <ArrowRight className="w-5 h-5 ml-2" />
+                      </Button>
                     </>
                   )}
                 </div>
