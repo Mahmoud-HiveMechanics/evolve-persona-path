@@ -580,11 +580,10 @@ export const Assessment = () => {
 
             <div className="space-y-6">
               <h1 className="text-5xl lg:text-6xl font-bold text-text-primary leading-tight">
-                Leadership <span className="text-primary">Assessment</span>
+                EvolveAI <span className="text-primary">Leadership Assessment</span>
               </h1>
               <p className="text-xl text-text-secondary leading-relaxed max-w-2xl mx-auto">
-                Welcome! I'm your leadership assessment guide. I'll ask you thoughtful questions
-                and personalized follow-ups to deeply understand your leadership style and help you discover your leadership persona.
+                Hi! I'm EvolveAI, your leadership development assistant. I'm here to help you gain deeper insight into your leadership mindset through a warm, conversational assessment that reveals blind spots and creates "aha" moments for growth.
               </p>
             </div>
 

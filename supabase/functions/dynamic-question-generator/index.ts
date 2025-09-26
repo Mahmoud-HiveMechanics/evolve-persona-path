@@ -41,11 +41,23 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const LEADERSHIP_PRINCIPLES = [
-  'Self-Leadership: Self-awareness, emotional regulation, personal growth mindset',
-  'Relational Leadership: Communication, empathy, conflict resolution, team building', 
-  'Organizational Leadership: Strategic thinking, decision-making, change management',
-  'Beyond the Organization: Industry influence, social responsibility, legacy thinking'
+const EVOLVE_LEADERSHIP_PRINCIPLES = [
+  // Foundational Mindset (1-3)
+  "Vision & Strategic Direction",
+  "Integrity & Trustworthiness", 
+  "Continuous Learning & Self-Improvement",
+  // Interpersonal Mastery (4-6)
+  "Emotional Intelligence & Empathy",
+  "Servant Leadership & Serving Others",
+  "Authenticity & Transparency",
+  // Adaptive Leadership (7-9)
+  "Curiosity & Innovation",
+  "Resilience & Adaptability",
+  "Inclusivity & Diversity",
+  // Execution Excellence (10-12)
+  "Decisiveness & Judgment",
+  "Communication & Alignment",
+  "Results & Accountability"
 ];
 
 serve(async (req) => {
@@ -109,7 +121,7 @@ serve(async (req) => {
     console.error('Error in dynamic-question-generator function:', error);
     return new Response(JSON.stringify({ 
       error: 'Failed to generate question',
-      details: error.message 
+      details: error instanceof Error ? error.message : 'Unknown error'
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -152,41 +164,66 @@ async function generateContextualQuestion(
 
     const varietyGuidance = generateVarietyGuidance(questionTypeCount, allowedTypes, questionCount);
 
-    // Streamlined prompt to reduce token usage
-    const prompt = `You are a leadership assessment coach. Generate a strategic question based on:
+    // EvolveAI conversational prompt
+    const prompt = `You are EvolveAI, a warm and insightful leadership coach conducting a conversational assessment using the 12 Evolve Leadership Principles Framework.
 
-PROFILE: ${profile.position} in ${profile.role}, team of ${profile.teamSize}, wants to ${profile.motivation}
+PROFILE: ${profile.position} in ${profile.role}, team of ${profile.teamSize}, motivated to ${profile.motivation}
 
-RECENT CONVERSATION:
+CONVERSATION HISTORY:
 ${formattedHistory}
 
-PROGRESS: Question ${questionCount + 1}/15, Phase: ${questionCount < 5 ? 'Initial' : questionCount < 10 ? 'Deep dive' : 'Synthesis'}
+ASSESSMENT PROGRESS: Question ${questionCount + 1}/15, Phase: ${questionCount < 5 ? 'Profile Discovery' : questionCount < 10 ? 'Adaptive Assessment' : 'Insight Generation'}
 
-QUESTION TYPE RULES:
+THE 12 EVOLVE LEADERSHIP PRINCIPLES:
+
+FOUNDATIONAL MINDSET (1-3):
+1. Vision & Strategic Direction
+2. Integrity & Trustworthiness  
+3. Continuous Learning & Self-Improvement
+
+INTERPERSONAL MASTERY (4-6):
+4. Emotional Intelligence & Empathy
+5. Servant Leadership & Serving Others
+6. Authenticity & Transparency
+
+ADAPTIVE LEADERSHIP (7-9):
+7. Curiosity & Innovation
+8. Resilience & Adaptability
+9. Inclusivity & Diversity
+
+EXECUTION EXCELLENCE (10-12):
+10. Decisiveness & Judgment
+11. Communication & Alignment
+12. Results & Accountability
+
+QUESTION TYPE GUIDANCE:
 ${varietyGuidance}
 - Allowed types: ${allowedTypes.join(', ')}
 - Used so far: ${Object.entries(questionTypeCount).map(([type, count]) => `${type}: ${count}`).join(', ') || 'None'}
 
-LEADERSHIP AREAS:
-1. Self-Leadership (awareness, regulation, growth)
-2. Relational (communication, empathy, team building)
-3. Organizational (strategy, decisions, change)
-4. Beyond Organization (influence, responsibility, legacy)
+EVOLVEAI METHODOLOGY:
+- Be warm, empathetic, and naturally curious
+- Use scenario-based questions as primary method (e.g., "Imagine you've just taken over a team...")
+- Include behavioral interview questions for past experiences
+- Explore values and beliefs through completion questions
+- Gently probe inconsistencies between stated values and revealed behaviors
+- Use conversational bridges like "I'm curious..." "Tell me more..." "That's interesting..."
+- Create opportunities for "aha" moments and self-awareness
 
 REQUIREMENTS:
-- Build on their previous answers
-- Choose question type for max insight + variety
-- Avoid repetition
-- Progress from simple to complex
+- Generate ONE engaging question that flows naturally from previous responses
+- Focus on revealing mindset patterns and behavioral insights
+- Adapt to the user's specific context and role
+- Create meaningful, actionable insights
 
 JSON FORMAT:
 {
-  "question": "Your question",
+  "question": "Your thoughtful, engaging question here",
   "type": "multiple-choice|open-ended|scale|most-least-choice",
   "options": ["A", "B", "C", "D"],
   "most_least_options": ["A", "B", "C", "D"],
   "scale_info": {"min": 1, "max": 10, "min_label": "Low", "max_label": "High"},
-  "reasoning": "Why this question"
+  "reasoning": "Brief explanation of the insight this question will reveal"
 }`;
 
     console.log('Sending prompt to GPT-4.1...');
@@ -305,7 +342,7 @@ JSON FORMAT:
     console.error('Error generating contextual question:', error);
     
     // Fallback question based on question count
-    const fallbackQuestions = [
+    const fallbackQuestions: QuestionResponse[] = [
       {
         question: "How would you describe your natural leadership style?",
         type: "multiple-choice",
@@ -400,7 +437,7 @@ function generateContextualFallback(
     return acc;
   }, {} as Record<string, number>);
 
-  // Early stage questions (0-4) - simple types only with variety
+  // Early stage questions (0-4) - EvolveAI Profile Discovery
   if (questionCount < 5) {
     const allowedTypes = ['multiple-choice', 'scale', 'most-least-choice'];
     const leastUsedType = allowedTypes.reduce((least, type) => 
@@ -409,19 +446,19 @@ function generateContextualFallback(
 
     if (!hasDiscussedStyle && leastUsedType === 'multiple-choice') {
       return {
-        question: `As a ${profile.position} in ${profile.role} leading ${profile.teamSize} people, how would you describe your natural leadership approach?`,
+        question: `As a ${profile.position}, I'm curious - when you think about leadership challenges, what comes up for you first?`,
         type: "multiple-choice",
         options: [
-          "Collaborative - I involve my team in decisions and value input",
-          "Direct - I set clear expectations and drive for results", 
-          "Supportive - I focus on developing and empowering my people",
-          "Strategic - I emphasize vision and long-term thinking"
+          "Getting everyone aligned on the same vision and direction",
+          "Building trust and psychological safety within the team", 
+          "Helping people grow and develop their potential",
+          "Making tough decisions with incomplete information"
         ],
-        reasoning: `Contextual fallback exploring leadership style for ${profile.position} role`
+        reasoning: `EvolveAI profile discovery exploring primary leadership concerns for ${profile.position} role`
       };
     } else if (leastUsedType === 'scale') {
       return {
-        question: `On a scale of 1-10, how confident do you feel in your ability to ${profile.motivation.toLowerCase()} as a leader?`,
+        question: `I'm curious about your confidence level - on a scale of 1-10, how confident do you feel in your ability to ${profile.motivation.toLowerCase()} through your leadership?`,
         type: "scale",
         scale_info: {
           min: 1,
@@ -429,19 +466,19 @@ function generateContextualFallback(
           min_label: "Not confident at all",
           max_label: "Extremely confident"
         },
-        reasoning: `Contextual fallback assessing confidence in achieving ${profile.motivation}`
+        reasoning: `EvolveAI warm assessment of confidence in achieving ${profile.motivation}`
       };
     } else {
       return {
-        question: "When making important leadership decisions, which approach most and least reflects your style?",
+        question: "When you think about your leadership approach, which of these most and least represents how you naturally operate?",
         type: "most-least-choice",
         most_least_options: [
-          "Gather extensive input from team members",
-          "Make quick decisions based on experience", 
-          "Focus on data and analytical evidence",
-          "Consider long-term strategic implications"
+          "I focus on empowering others to make decisions",
+          "I gather input but make the final call myself", 
+          "I rely heavily on data and analysis",
+          "I trust my intuition and experience"
         ],
-        reasoning: "Contextual fallback exploring decision-making preferences"
+        reasoning: "EvolveAI exploration of natural leadership decision-making patterns"
       };
     }
   }
