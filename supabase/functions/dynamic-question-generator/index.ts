@@ -339,11 +339,23 @@ JSON FORMAT:
 {
   "question": "Your thoughtful, engaging question here",
   "type": "multiple-choice|open-ended|scale|most-least-choice",
-  "options": ["A", "B", "C", "D"],
-  "most_least_options": ["A", "B", "C", "D"],
+  "options": ["Option A description", "Option B description", "Option C description", "Option D description"],
+  "most_least_options": [
+    "Detailed description of approach 1",
+    "Detailed description of approach 2", 
+    "Detailed description of approach 3",
+    "Detailed description of approach 4"
+  ],
   "scale_info": {"min": 1, "max": 10, "min_label": "Low", "max_label": "High"},
   "reasoning": "Brief explanation of the insight this question will reveal"
-}`;
+}
+
+IMPORTANT FOR MOST-LEAST-CHOICE QUESTIONS:
+- Each option in "most_least_options" must be a complete, descriptive statement (NOT single letters)
+- Options should be meaningful leadership approaches, behaviors, or strategies
+- Each option should be 5-15 words describing a specific approach or behavior
+- Make options contextually relevant to their role and team size
+- Examples: "Hold one-on-one meetings with each team member", "Send a detailed email outlining expectations", "Schedule a team workshop to align on goals"`;
 
     console.log('Sending prompt to GPT-4.1...');
     
