@@ -1,5 +1,106 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+
+// Analysis functions for adaptive AI questioning
+function analyzeUserResponses(responses: string[], profile: any): string {
+  if (!responses || responses.length === 0) {
+    return `Initial assessment - no prior responses to analyze. Focus on role-specific scenarios for ${profile.position} leading ${profile.teamSize} people.`;
+  }
+
+  const totalWords = responses.join(' ').split(' ').length;
+  const avgResponseLength = totalWords / responses.length;
+  
+  // Analyze communication style
+  const communicationStyle = avgResponseLength < 15 ? 'brief' : avgResponseLength > 50 ? 'detailed' : 'moderate';
+  
+  // Look for patterns in responses
+  const patterns: string[] = [];
+  const responseText = responses.join(' ').toLowerCase();
+  
+  // Leadership style indicators
+  if (responseText.includes('team') || responseText.includes('people') || responseText.includes('support')) {
+    patterns.push('Shows team-focused leadership orientation');
+  }
+  if (responseText.includes('challenge') || responseText.includes('difficult') || responseText.includes('problem')) {
+    patterns.push('Comfortable discussing challenges and obstacles');
+  }
+  if (responseText.includes('growth') || responseText.includes('learn') || responseText.includes('develop')) {
+    patterns.push('Values learning and development');
+  }
+  if (responseText.includes('decision') || responseText.includes('choose') || responseText.includes('decide')) {
+    patterns.push('Shows awareness of decision-making responsibility');
+  }
+
+  // Analyze response depth and engagement
+  const engagementLevel = responses.some(r => r.length > 100) ? 'high' : 'moderate';
+  
+  return `Communication Style: ${communicationStyle} responses (avg ${Math.round(avgResponseLength)} words)
+Engagement Level: ${engagementLevel}
+Observed Patterns: ${patterns.length > 0 ? patterns.join('; ') : 'Building initial understanding'}
+Adaptive Guidance: ${getAdaptiveGuidance(communicationStyle, patterns, profile)}`;
+}
+
+function getAdaptiveGuidance(style: string, patterns: string[], profile: any): string {
+  const guidance: string[] = [];
+  
+  // Style-based guidance
+  if (style === 'brief') {
+    guidance.push('Use engaging scenarios to encourage more detailed responses');
+  } else if (style === 'detailed') {
+    guidance.push('Dive deeper into specific behaviors and patterns they\'ve revealed');
+  }
+  
+  // Pattern-based guidance
+  if (patterns.some(p => p.includes('team-focused'))) {
+    guidance.push('Explore servant leadership and emotional intelligence principles');
+  }
+  if (patterns.some(p => p.includes('challenges'))) {
+    guidance.push('Focus on resilience and adaptability scenarios');
+  }
+  if (patterns.some(p => p.includes('learning'))) {
+    guidance.push('Probe continuous learning and growth mindset');
+  }
+  
+  // Role-specific guidance
+  if (profile.position === 'ceo' || profile.position === 'executive') {
+    guidance.push('Focus on strategic vision and organizational impact');
+  } else if (profile.position === 'manager' || profile.position === 'director') {
+    guidance.push('Emphasize team development and operational excellence');
+  } else if (profile.position === 'team lead' || profile.position === 'supervisor') {
+    guidance.push('Focus on peer influence and day-to-day leadership challenges');
+  }
+  
+  return guidance.length > 0 ? guidance.join('; ') : 'Continue building rapport and understanding';
+}
+
+function getRoleSpecificContext(profile: any): string {
+  const contexts: Record<string, string> = {
+    'ceo': 'Strategic decision-making, organizational vision, board relations, company culture',
+    'executive': 'Cross-functional leadership, strategic initiatives, stakeholder management',
+    'director': 'Department oversight, resource allocation, performance management, strategic planning',
+    'manager': 'Team performance, staff development, project delivery, day-to-day operations',
+    'team lead': 'Peer leadership, project coordination, skill development, team dynamics',
+    'supervisor': 'Direct supervision, quality control, training, operational efficiency',
+    'entrepreneur': 'Vision casting, resource constraints, rapid growth, uncertainty management'
+  };
+
+  const roleContext = contexts[profile.position?.toLowerCase()] || 'Leadership responsibilities and team coordination';
+  const teamContext = getTeamSizeContext(profile.teamSize);
+  
+  return `${roleContext}. ${teamContext}`;
+}
+
+function getTeamSizeContext(teamSize: number): string {
+  if (teamSize <= 5) {
+    return 'Leading a small, close-knit team requiring direct engagement and personal attention';
+  } else if (teamSize <= 15) {
+    return 'Managing a mid-sized team requiring structured coordination and delegation';
+  } else if (teamSize <= 50) {
+    return 'Leading a large team requiring systematic processes and sub-team coordination';
+  } else {
+    return 'Overseeing a large organization requiring strategic leadership and multiple management layers';
+  }
+}
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 // Type definitions
@@ -145,11 +246,18 @@ async function generateContextualQuestion(
       setTimeout(() => reject(new Error('Question generation timeout after 25 seconds')), 25000);
     });
 
-    // Format conversation history for the prompt
+    // Enhanced conversation analysis and formatting
     const formattedHistory = conversationHistory
       .map(msg => `${msg.type === 'bot' ? 'Assistant' : 'User'}: ${msg.content}`)
       .join('\n');
 
+    // Analyze user responses for adaptive insights
+    const userResponses = conversationHistory
+      .filter(msg => msg.type === 'user')
+      .map(msg => msg.content);
+
+    const responseAnalysis = analyzeUserResponses(userResponses, profile);
+    
     // Analyze question type variety and progression
     const questionTypeCount = questionTypeHistory.reduce((acc, type) => {
       acc[type] = (acc[type] || 0) + 1;
@@ -164,13 +272,20 @@ async function generateContextualQuestion(
 
     const varietyGuidance = generateVarietyGuidance(questionTypeCount, allowedTypes, questionCount);
 
-    // EvolveAI conversational prompt
+    // Enhanced EvolveAI conversational prompt with adaptive intelligence
     const prompt = `You are EvolveAI, a warm and insightful leadership coach conducting a conversational assessment using the 12 Evolve Leadership Principles Framework.
 
-PROFILE: ${profile.position} in ${profile.role}, team of ${profile.teamSize}, motivated to ${profile.motivation}
+PROFILE ANALYSIS:
+- Position: ${profile.position} in ${profile.role} 
+- Team Size: ${profile.teamSize} people
+- Primary Motivation: ${profile.motivation}
+- Role-Specific Context: ${getRoleSpecificContext(profile)}
 
 CONVERSATION HISTORY:
 ${formattedHistory}
+
+USER RESPONSE ANALYSIS:
+${responseAnalysis}
 
 ASSESSMENT PROGRESS: Question ${questionCount + 1}/15, Phase: ${questionCount < 5 ? 'Profile Discovery' : questionCount < 10 ? 'Adaptive Assessment' : 'Insight Generation'}
 
@@ -201,20 +316,24 @@ ${varietyGuidance}
 - Allowed types: ${allowedTypes.join(', ')}
 - Used so far: ${Object.entries(questionTypeCount).map(([type, count]) => `${type}: ${count}`).join(', ') || 'None'}
 
-EVOLVEAI METHODOLOGY:
+EVOLVEAI ADAPTIVE METHODOLOGY:
 - Be warm, empathetic, and naturally curious
-- Use scenario-based questions as primary method (e.g., "Imagine you've just taken over a team...")
-- Include behavioral interview questions for past experiences
-- Explore values and beliefs through completion questions
-- Gently probe inconsistencies between stated values and revealed behaviors
-- Use conversational bridges like "I'm curious..." "Tell me more..." "That's interesting..."
-- Create opportunities for "aha" moments and self-awareness
+- TAILOR scenarios to their actual role, team size, and industry context
+- Build on specific details from their previous answers
+- Use behavioral interview questions that probe deeper into revealed patterns
+- Explore inconsistencies between stated values and revealed behaviors gently
+- Adapt question complexity based on their communication style (brief vs detailed responses)
+- Create targeted follow-ups for areas showing passion, resistance, or contradiction
+- Use conversational bridges that reference their specific context
 
-REQUIREMENTS:
-- Generate ONE engaging question that flows naturally from previous responses
-- Focus on revealing mindset patterns and behavioral insights
-- Adapt to the user's specific context and role
-- Create meaningful, actionable insights
+ADAPTIVE REQUIREMENTS FOR THIS QUESTION:
+- Generate ONE engaging question that builds specifically on their previous responses
+- Reference their actual role context (${profile.position} managing ${profile.teamSize} people)
+- Focus on the leadership principle most relevant to insights already revealed
+- If they've given brief responses, ask more engaging/scenario-based questions
+- If they've been detailed, dive deeper into specific behavioral patterns
+- Probe areas where their responses suggest growth opportunities
+- Create personalized scenarios using their actual team size and role context
 
 JSON FORMAT:
 {

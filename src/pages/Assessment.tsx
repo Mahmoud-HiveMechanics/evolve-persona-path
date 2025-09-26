@@ -72,12 +72,15 @@ export const Assessment = () => {
   };
   // Leadership Style Routing System - clean and deterministic
 
-  // Pre-assessment intro fields
+  // Enhanced pre-assessment intro fields for better AI adaptation
   const [introDone, setIntroDone] = useState(false);
   const [introPosition, setIntroPosition] = useState('');
   const [introRole, setIntroRole] = useState('');
   const [introTeamSize, setIntroTeamSize] = useState('');
   const [introMotivation, setIntroMotivation] = useState('');
+  const [introIndustry, setIntroIndustry] = useState('');
+  const [introExperience, setIntroExperience] = useState('');
+  const [introChallenges, setIntroChallenges] = useState('');
   // Finalization state
   const [hasNavigated, setHasNavigated] = useState(false);
 
@@ -88,7 +91,7 @@ export const Assessment = () => {
   // OpenAI assistant not needed for predefined questions
   const [currentQuestion, setCurrentQuestion] = useState<any>(null);
 
-  // AI-Driven Question Generation System
+  // Enhanced AI-Driven Question Generation System with Adaptive Intelligence
   const getNextQuestionFromAI = async () => {
     if (!profile) {
       return;
@@ -97,7 +100,7 @@ export const Assessment = () => {
     setAiProcessing(true);
     const askedCount = askedQuestionsRef.current.size;
     
-    console.log(`🎯 Question ${askedCount + 1}: AI-Generated Question`);
+    console.log(`🎯 Question ${askedCount + 1}: AI-Generated Question (Adaptive Mode)`);
     
     try {
       // Limit conversation history to last 8 messages to prevent token explosion
@@ -303,7 +306,7 @@ export const Assessment = () => {
     setKickoffSent(false);
   };
 
-  // Build participant profile once intro is completed
+  // Build enhanced participant profile once intro is completed
   useEffect(() => {
     if (!isStarted || !introDone) return;
     const profile: Profile = {
@@ -311,9 +314,12 @@ export const Assessment = () => {
       role: (introRole || '').trim(),
       teamSize: Number(introTeamSize || 0),
       motivation: (introMotivation || '').trim(),
+      industry: (introIndustry || '').trim(),
+      experience: (introExperience || '').trim(),
+      challenges: (introChallenges || '').trim(),
     };
     setProfile(profile);
-  }, [isStarted, introDone, introPosition, introRole, introTeamSize, introMotivation]);
+  }, [isStarted, introDone, introPosition, introRole, introTeamSize, introMotivation, introIndustry, introExperience, introChallenges]);
 
   // remove old local follow-up helpers (now handled by AI prompt)
 
@@ -637,41 +643,74 @@ export const Assessment = () => {
                   <p className="text-xl text-text-secondary">Help us personalize your assessment experience</p>
                 </div>
 
-                <div className="grid md:grid-cols-2 gap-6">
-                  <div className="space-y-3">
-                    <label className="text-sm font-medium text-text-primary">Position</label>
-                    <Input
-                      value={introPosition}
-                      onChange={(e) => setIntroPosition(e.target.value)}
-                      placeholder="e.g., Director"
-                      className="h-12"
-                    />
+                <div className="space-y-6">
+                  <div className="grid md:grid-cols-2 gap-6">
+                    <div className="space-y-3">
+                      <label className="text-sm font-medium text-text-primary">Position</label>
+                      <Input
+                        value={introPosition}
+                        onChange={(e) => setIntroPosition(e.target.value)}
+                        placeholder="e.g., Director"
+                        className="h-12"
+                      />
+                    </div>
+                    <div className="space-y-3">
+                      <label className="text-sm font-medium text-text-primary">Role in the company</label>
+                      <Input
+                        value={introRole}
+                        onChange={(e) => setIntroRole(e.target.value)}
+                        placeholder="e.g., Operations"
+                        className="h-12"
+                      />
+                    </div>
+                    <div className="space-y-3">
+                      <label className="text-sm font-medium text-text-primary">Team size</label>
+                      <Input
+                        value={introTeamSize}
+                        onChange={(e) => setIntroTeamSize(e.target.value)}
+                        placeholder="e.g., 12"
+                        className="h-12"
+                      />
+                    </div>
+                    <div className="space-y-3">
+                      <label className="text-sm font-medium text-text-primary">Industry/Sector</label>
+                      <Input
+                        value={introIndustry}
+                        onChange={(e) => setIntroIndustry(e.target.value)}
+                        placeholder="e.g., Technology, Healthcare"
+                        className="h-12"
+                      />
+                    </div>
                   </div>
-                  <div className="space-y-3">
-                    <label className="text-sm font-medium text-text-primary">Role in the company</label>
-                    <Input
-                      value={introRole}
-                      onChange={(e) => setIntroRole(e.target.value)}
-                      placeholder="e.g., Operations"
-                      className="h-12"
-                    />
+                  
+                  <div className="grid md:grid-cols-2 gap-6">
+                    <div className="space-y-3">
+                      <label className="text-sm font-medium text-text-primary">Leadership experience</label>
+                      <Input
+                        value={introExperience}
+                        onChange={(e) => setIntroExperience(e.target.value)}
+                        placeholder="e.g., 3 years, First-time manager"
+                        className="h-12"
+                      />
+                    </div>
+                    <div className="space-y-3">
+                      <label className="text-sm font-medium text-text-primary">Motivation for taking this assessment</label>
+                      <Input
+                        value={introMotivation}
+                        onChange={(e) => setIntroMotivation(e.target.value)}
+                        placeholder="e.g., grow as a people leader"
+                        className="h-12"
+                      />
+                    </div>
                   </div>
+                  
                   <div className="space-y-3">
-                    <label className="text-sm font-medium text-text-primary">Team size</label>
-                    <Input
-                      value={introTeamSize}
-                      onChange={(e) => setIntroTeamSize(e.target.value)}
-                      placeholder="e.g., 12"
-                      className="h-12"
-                    />
-                  </div>
-                  <div className="space-y-3">
-                    <label className="text-sm font-medium text-text-primary">Motivation for taking this assessment</label>
-                    <Input
-                      value={introMotivation}
-                      onChange={(e) => setIntroMotivation(e.target.value)}
-                      placeholder="e.g., grow as a people leader"
-                      className="h-12"
+                    <label className="text-sm font-medium text-text-primary">Current leadership challenges (optional)</label>
+                    <Textarea
+                      value={introChallenges}
+                      onChange={(e) => setIntroChallenges(e.target.value)}
+                      placeholder="e.g., Managing remote teams, Having difficult conversations"
+                      className="min-h-[80px]"
                     />
                   </div>
                 </div>

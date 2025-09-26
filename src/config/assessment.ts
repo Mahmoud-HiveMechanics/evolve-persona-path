@@ -3,6 +3,9 @@ export type Profile = {
   role: string;
   teamSize: number;
   motivation: string;
+  industry?: string;
+  experience?: string;
+  challenges?: string;
 };
 
 export type Question = {
