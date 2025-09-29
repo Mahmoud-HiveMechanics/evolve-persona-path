@@ -263,8 +263,12 @@ export const Assessment = () => {
     };
     setMessages(prev => [...prev, newMessage]);
 
-    // Save message to database
-    await saveMessage(newMessage);
+    // Save message to database with error handling
+    try {
+      await saveMessage(newMessage);
+    } catch (error) {
+      console.error('Failed to save message to database:', error);
+    }
   };
 
   // When a new currentQuestion is set, show it and increment display counter
@@ -332,7 +336,12 @@ export const Assessment = () => {
     const kickOff = async () => {
       if (!isStarted || kickoffSent || !introDone || !profile) return;
       try {
-        await createConversation();
+        const convId = await createConversation();
+        if (!convId) {
+          console.error('Failed to create conversation - messages will not be saved');
+          await addMessage('bot', "I apologize, but I'm having trouble connecting. Please try refreshing the page and try again.");
+          return;
+        }
         await addMessage('bot', "Hi! I'm your leadership assessment guide. Let's begin! 👋");
         // Ask the first AI-driven question (forced MC)
         await getNextQuestionFromAI();

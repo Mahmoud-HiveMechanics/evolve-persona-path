@@ -110,7 +110,10 @@ export const useConversation = () => {
   };
 
   const saveMessage = async (message: ChatMessage) => {
-    if (!user || !conversationId) return;
+    if (!user || !conversationId) {
+      console.error('Cannot save message: missing user or conversationId', { user: !!user, conversationId });
+      return;
+    }
 
     try {
       const { data, error } = await supabase
