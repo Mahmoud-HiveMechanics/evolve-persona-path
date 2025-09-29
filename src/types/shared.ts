@@ -20,6 +20,8 @@ export interface ChatMessage {
   mostLeastOptions?: string[];
   mostSelection?: string;
   leastSelection?: string;
+  principle_focus?: string;
+  assessment_stage?: string;
 }
 
 export interface AssistantQuestion {

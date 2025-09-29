@@ -118,6 +118,8 @@ interface GenerateQuestionRequest {
     timestamp: string;
     isQuestion?: boolean;
     questionType?: string;
+    principle_focus?: string;
+    assessment_stage?: string;
   }>;
   questionCount: number;
   questionTypeHistory?: string[];
@@ -135,6 +137,8 @@ interface QuestionResponse {
     max_label: string;
   };
   reasoning: string;
+  principle_focus?: string;
+  assessment_stage?: string;
 }
 
 const corsHeaders = {
@@ -142,24 +146,122 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const EVOLVE_LEADERSHIP_PRINCIPLES = [
-  // Foundational Mindset (1-3)
-  "Vision & Strategic Direction",
-  "Integrity & Trustworthiness", 
-  "Continuous Learning & Self-Improvement",
-  // Interpersonal Mastery (4-6)
-  "Emotional Intelligence & Empathy",
-  "Servant Leadership & Serving Others",
-  "Authenticity & Transparency",
-  // Adaptive Leadership (7-9)
-  "Curiosity & Innovation",
-  "Resilience & Adaptability",
-  "Inclusivity & Diversity",
-  // Execution Excellence (10-12)
-  "Decisiveness & Judgment",
-  "Communication & Alignment",
-  "Results & Accountability"
-];
+  // 12 Evolve Leadership Principles Framework
+  const LEADERSHIP_PRINCIPLES = {
+    'self-awareness': {
+      name: 'Self-Awareness',
+      category: 'Self-Leadership',
+      description: 'Understanding one\'s own emotions, strengths, weaknesses, and impact on others'
+    },
+    'self-responsibility': {
+      name: 'Self-Responsibility', 
+      category: 'Self-Leadership',
+      description: 'Taking ownership of actions, decisions, and their consequences'
+    },
+    'continuous-growth': {
+      name: 'Continuous Personal Growth',
+      category: 'Self-Leadership', 
+      description: 'Commitment to ongoing learning and self-improvement'
+    },
+    'trust-safety': {
+      name: 'Trust & Psychological Safety',
+      category: 'Relational Leadership',
+      description: 'Creating environments where people feel safe to be vulnerable and take risks'
+    },
+    'empathy-awareness': {
+      name: 'Empathy & Awareness of Others',
+      category: 'Relational Leadership',
+      description: 'Understanding and responding to others\' emotions and perspectives'
+    },
+    'empowered-responsibility': {
+      name: 'Empowered & Shared Responsibility',
+      category: 'Relational Leadership',
+      description: 'Delegating effectively and sharing accountability'
+    },
+    'purpose-vision': {
+      name: 'Purpose, Vision and Aligned Outcome',
+      category: 'Organizational Leadership',
+      description: 'Creating clear direction and aligning team efforts toward shared goals'
+    },
+    'culture-leadership': {
+      name: 'Culture of Leadership',
+      category: 'Organizational Leadership',
+      description: 'Developing leadership capabilities in others'
+    },
+    'harnessing-tensions': {
+      name: 'Harnessing Tensions for Effective Collaboration',
+      category: 'Organizational Leadership',
+      description: 'Managing conflicts and different perspectives constructively'
+    },
+    'stakeholder-impact': {
+      name: 'Positive Impact on Stakeholders',
+      category: 'Organizational Leadership',
+      description: 'Considering and balancing the needs of all stakeholders'
+    },
+    'change-innovation': {
+      name: 'Embracing Change & Driving Innovation',
+      category: 'Organizational Leadership',
+      description: 'Leading change initiatives and fostering innovation'
+    },
+    'ethical-stewardship': {
+      name: 'Social and Ethical Stewardship',
+      category: 'Organizational Leadership',
+      description: 'Acting with integrity and considering broader social impact'
+    }
+  };
+
+  const ASSESSMENT_STAGES = {
+    'baseline': 'Quantitative baseline across all 12 principles',
+    'deep-dive': 'Qualitative deep dives into priority areas',
+    'integration': 'Integration questions to resolve contradictions'
+  };
+
+  // Track principle coverage to ensure systematic assessment
+  const getPrincipleCoverage = (conversationHistory: any[]): { [key: string]: number } => {
+    const coverage: { [key: string]: number } = {};
+    Object.keys(LEADERSHIP_PRINCIPLES).forEach(key => coverage[key] = 0);
+    
+    conversationHistory.forEach(msg => {
+      if (msg.type === 'bot' && msg.principle_focus) {
+        coverage[msg.principle_focus] = (coverage[msg.principle_focus] || 0) + 1;
+      }
+    });
+    
+    return coverage;
+  };
+
+  const determineAssessmentStage = (questionCount: number, coverage: { [key: string]: number }): string => {
+    // Stage 1: Baseline (Questions 1-12) - One question per principle
+    if (questionCount <= 12) return 'baseline';
+    
+    // Stage 2: Deep-dive (Questions 13-18) - Focus on lowest-scoring principles
+    if (questionCount <= 18) return 'deep-dive';
+    
+    // Stage 3: Integration (Questions 19-21) - Consistency and completion
+    return 'integration';
+  };
+
+  const getNextPrincipleToAssess = (stage: string, coverage: { [key: string]: number }, conversationHistory: any[]): string | null => {
+    if (stage === 'baseline') {
+      // Find first principle with no coverage
+      for (const [key, count] of Object.entries(coverage)) {
+        if (count === 0) return key;
+      }
+      return null; // All principles have baseline coverage
+    }
+    
+    if (stage === 'deep-dive') {
+      // Find principles that need deep dive (only have baseline coverage)
+      const principlesNeedingDeepDive = Object.keys(LEADERSHIP_PRINCIPLES).filter(key => 
+        coverage[key] === 1 // Only baseline covered, need deep dive
+      );
+      
+      return principlesNeedingDeepDive[0] || null;
+    }
+    
+    // Integration stage - focus on any gaps or contradictions
+    return null;
+  };
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -204,13 +306,35 @@ serve(async (req) => {
 
     console.log('Question type history:', questionTypeHistory);
 
+    // Parse conversation history and prepare principle tracking
+    const conversationHistoryWithTracking = conversationHistory.map(msg => ({
+      ...msg,
+      principle_focus: (msg as any).principle_focus || null,
+      assessment_stage: (msg as any).assessment_stage || null
+    }));
+
+    // Calculate principle coverage and determine current stage
+    const principleCoverage = getPrincipleCoverage(conversationHistoryWithTracking);
+    const currentStage = determineAssessmentStage(questionCount, principleCoverage);
+    const nextPrinciple = getNextPrincipleToAssess(currentStage, principleCoverage, conversationHistoryWithTracking);
+    
+    console.log('Assessment Status:', {
+      questionCount,
+      currentStage,
+      nextPrinciple,
+      principleCoverage
+    });
+
     // Generate contextual question based on full conversation history
     const questionResponse = await generateContextualQuestion(
       profile,
-      conversationHistory,
+      conversationHistoryWithTracking,
       questionCount,
       questionTypeHistory,
-      openAIApiKey
+      openAIApiKey,
+      currentStage,
+      nextPrinciple,
+      principleCoverage
     );
 
     return new Response(JSON.stringify({
@@ -230,13 +354,16 @@ serve(async (req) => {
   }
 });
 
-// Generate contextual question based on full conversation history
+// Generate contextual question based on full conversation history with systematic principle coverage
 async function generateContextualQuestion(
   profile: any,
   conversationHistory: any[],
   questionCount: number,
   questionTypeHistory: string[],
-  apiKey: string
+  apiKey: string,
+  currentStage: string,
+  nextPrinciple: string | null,
+  principleCoverage: { [key: string]: number }
 ): Promise<QuestionResponse> {
   try {
     console.log('Generating contextual question with GPT-4.1');
@@ -272,8 +399,35 @@ async function generateContextualQuestion(
 
     const varietyGuidance = generateVarietyGuidance(questionTypeCount, allowedTypes, questionCount);
 
-    // Enhanced EvolveAI conversational prompt with adaptive intelligence
-    const prompt = `You are EvolveAI, a warm and insightful leadership coach conducting a conversational assessment using the 12 Evolve Leadership Principles Framework.
+    // Enhanced EvolveAI conversational prompt with systematic principle coverage
+    const prompt = `You are EvolveAI, a warm and insightful leadership coach conducting a comprehensive assessment using the 12 Evolve Leadership Principles Framework. You must ensure SYSTEMATIC coverage of all 12 principles through a structured 3-stage approach.
+
+CURRENT ASSESSMENT STATUS:
+- Question Count: ${questionCount}
+- Current Stage: ${currentStage} (${ASSESSMENT_STAGES[currentStage as keyof typeof ASSESSMENT_STAGES]})
+- Next Principle to Assess: ${nextPrinciple ? LEADERSHIP_PRINCIPLES[nextPrinciple as keyof typeof LEADERSHIP_PRINCIPLES].name : 'Stage complete'}
+
+PRINCIPLE COVERAGE TRACKING:
+${Object.entries(principleCoverage).map(([key, count]) => 
+  `- ${LEADERSHIP_PRINCIPLES[key as keyof typeof LEADERSHIP_PRINCIPLES].name}: ${count} question(s)`
+).join('\n')}
+
+CRITICAL REQUIREMENTS:
+1. **Systematic Coverage**: Each principle must receive exactly 2-3 questions total
+2. **Stage-Based Progression**: 
+   - Baseline (Q1-12): One quantitative question per principle
+   - Deep-dive (Q13-18): Qualitative exploration of 4-6 lowest-scoring principles
+   - Integration (Q19-21): Resolve contradictions and ensure completeness
+3. **No Question Repetition**: Build on previous responses, avoid asking the same things
+4. **Progressive Depth**: Each question should build on previous answers about the same principle
+
+${nextPrinciple ? `
+FOCUS PRINCIPLE FOR THIS QUESTION: ${LEADERSHIP_PRINCIPLES[nextPrinciple as keyof typeof LEADERSHIP_PRINCIPLES].name}
+Category: ${LEADERSHIP_PRINCIPLES[nextPrinciple as keyof typeof LEADERSHIP_PRINCIPLES].category}
+Description: ${LEADERSHIP_PRINCIPLES[nextPrinciple as keyof typeof LEADERSHIP_PRINCIPLES].description}
+
+Your question MUST assess this specific principle and be tagged appropriately.
+` : ''}
 
 PROFILE ANALYSIS:
 - Position: ${profile.position} in ${profile.role} 
@@ -287,57 +441,14 @@ ${formattedHistory}
 USER RESPONSE ANALYSIS:
 ${responseAnalysis}
 
-ASSESSMENT PROGRESS: Question ${questionCount + 1}/15, Phase: ${questionCount < 5 ? 'Profile Discovery' : questionCount < 10 ? 'Adaptive Assessment' : 'Insight Generation'}
-
-THE 12 EVOLVE LEADERSHIP PRINCIPLES:
-
-FOUNDATIONAL MINDSET (1-3):
-1. Vision & Strategic Direction
-2. Integrity & Trustworthiness  
-3. Continuous Learning & Self-Improvement
-
-INTERPERSONAL MASTERY (4-6):
-4. Emotional Intelligence & Empathy
-5. Servant Leadership & Serving Others
-6. Authenticity & Transparency
-
-ADAPTIVE LEADERSHIP (7-9):
-7. Curiosity & Innovation
-8. Resilience & Adaptability
-9. Inclusivity & Diversity
-
-EXECUTION EXCELLENCE (10-12):
-10. Decisiveness & Judgment
-11. Communication & Alignment
-12. Results & Accountability
-
 QUESTION TYPE GUIDANCE:
 ${varietyGuidance}
 - Allowed types: ${allowedTypes.join(', ')}
 - Used so far: ${Object.entries(questionTypeCount).map(([type, count]) => `${type}: ${count}`).join(', ') || 'None'}
 
-EVOLVEAI ADAPTIVE METHODOLOGY:
-- Be warm, empathetic, and naturally curious
-- TAILOR scenarios to their actual role, team size, and industry context
-- Build on specific details from their previous answers
-- Use behavioral interview questions that probe deeper into revealed patterns
-- Explore inconsistencies between stated values and revealed behaviors gently
-- Adapt question complexity based on their communication style (brief vs detailed responses)
-- Create targeted follow-ups for areas showing passion, resistance, or contradiction
-- Use conversational bridges that reference their specific context
-
-ADAPTIVE REQUIREMENTS FOR THIS QUESTION:
-- Generate ONE engaging question that builds specifically on their previous responses
-- Reference their actual role context (${profile.position} managing ${profile.teamSize} people)
-- Focus on the leadership principle most relevant to insights already revealed
-- If they've given brief responses, ask more engaging/scenario-based questions
-- If they've been detailed, dive deeper into specific behavioral patterns
-- Probe areas where their responses suggest growth opportunities
-- Create personalized scenarios using their actual team size and role context
-
 JSON FORMAT:
 {
-  "question": "Your thoughtful, engaging question here",
+  "question": "Your thoughtful, engaging question here - must assess the specified principle if provided",
   "type": "multiple-choice|open-ended|scale|most-least-choice",
   "options": ["Option A description", "Option B description", "Option C description", "Option D description"],
   "most_least_options": [
@@ -347,7 +458,7 @@ JSON FORMAT:
     "Detailed description of approach 4"
   ],
   "scale_info": {"min": 1, "max": 10, "min_label": "Low", "max_label": "High"},
-  "reasoning": "Brief explanation of the insight this question will reveal"
+  "reasoning": "Brief explanation of why this question targets the specified principle and builds on previous responses"
 }
 
 IMPORTANT FOR MOST-LEAST-CHOICE QUESTIONS:
@@ -450,12 +561,19 @@ IMPORTANT FOR MOST-LEAST-CHOICE QUESTIONS:
         throw new Error('Empty response from GPT-4.1');
       }
       
+      // Parse the AI response and add principle tracking data
       questionData = JSON.parse(content);
       
       // Validate required fields
       if (!questionData.question || !questionData.type || !questionData.reasoning) {
         throw new Error('Missing required fields in response');
       }
+      
+      // Add principle tracking metadata
+      questionData.principle_focus = nextPrinciple || 'integration';
+      questionData.assessment_stage = currentStage;
+      
+      console.log('Generated question for principle:', questionData.principle_focus, 'Stage:', questionData.assessment_stage);
       
     } catch (parseError) {
       console.error('Failed to parse GPT-4.1 response as JSON:', parseError);

@@ -18,9 +18,12 @@ export type Database = {
         Row: {
           assessment_complete: boolean | null
           assistant_id: string | null
+          baseline_scores: Json | null
           completed_at: string | null
+          current_stage: string | null
           id: string
           persona_snapshot: Json | null
+          principle_coverage: Json | null
           started_at: string
           status: string | null
           thread_id: string | null
@@ -29,9 +32,12 @@ export type Database = {
         Insert: {
           assessment_complete?: boolean | null
           assistant_id?: string | null
+          baseline_scores?: Json | null
           completed_at?: string | null
+          current_stage?: string | null
           id?: string
           persona_snapshot?: Json | null
+          principle_coverage?: Json | null
           started_at?: string
           status?: string | null
           thread_id?: string | null
@@ -40,9 +46,12 @@ export type Database = {
         Update: {
           assessment_complete?: boolean | null
           assistant_id?: string | null
+          baseline_scores?: Json | null
           completed_at?: string | null
+          current_stage?: string | null
           id?: string
           persona_snapshot?: Json | null
+          principle_coverage?: Json | null
           started_at?: string
           status?: string | null
           thread_id?: string | null
@@ -87,6 +96,7 @@ export type Database = {
       }
       messages: {
         Row: {
+          assessment_stage: string | null
           content: string
           conversation_id: string
           created_at: string
@@ -94,6 +104,7 @@ export type Database = {
           id: string
           leadership_insights: Json | null
           message_type: string
+          principle_focus: string | null
           question_options: Json | null
           question_scale_labels: Json | null
           question_scale_max: number | null
@@ -104,6 +115,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          assessment_stage?: string | null
           content: string
           conversation_id: string
           created_at?: string
@@ -111,6 +123,7 @@ export type Database = {
           id?: string
           leadership_insights?: Json | null
           message_type: string
+          principle_focus?: string | null
           question_options?: Json | null
           question_scale_labels?: Json | null
           question_scale_max?: number | null
@@ -121,6 +134,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          assessment_stage?: string | null
           content?: string
           conversation_id?: string
           created_at?: string
@@ -128,6 +142,7 @@ export type Database = {
           id?: string
           leadership_insights?: Json | null
           message_type?: string
+          principle_focus?: string | null
           question_options?: Json | null
           question_scale_labels?: Json | null
           question_scale_max?: number | null
