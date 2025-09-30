@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { ChatMessage } from '@/types/shared';
+import { ResponseAnalyzer } from '@/lib/responseAnalyzer';
+import { ResponseMemory } from '@/types/responseMemory';
 
 export const useConversation = () => {
   const { user } = useAuth();
@@ -128,15 +130,59 @@ export const useConversation = () => {
           question_scale_min: message.scaleMin,
           question_scale_max: message.scaleMax,
           question_scale_labels: message.scaleLabels,
+          principle_focus: message.principle_focus,
+          assessment_stage: message.assessment_stage,
           generated_by_ai: false
         })
         .select();
 
       if (error) throw error;
+      
+      // Generate response memory for user messages to enhance conversation tracking
+      if (message.type === 'user' && data?.[0] && message.principle_focus) {
+        const responseMemory = ResponseAnalyzer.analyzeResponse(
+          conversationId,
+          data[0].id,
+          user.id,
+          message.principle_focus,
+          message.content
+        );
+        
+        // Store response memory analysis
+        await this.saveResponseMemory(responseMemory);
+      }
+      
       return data;
     } catch (error) {
       console.error('Error saving message:', error);
       throw error;
+    }
+  };
+
+  const saveResponseMemory = async (responseMemory: ResponseMemory) => {
+    try {
+      const { error } = await supabase
+        .from('response_memories')
+        .insert({
+          id: responseMemory.id,
+          conversation_id: responseMemory.conversationId,
+          message_id: responseMemory.messageId,
+          user_id: responseMemory.userId,
+          principle: responseMemory.principle,
+          response_text: responseMemory.responseText,
+          sentiment: responseMemory.sentiment,
+          quality_metrics: responseMemory.qualityMetrics,
+          insights: responseMemory.insights,
+          patterns: responseMemory.patterns,
+          follow_up_needed: responseMemory.followUpNeeded,
+          created_at: responseMemory.createdAt.toISOString()
+        });
+
+      if (error) {
+        console.error('Error saving response memory:', error);
+      }
+    } catch (error) {
+      console.error('Error in saveResponseMemory:', error);
     }
   };
 
@@ -159,12 +205,86 @@ export const useConversation = () => {
     }
   };
 
+  const getConversationAnalysis = async () => {
+    if (!conversationId || !user) return null;
+    
+    try {
+      const { data: memories, error } = await supabase
+        .from('response_memories')
+        .select('*')
+        .eq('conversation_id', conversationId)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+      
+      if (!memories || memories.length === 0) return null;
+      
+      const responseMemories: ResponseMemory[] = memories.map(m => ({
+        id: m.id,
+        conversationId: m.conversation_id,
+        messageId: m.message_id,
+        userId: m.user_id,
+        principle: m.principle,
+        responseText: m.response_text,
+        sentiment: m.sentiment,
+        qualityMetrics: m.quality_metrics,
+        insights: m.insights,
+        patterns: m.patterns,
+        followUpNeeded: m.follow_up_needed,
+        createdAt: new Date(m.created_at)
+      }));
+      
+      return ResponseAnalyzer.analyzeConversation(responseMemories);
+    } catch (error) {
+      console.error('Error getting conversation analysis:', error);
+      return null;
+    }
+  };
+
+  const getPrincipleInsights = async () => {
+    if (!conversationId || !user) return [];
+    
+    try {
+      const { data: memories, error } = await supabase
+        .from('response_memories')
+        .select('*')
+        .eq('conversation_id', conversationId)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+      
+      if (!memories || memories.length === 0) return [];
+      
+      const responseMemories: ResponseMemory[] = memories.map(m => ({
+        id: m.id,
+        conversationId: m.conversation_id,
+        messageId: m.message_id,
+        userId: m.user_id,
+        principle: m.principle,
+        responseText: m.response_text,
+        sentiment: m.sentiment,
+        qualityMetrics: m.quality_metrics,
+        insights: m.insights,
+        patterns: m.patterns,
+        followUpNeeded: m.follow_up_needed,
+        createdAt: new Date(m.created_at)
+      }));
+      
+      return ResponseAnalyzer.generatePrincipleInsights(responseMemories);
+    } catch (error) {
+      console.error('Error getting principle insights:', error);
+      return [];
+    }
+  };
+
   return {
     conversationId,
     threadId,
     createConversation,
     saveMessage,
     markConversationComplete,
+    getConversationAnalysis,
+    getPrincipleInsights,
     isLoading
   };
 };
