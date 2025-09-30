@@ -110,7 +110,9 @@ export const Assessment = () => {
         content: msg.content,
         timestamp: msg.timestamp.toISOString(),
         isQuestion: msg.isQuestion,
-        questionType: msg.questionType
+        questionType: msg.questionType,
+        principle_focus: msg.principle_focus,
+        assessment_stage: msg.assessment_stage
       }));
 
       // Extract question type history for variety enforcement
@@ -158,10 +160,13 @@ export const Assessment = () => {
           type: data.question.type,
           options: data.question.options,
           most_least_options: data.question.most_least_options,
-          scale_info: data.question.scale_info
+          scale_info: data.question.scale_info,
+          principle_focus: data.question.principle_focus,
+          assessment_stage: data.question.assessment_stage
         } as any;
         
         console.log('✅ Generated AI question:', q);
+        console.log('🎯 Principle Focus:', q.principle_focus, '| Stage:', q.assessment_stage);
         setCurrentQuestion(q);
       } else {
         throw new Error('No question returned from AI service');
@@ -290,7 +295,9 @@ export const Assessment = () => {
         questionType: currentQuestion.type,
         options: currentQuestion.options,
         mostLeastOptions: currentQuestion.most_least_options,
-        scaleInfo: currentQuestion.scale_info
+        scaleInfo: currentQuestion.scale_info,
+        principle_focus: currentQuestion.principle_focus,
+        assessment_stage: currentQuestion.assessment_stage
       });
       setShowCurrentQuestion(true);
       setQuestionCount(nextCount);

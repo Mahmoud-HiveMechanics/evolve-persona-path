@@ -251,16 +251,23 @@ const corsHeaders = {
     }
     
     if (stage === 'deep-dive') {
-      // Find principles that need deep dive (only have baseline coverage)
+      // Find principles that need deep dive (have 1-2 questions, but less than 3)
       const principlesNeedingDeepDive = Object.keys(LEADERSHIP_PRINCIPLES).filter(key => 
-        coverage[key] === 1 // Only baseline covered, need deep dive
+        coverage[key] >= 1 && coverage[key] < 3 // Has baseline but not maxed out
       );
+      
+      // Sort by lowest coverage first
+      principlesNeedingDeepDive.sort((a, b) => coverage[a] - coverage[b]);
       
       return principlesNeedingDeepDive[0] || null;
     }
     
-    // Integration stage - focus on any gaps or contradictions
-    return null;
+    // Integration stage - find any principle with less than 3 questions
+    const principlesNeedingIntegration = Object.keys(LEADERSHIP_PRINCIPLES).filter(key => 
+      coverage[key] < 3
+    );
+    
+    return principlesNeedingIntegration[0] || null;
   };
 
 serve(async (req) => {
@@ -413,13 +420,14 @@ ${Object.entries(principleCoverage).map(([key, count]) =>
 ).join('\n')}
 
 CRITICAL REQUIREMENTS:
-1. **Systematic Coverage**: Each principle must receive exactly 2-3 questions total
+1. **Systematic Coverage**: Each principle must receive MAXIMUM 3 questions total
 2. **Stage-Based Progression**: 
    - Baseline (Q1-12): One quantitative question per principle
-   - Deep-dive (Q13-18): Qualitative exploration of 4-6 lowest-scoring principles
+   - Deep-dive (Q13-18): Qualitative exploration of principles with gaps
    - Integration (Q19-21): Resolve contradictions and ensure completeness
 3. **No Question Repetition**: Build on previous responses, avoid asking the same things
 4. **Progressive Depth**: Each question should build on previous answers about the same principle
+5. **ENFORCE MAXIMUM**: If a principle already has 3+ questions, SKIP it and move to next principle
 
 ${nextPrinciple ? `
 FOCUS PRINCIPLE FOR THIS QUESTION: ${LEADERSHIP_PRINCIPLES[nextPrinciple as keyof typeof LEADERSHIP_PRINCIPLES].name}
