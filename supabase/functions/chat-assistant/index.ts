@@ -49,32 +49,30 @@ interface ApiResponse {
   runId?: string;
 }
 
-// More restrictive CORS - allow specific origins in production
-const getAllowedOrigin = (origin: string | null): string => {
-  const allowedOrigins = [
-    'http://localhost:8080',
-    'http://localhost:5173',
-    'https://your-domain.com', // Replace with your actual domain
-  ];
+// Permissive CORS for development and Lovable projects
+const getCorsHeaders = (origin: string | null) => {
+  // Allow Lovable project domains and localhost for development
+  const requestOrigin = origin || '';
   
-  if (origin && allowedOrigins.includes(origin)) {
-    return origin;
+  if (requestOrigin.includes('lovableproject.com') || 
+      requestOrigin.includes('localhost') ||
+      requestOrigin.includes('127.0.0.1')) {
+    return {
+      "Access-Control-Allow-Origin": origin || '*',
+      "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+      "Access-Control-Allow-Credentials": "true"
+    };
   }
   
-  // Fallback for development - in production, remove this
-  if (Deno.env.get('DENO_ENV') === 'development') {
-    return origin || '*';
-  }
-  
-  return allowedOrigins[0]; // Default to first allowed origin
+  // Fallback to permissive for development
+  return {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type", 
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Allow-Credentials": "false"
+  };
 };
-
-const getCorsHeaders = (origin: string | null) => ({
-  "Access-Control-Allow-Origin": getAllowedOrigin(origin),
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-  "Access-Control-Allow-Credentials": "true"
-});
 
 serve(async (req) => {
   const corsHeaders = getCorsHeaders(req.headers.get('origin'));

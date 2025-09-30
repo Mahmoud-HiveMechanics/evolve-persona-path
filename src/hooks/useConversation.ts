@@ -47,6 +47,7 @@ export const useConversation = () => {
 
       if (functionError) {
         console.error('Function error creating thread:', functionError);
+        // Don't block the flow - user can still proceed with assessment
         return;
       }
 
@@ -82,7 +83,7 @@ export const useConversation = () => {
   };
 
   const createConversation = async (assistantId?: string) => {
-    if (!user || !threadId) return null;
+    if (!user) return null;
 
     try {
       const { data, error } = await supabase
@@ -90,7 +91,7 @@ export const useConversation = () => {
         .insert({
           user_id: user.id,
           assistant_id: assistantId,
-          thread_id: threadId,
+          thread_id: threadId || null,
           status: 'active'
         })
         .select()
