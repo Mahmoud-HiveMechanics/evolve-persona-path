@@ -86,8 +86,7 @@ export class ResponseAnalyzer {
   }
 
   // Extract key insights and themes
-  private static extractInsights(text: string, principle: string) {
-    const words = text.toLowerCase().split(/\s+/);
+  private static extractInsights(text: string, _principle: string) {
     
     // Key themes based on leadership principles
     const leadershipThemes = {

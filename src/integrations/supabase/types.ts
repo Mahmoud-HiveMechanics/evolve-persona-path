@@ -192,6 +192,51 @@ export type Database = {
         }
         Relationships: []
       }
+      response_memories: {
+        Row: {
+          conversation_id: string
+          created_at: string
+          follow_up_needed: boolean
+          id: string
+          insights: Json
+          message_id: string
+          patterns: Json
+          principle: string
+          quality_metrics: Json
+          response_text: string
+          sentiment: Json
+          user_id: string
+        }
+        Insert: {
+          conversation_id: string
+          created_at?: string
+          follow_up_needed?: boolean
+          id?: string
+          insights?: Json
+          message_id: string
+          patterns?: Json
+          principle: string
+          quality_metrics?: Json
+          response_text: string
+          sentiment?: Json
+          user_id: string
+        }
+        Update: {
+          conversation_id?: string
+          created_at?: string
+          follow_up_needed?: boolean
+          id?: string
+          insights?: Json
+          message_id?: string
+          patterns?: Json
+          principle?: string
+          quality_metrics?: Json
+          response_text?: string
+          sentiment?: Json
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
