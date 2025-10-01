@@ -402,9 +402,9 @@ async function generateContextualQuestion(
   try {
     console.log('Generating contextual question with GPT-4.1');
 
-    // Add 25-second timeout for the entire operation
+    // Add 35-second timeout for the entire operation
     const timeoutPromise = new Promise<never>((_, reject) => {
-      setTimeout(() => reject(new Error('Question generation timeout after 25 seconds')), 25000);
+      setTimeout(() => reject(new Error('Question generation timeout after 35 seconds')), 35000);
     });
 
     // Enhanced conversation analysis and formatting
@@ -449,12 +449,19 @@ ${Object.entries(principleCoverage).map(([key, count]) =>
 CRITICAL REQUIREMENTS:
 1. **Systematic Coverage**: Each principle must receive MINIMUM 2 questions total (baseline + deep-dive)
 2. **Stage-Based Progression**: 
-   - Baseline (Q1-12): One quantitative question per principle (covers all 12)
-   - Deep-dive (Q13-24): One qualitative question per principle (2nd question for all 12)
-   - Integration (Q25+): Additional questions for principles needing more depth
-3. **Question Variety**: Rotate through categories to ensure diverse themes (not just team/ownership)
-4. **Progressive Depth**: Each question should build on previous answers about the same principle
-5. **Theme Diversity**: Cover various aspects - self-reflection, team dynamics, strategy, innovation, ethics, change, stakeholders
+   - Baseline (Q1-12): One SITUATIONAL question per principle (covers all 12)
+   - Deep-dive (Q13-24): One BEHAVIORAL SCENARIO question per principle (2nd question for all 12)
+   - Integration (Q25+): Additional SCENARIO questions for principles needing more depth
+3. **ALL QUESTIONS MUST BE SITUATIONAL/SCENARIO-BASED**:
+   - Baseline: Present concrete leadership scenarios with MC/scale/most-least responses
+     Example: "Your team missed a deadline due to unclear priorities. How would you address this?" (MC options)
+   - Deep-dive: Present behavioral scenarios requiring detailed narrative responses
+     Example: "Describe a time when you had to make an unpopular decision. What was the situation, your approach, and outcome?"
+   - Integration: Present scenarios that explore contradictions or probe deeper
+     Example: "You mentioned valuing consensus, but acting quickly in crises. Walk me through a recent situation where you balanced these."
+4. **Question Variety**: Rotate through categories to ensure diverse themes (not just team/ownership)
+5. **Progressive Depth**: Each question should build on previous answers about the same principle
+6. **Theme Diversity**: Cover various aspects - self-reflection, team dynamics, strategy, innovation, ethics, change, stakeholders
 
 ${nextPrinciple ? `
 FOCUS PRINCIPLE FOR THIS QUESTION: ${LEADERSHIP_PRINCIPLES[nextPrinciple as keyof typeof LEADERSHIP_PRINCIPLES].name}
@@ -481,9 +488,9 @@ ${varietyGuidance}
 - Allowed types: ${allowedTypes.join(', ')}
 - Used so far: ${Object.entries(questionTypeCount).map(([type, count]) => `${type}: ${count}`).join(', ') || 'None'}
 
-JSON FORMAT:
+JSON FORMAT (REQUIRED FIELDS):
 {
-  "question": "Your thoughtful, engaging question here - must assess the specified principle if provided",
+  "question": "SITUATIONAL/SCENARIO-BASED question - must present a concrete leadership situation",
   "type": "multiple-choice|open-ended|scale|most-least-choice",
   "options": ["Option A description", "Option B description", "Option C description", "Option D description"],
   "most_least_options": [
@@ -493,8 +500,12 @@ JSON FORMAT:
     "Detailed description of approach 4"
   ],
   "scale_info": {"min": 1, "max": 10, "min_label": "Low", "max_label": "High"},
+  "principle_focus": "${nextPrinciple || 'REQUIRED'}",
+  "assessment_stage": "${currentStage}",
   "reasoning": "Brief explanation of why this question targets the specified principle and builds on previous responses"
 }
+
+MANDATORY: Every question response MUST include "principle_focus" and "assessment_stage" fields.
 
 IMPORTANT FOR MOST-LEAST-CHOICE QUESTIONS:
 - Each option in "most_least_options" must be a complete, descriptive statement (NOT single letters)

@@ -53,7 +53,7 @@ export default function Evaluation() {
             console.log('Found conversation:', conv.id);
             const { data: msgs, error: msgError } = await supabase
               .from('messages')
-              .select('message_type, content, question_type, created_at')
+              .select('message_type, content, question_type, created_at, principle_focus, assessment_stage')
               .eq('conversation_id', conv.id)
               .order('created_at', { ascending: true });
             
@@ -175,7 +175,13 @@ export default function Evaluation() {
       const response = await supabase.functions.invoke('ai-evaluation', {
         body: {
           responses: allResponses,
-          conversationContext: conversationContext
+          conversationContext: conversationContext,
+          messages: sortedMessages.map(msg => ({
+            message_type: msg.message_type,
+            content: msg.content,
+            principle_focus: (msg as any).principle_focus,
+            assessment_stage: (msg as any).assessment_stage
+          }))
         }
       });
 

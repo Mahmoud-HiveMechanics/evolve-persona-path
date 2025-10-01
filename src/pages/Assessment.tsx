@@ -18,7 +18,7 @@ import type { Profile } from '@/config/assessment';
 
 export const Assessment = () => {
   const navigate = useNavigate();
-  const MIN_QUESTIONS = 15; // 4 style detection + 11 style-specific questions
+  const MIN_QUESTIONS = 24; // Minimum 2 questions per principle (12 principles × 2 = 24)
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isStarted, setIsStarted] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
@@ -103,9 +103,8 @@ export const Assessment = () => {
     console.log(`🎯 Question ${askedCount + 1}: AI-Generated Question (Adaptive Mode)`);
     
     try {
-      // Limit conversation history to last 8 messages to prevent token explosion
-      const recentMessages = messages.slice(-8);
-      const conversationHistory = recentMessages.map(msg => ({
+      // Send ALL bot messages with principle_focus metadata for complete coverage tracking
+      const conversationHistory = messages.map(msg => ({
         type: msg.type,
         content: msg.content,
         timestamp: msg.timestamp.toISOString(),
@@ -120,17 +119,26 @@ export const Assessment = () => {
         .filter(msg => msg.isQuestion && msg.questionType)
         .map(msg => msg.questionType!);
 
+      // Calculate principle coverage for completion check
+      const principleCoverage: { [key: string]: number } = {};
+      conversationHistory.forEach(msg => {
+        if (msg.type === 'bot' && msg.principle_focus) {
+          principleCoverage[msg.principle_focus] = (principleCoverage[msg.principle_focus] || 0) + 1;
+        }
+      });
+
       console.log('Calling dynamic-question-generator with:', {
         conversationId,
         profile,
         questionCount: askedCount,
         historyLength: conversationHistory.length,
-        questionTypeHistory
+        questionTypeHistory,
+        principleCoverage
       });
 
-      // Create timeout promise (30 seconds)
+      // Create timeout promise (35 seconds to match backend)
       const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Question generation timeout')), 30000);
+        setTimeout(() => reject(new Error('Question generation timeout')), 35000);
       });
 
       // Call the AI service with timeout
@@ -370,8 +378,19 @@ export const Assessment = () => {
       // Clear current question first to ensure clean state
       setCurrentQuestion(null);
       
-    // Check if assessment is complete (15 total questions)
-    if (askedQuestionsRef.current.size >= MIN_QUESTIONS) {
+    // Check if assessment is complete - all 12 principles with minimum 2 questions each
+    const principleCoverage: { [key: string]: number } = {};
+    messages.forEach(msg => {
+      if (msg.type === 'bot' && msg.principle_focus) {
+        principleCoverage[msg.principle_focus] = (principleCoverage[msg.principle_focus] || 0) + 1;
+      }
+    });
+    
+    const allPrinciplesHaveMinimum = Object.keys(principleCoverage).length >= 12 && 
+                                      Object.values(principleCoverage).every(count => count >= 2);
+    
+    if (allPrinciplesHaveMinimum || askedQuestionsRef.current.size >= MIN_QUESTIONS) {
+      console.log('Assessment complete - Principle coverage:', principleCoverage);
       setIsComplete(true);
       setEvaluationGenerating(true);
       
@@ -405,12 +424,22 @@ export const Assessment = () => {
     // Clear current question first to ensure clean state
     setCurrentQuestion(null);
 
-    // Check if assessment is complete (15 total questions)
-    if (askedQuestionsRef.current.size >= MIN_QUESTIONS) {
+    // Check if assessment is complete
+    const principleCoverage: { [key: string]: number } = {};
+    messages.forEach(msg => {
+      if (msg.type === 'bot' && msg.principle_focus) {
+        principleCoverage[msg.principle_focus] = (principleCoverage[msg.principle_focus] || 0) + 1;
+      }
+    });
+    
+    const allPrinciplesHaveMinimum = Object.keys(principleCoverage).length >= 12 && 
+                                      Object.values(principleCoverage).every(count => count >= 2);
+    
+    if (allPrinciplesHaveMinimum || askedQuestionsRef.current.size >= MIN_QUESTIONS) {
+      console.log('Assessment complete - Principle coverage:', principleCoverage);
       setIsComplete(true);
       setEvaluationGenerating(true);
       
-      // Add timeout to prevent infinite loading
       setTimeout(() => {
         if (!hasNavigated) {
           console.log('Timeout reached, navigating to evaluation page');
@@ -418,7 +447,7 @@ export const Assessment = () => {
           setHasNavigated(true);
           navigate('/evaluation');
         }
-      }, 30000); // 30 second timeout
+      }, 30000);
       
       return;
     }
@@ -436,12 +465,22 @@ export const Assessment = () => {
     // Clear current question first to ensure clean state
     setCurrentQuestion(null);
 
-    // Check if assessment is complete (15 total questions)
-    if (askedQuestionsRef.current.size >= MIN_QUESTIONS) {
+    // Check if assessment is complete
+    const principleCoverage: { [key: string]: number } = {};
+    messages.forEach(msg => {
+      if (msg.type === 'bot' && msg.principle_focus) {
+        principleCoverage[msg.principle_focus] = (principleCoverage[msg.principle_focus] || 0) + 1;
+      }
+    });
+    
+    const allPrinciplesHaveMinimum = Object.keys(principleCoverage).length >= 12 && 
+                                      Object.values(principleCoverage).every(count => count >= 2);
+    
+    if (allPrinciplesHaveMinimum || askedQuestionsRef.current.size >= MIN_QUESTIONS) {
+      console.log('Assessment complete - Principle coverage:', principleCoverage);
       setIsComplete(true);
       setEvaluationGenerating(true);
       
-      // Add timeout to prevent infinite loading
       setTimeout(() => {
         if (!hasNavigated) {
           console.log('Timeout reached, navigating to evaluation page');
@@ -449,7 +488,7 @@ export const Assessment = () => {
           setHasNavigated(true);
           navigate('/evaluation');
         }
-      }, 30000); // 30 second timeout
+      }, 30000);
       
       return;
     }
@@ -468,12 +507,22 @@ export const Assessment = () => {
     // Clear current question first to ensure clean state
     setCurrentQuestion(null);
 
-    // Check if assessment is complete (15 total questions)
-    if (askedQuestionsRef.current.size >= MIN_QUESTIONS) {
+    // Check if assessment is complete
+    const principleCoverage: { [key: string]: number } = {};
+    messages.forEach(msg => {
+      if (msg.type === 'bot' && msg.principle_focus) {
+        principleCoverage[msg.principle_focus] = (principleCoverage[msg.principle_focus] || 0) + 1;
+      }
+    });
+    
+    const allPrinciplesHaveMinimum = Object.keys(principleCoverage).length >= 12 && 
+                                      Object.values(principleCoverage).every(count => count >= 2);
+    
+    if (allPrinciplesHaveMinimum || askedQuestionsRef.current.size >= MIN_QUESTIONS) {
+      console.log('Assessment complete - Principle coverage:', principleCoverage);
       setIsComplete(true);
       setEvaluationGenerating(true);
       
-      // Add timeout to prevent infinite loading
       setTimeout(() => {
         if (!hasNavigated) {
           console.log('Timeout reached, navigating to evaluation page');
@@ -481,7 +530,7 @@ export const Assessment = () => {
           setHasNavigated(true);
           navigate('/evaluation');
         }
-      }, 30000); // 30 second timeout
+      }, 30000);
       
       return;
     }

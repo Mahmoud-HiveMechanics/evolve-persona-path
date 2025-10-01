@@ -11,6 +11,12 @@ const corsHeaders = {
 interface EvaluationRequest {
   responses: string[];
   conversationContext: string;
+  messages?: Array<{
+    message_type: string;
+    content: string;
+    principle_focus?: string;
+    assessment_stage?: string;
+  }>;
 }
 
 interface FrameworkScore {
@@ -72,7 +78,7 @@ serve(async (req) => {
   }
 
   try {
-    const { responses, conversationContext }: EvaluationRequest = await req.json();
+    const { responses, conversationContext, messages = [] }: EvaluationRequest = await req.json();
 
     console.log('AI Evaluation request received:', { 
       responsesCount: responses?.length || 0,
@@ -109,13 +115,13 @@ serve(async (req) => {
       setTimeout(() => reject(new Error('AI evaluation timeout')), 60000);
     });
     
-    // Step 1: Analyze each of the 12 principles individually
+    // Step 1: Analyze each of the 12 principles individually with message metadata
     const principleAnalyses = await Promise.race([
       Promise.all(
         Object.entries(LEADERSHIP_PRINCIPLES).map(async ([key, principle], index) => {
           console.log(`Analyzing principle ${index + 1}/12: ${principle.name}`);
           try {
-            const result = await analyzePrinciple(key, principle, responses, conversationContext);
+            const result = await analyzePrinciple(key, principle, responses, conversationContext, messages);
             console.log(`Principle ${principle.name} analysis complete: Score ${result.score}`);
             return result;
           } catch (error) {
@@ -199,14 +205,32 @@ serve(async (req) => {
   }
 });
 
-async function analyzePrinciple(key: string, principle: any, responses: string[], conversationContext: string): Promise<{ key: string; score: number; summary: string }> {
-  // Filter responses related to this specific principle
-  const principleResponses = responses.filter((_, index) => {
-    const contextMatch = conversationContext.match(new RegExp(`principle_focus[\"']?:\\s*[\"']${key}[\"']`, 'i'));
-    return contextMatch;
-  });
+async function analyzePrinciple(
+  key: string, 
+  principle: any, 
+  responses: string[], 
+  conversationContext: string,
+  messages: Array<{ message_type: string; content: string; principle_focus?: string; assessment_stage?: string }> = []
+): Promise<{ key: string; score: number; summary: string }> {
+  // Filter user responses where the preceding bot question targeted this principle
+  const principleResponses: string[] = [];
   
-  const relevantContext = principleResponses.length > 0 ? principleResponses.join('\n\n') : conversationContext.slice(-800);
+  for (let i = 0; i < messages.length; i++) {
+    const msg = messages[i];
+    if (msg.message_type === 'bot' && msg.principle_focus === key) {
+      // Find the next user response
+      const userResponse = messages.slice(i + 1).find(m => m.message_type === 'user');
+      if (userResponse) {
+        principleResponses.push(userResponse.content);
+      }
+    }
+  }
+  
+  console.log(`Principle ${principle.name} - Found ${principleResponses.length} targeted responses`);
+  
+  const relevantContext = principleResponses.length > 0 
+    ? principleResponses.join('\n\n') 
+    : conversationContext.slice(-800);
   
   const prompt = `You are an expert leadership coach analyzing a specific leadership principle.
 
