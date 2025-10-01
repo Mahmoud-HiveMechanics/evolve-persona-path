@@ -268,7 +268,7 @@ export default function Evaluation() {
                           <div className="text-2xl font-bold text-primary mb-2">{level}</div>
                           <div className="flex justify-center">
                             <div className="flex space-x-1">
-                              {[1, 2, 3, 4, 5].map((dot) => (
+                              {[1, 2, 3, 4, 5, 6, 7].map((dot) => (
                                 <div
                                   key={dot}
                                   className={`w-2 h-2 rounded-full ${
@@ -566,17 +566,21 @@ const getLeadershipDimensions = (frameworks: FrameworkScore[]) => {
 
 const getLeadershipLevel = (score: number): string => {
   if (score >= 85) return 'Transformational';
-  if (score >= 70) return 'Advanced';
-  if (score >= 55) return 'Proficient';
-  if (score >= 40) return 'Developing';
+  if (score >= 75) return 'Advanced';
+  if (score >= 65) return 'Proficient';
+  if (score >= 55) return 'Competent';
+  if (score >= 45) return 'Developing';
+  if (score >= 35) return 'Beginning';
   return 'Emerging';
 };
 
 const getLeadershipLevelNumber = (score: number): number => {
-  if (score >= 85) return 5;
-  if (score >= 70) return 4;
-  if (score >= 55) return 3;
-  if (score >= 40) return 2;
+  if (score >= 85) return 7;
+  if (score >= 75) return 6;
+  if (score >= 65) return 5;
+  if (score >= 55) return 4;
+  if (score >= 45) return 3;
+  if (score >= 35) return 2;
   return 1;
 };
 
@@ -584,30 +588,38 @@ const getDimensionDescription = (dimensionKey: string, level: string): string =>
   const descriptions: Record<string, Record<string, string>> = {
     'self_leadership': {
       'Transformational': 'You demonstrate exceptional self-awareness and personal mastery, serving as a role model for continuous growth and authentic leadership.',
-      'Advanced': 'You show strong self-leadership skills with consistent self-awareness and responsibility for your actions and development.',
-      'Proficient': 'You have good self-awareness and take responsibility for your growth, with room to deepen your self-leadership practices.',
+      'Advanced': 'You show strong self-leadership skills with sophisticated self-understanding and consistent responsibility for your development.',
+      'Proficient': 'You have solid self-awareness and effectively manage your growth, demonstrating good self-leadership foundation.',
+      'Competent': 'You show good self-awareness and take responsibility for your growth, with developing self-leadership practices.',
       'Developing': 'You are building self-awareness and beginning to take ownership of your leadership development journey.',
+      'Beginning': 'You are starting to develop self-awareness and exploring personal responsibility for growth.',
       'Emerging': 'Focus on developing self-awareness and taking greater responsibility for your personal and professional growth.'
     },
     'relational_leadership': {
       'Transformational': 'You excel at building deep trust, demonstrating empathy, and empowering others to reach their full potential.',
-      'Advanced': 'You effectively build relationships, show empathy, and work to empower team members in their roles.',
-      'Proficient': 'You maintain good relationships and show care for others, with opportunities to enhance empowerment skills.',
+      'Advanced': 'You effectively build strong relationships, show sophisticated empathy, and consistently empower team members.',
+      'Proficient': 'You maintain solid relationships, demonstrate empathy effectively, and work to empower others.',
+      'Competent': 'You build good relationships and show care for others, with developing empowerment capabilities.',
       'Developing': 'You are working on building stronger relationships and developing your ability to connect with and empower others.',
+      'Beginning': 'You are starting to build trust and practice empathy with team members.',
       'Emerging': 'Focus on building trust through consistent actions, practicing empathy, and learning to empower others.'
     },
     'organizational_leadership': {
-      'Transformational': 'You masterfully articulate vision, shape positive culture, and navigate organizational tensions with wisdom.',
-      'Advanced': 'You effectively communicate vision, contribute to positive culture, and handle organizational challenges well.',
-      'Proficient': 'You understand organizational dynamics and contribute to vision and culture, with room to handle tensions more effectively.',
+      'Transformational': 'You masterfully articulate vision, shape positive culture, and navigate organizational tensions with exceptional wisdom.',
+      'Advanced': 'You effectively communicate vision, significantly contribute to culture, and handle organizational challenges with skill.',
+      'Proficient': 'You understand organizational dynamics well, contribute to vision and culture, and navigate tensions effectively.',
+      'Competent': 'You grasp organizational dynamics and contribute to vision and culture, with growing ability to manage complexity.',
       'Developing': 'You are learning to navigate organizational complexities and contribute more effectively to vision and culture.',
+      'Beginning': 'You are starting to understand organizational dynamics and beginning to influence culture.',
       'Emerging': 'Focus on understanding organizational dynamics, clarifying vision, and learning to address cultural and structural tensions.'
     },
     'leadership_beyond_organization': {
-      'Transformational': 'You drive innovation, effectively engage stakeholders, and demonstrate exceptional stewardship of resources and relationships.',
-      'Advanced': 'You encourage innovation, manage stakeholder relationships well, and show good stewardship practices.',
-      'Proficient': 'You support innovation and maintain stakeholder relationships, with opportunities to enhance stewardship.',
-      'Developing': 'You are learning to foster innovation, build external relationships, and develop stewardship mindset.',
+      'Transformational': 'You drive innovation, masterfully engage stakeholders, and demonstrate exceptional stewardship of resources and impact.',
+      'Advanced': 'You effectively foster innovation, manage stakeholder relationships strategically, and show strong stewardship practices.',
+      'Proficient': 'You support innovation well, maintain good stakeholder relationships, and demonstrate solid stewardship awareness.',
+      'Competent': 'You encourage innovation, build stakeholder relationships, and show developing stewardship mindset.',
+      'Developing': 'You are learning to foster innovation, build external relationships, and develop stewardship perspective.',
+      'Beginning': 'You are starting to think about innovation and external stakeholder relationships.',
       'Emerging': 'Focus on thinking beyond immediate boundaries, building stakeholder relationships, and developing long-term stewardship perspective.'
     }
   };

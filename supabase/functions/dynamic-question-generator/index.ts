@@ -195,18 +195,18 @@ const corsHeaders = {
     },
     'stakeholder-impact': {
       name: 'Positive Impact on Stakeholders',
-      category: 'Organizational Leadership',
-      description: 'Considering and balancing the needs of all stakeholders'
+      category: 'Leadership Beyond Organization',
+      description: 'Considering and balancing the needs of all stakeholders beyond immediate team'
     },
     'change-innovation': {
       name: 'Embracing Change & Driving Innovation',
-      category: 'Organizational Leadership',
-      description: 'Leading change initiatives and fostering innovation'
+      category: 'Leadership Beyond Organization',
+      description: 'Leading transformational change and fostering innovation across the organization'
     },
     'ethical-stewardship': {
       name: 'Social and Ethical Stewardship',
-      category: 'Organizational Leadership',
-      description: 'Acting with integrity and considering broader social impact'
+      category: 'Leadership Beyond Organization',
+      description: 'Acting with integrity and considering broader social and environmental impact'
     }
   };
 
@@ -446,22 +446,44 @@ ${Object.entries(principleCoverage).map(([key, count]) =>
   `- ${LEADERSHIP_PRINCIPLES[key as keyof typeof LEADERSHIP_PRINCIPLES].name}: ${count} question(s)`
 ).join('\n')}
 
-CRITICAL REQUIREMENTS:
-1. **Systematic Coverage**: Each principle must receive MINIMUM 2 questions total (baseline + deep-dive)
-2. **Stage-Based Progression**: 
-   - Baseline (Q1-12): One SITUATIONAL question per principle (covers all 12)
-   - Deep-dive (Q13-24): One BEHAVIORAL SCENARIO question per principle (2nd question for all 12)
-   - Integration (Q25+): Additional SCENARIO questions for principles needing more depth
-3. **ALL QUESTIONS MUST BE SITUATIONAL/SCENARIO-BASED**:
-   - Baseline: Present concrete leadership scenarios with MC/scale/most-least responses
-     Example: "Your team missed a deadline due to unclear priorities. How would you address this?" (MC options)
-   - Deep-dive: Present behavioral scenarios requiring detailed narrative responses
-     Example: "Describe a time when you had to make an unpopular decision. What was the situation, your approach, and outcome?"
-   - Integration: Present scenarios that explore contradictions or probe deeper
-     Example: "You mentioned valuing consensus, but acting quickly in crises. Walk me through a recent situation where you balanced these."
-4. **Question Variety**: Rotate through categories to ensure diverse themes (not just team/ownership)
-5. **Progressive Depth**: Each question should build on previous answers about the same principle
-6. **Theme Diversity**: Cover various aspects - self-reflection, team dynamics, strategy, innovation, ethics, change, stakeholders
+CRITICAL REQUIREMENTS - MANDATORY ENFORCEMENT:
+
+**1. SITUATIONAL/SCENARIO FORMAT IS MANDATORY** - Every question MUST be scenario-based:
+   
+   **Baseline Stage (Q1-12) - Present Situational Choices:**
+   - Format: "Imagine [specific leadership scenario tied to their role]... Which approach would you take?"
+   - Example: "Your team is divided on a strategic decision. Half favor a proven approach while others want to innovate. Which approach would you take?" [MC options]
+   - Example: "A key team member disagrees with your direction publicly in a meeting. How would you respond?" [Most-least-choice]
+   - Structure: Set up concrete scenario → Present multiple approaches to choose from
+   
+   **Deep-dive Stage (Q13-24) - Request Behavioral Examples:**
+   - Format: "Tell me about a time when [specific past situation]... Walk me through what happened."
+   - Example: "Think about a time when you had to balance competing priorities between team needs and organizational goals. What was the situation and how did you navigate it?"
+   - Example: "Describe a situation where you received critical feedback that surprised you. What did you discover about yourself?"
+   - Structure: Request specific past experience → Ask for detailed walkthrough → Probe for learnings
+   
+   **Integration Stage (Q25+) - Explore Complex Scenarios:**
+   - Format: "Consider a situation where [multi-faceted challenge]... How would you approach this?"
+   - Example: "Imagine you need to drive major change in your team while key stakeholders are resistant and team morale is low. How would you navigate these competing tensions?"
+   - Structure: Present complex multi-principle scenario → Explore trade-offs and integration
+
+**2. FORBIDDEN QUESTION PATTERNS** - NEVER start with these:
+   ❌ "How do you typically..."
+   ❌ "What is your approach to..."  
+   ❌ "How would you ensure..."
+   ❌ "What strategies do you use for..."
+   ❌ Generic "tell me about your leadership style" questions
+
+**3. SYSTEMATIC COVERAGE** - Each principle requires MINIMUM 2 questions:
+   - All 12 principles must get baseline question (Q1-12)
+   - All 12 principles must get deep-dive question (Q13-24)
+   - Integration questions (Q25+) probe deeper into specific principles
+
+**4. DIMENSION ROTATION** - Rotate through all 4 leadership dimensions:
+   - Self-Leadership (self-awareness, self-responsibility, continuous-growth)
+   - Relational Leadership (trust-safety, empathy-awareness, empowered-responsibility)
+   - Organizational Leadership (purpose-vision, culture-leadership, harnessing-tensions)
+   - Leadership Beyond Organization (stakeholder-impact, change-innovation, ethical-stewardship)
 
 ${nextPrinciple ? `
 FOCUS PRINCIPLE FOR THIS QUESTION: ${LEADERSHIP_PRINCIPLES[nextPrinciple as keyof typeof LEADERSHIP_PRINCIPLES].name}
@@ -488,24 +510,28 @@ ${varietyGuidance}
 - Allowed types: ${allowedTypes.join(', ')}
 - Used so far: ${Object.entries(questionTypeCount).map(([type, count]) => `${type}: ${count}`).join(', ') || 'None'}
 
-JSON FORMAT (REQUIRED FIELDS):
+JSON FORMAT (REQUIRED - ALL FIELDS MANDATORY):
 {
-  "question": "SITUATIONAL/SCENARIO-BASED question - must present a concrete leadership situation",
+  "question": "MUST be situational/scenario-based - present a concrete leadership situation",
   "type": "multiple-choice|open-ended|scale|most-least-choice",
-  "options": ["Option A description", "Option B description", "Option C description", "Option D description"],
+  "options": ["Option A", "Option B", "Option C", "Option D"] (only for multiple-choice),
   "most_least_options": [
-    "Detailed description of approach 1",
-    "Detailed description of approach 2", 
-    "Detailed description of approach 3",
-    "Detailed description of approach 4"
-  ],
-  "scale_info": {"min": 1, "max": 10, "min_label": "Low", "max_label": "High"},
-  "principle_focus": "${nextPrinciple || 'REQUIRED'}",
+    "Detailed approach 1 (5-15 words)",
+    "Detailed approach 2 (5-15 words)", 
+    "Detailed approach 3 (5-15 words)",
+    "Detailed approach 4 (5-15 words)"
+  ] (only for most-least-choice),
+  "scale_info": {"min": 1, "max": 10, "min_label": "Low label", "max_label": "High label"} (only for scale),
+  "principle_focus": "${nextPrinciple || 'REQUIRED - MUST MATCH ONE OF THE 12 PRINCIPLES'}",
   "assessment_stage": "${currentStage}",
-  "reasoning": "Brief explanation of why this question targets the specified principle and builds on previous responses"
+  "reasoning": "Explain how this scenario-based question assesses the target principle and builds on conversation context"
 }
 
-MANDATORY: Every question response MUST include "principle_focus" and "assessment_stage" fields.
+**CRITICAL VALIDATION RULES:**
+1. "principle_focus" MUST be one of these EXACT keys: self-awareness, self-responsibility, continuous-growth, trust-safety, empathy-awareness, empowered-responsibility, purpose-vision, culture-leadership, harnessing-tensions, stakeholder-impact, change-innovation, ethical-stewardship
+2. "assessment_stage" MUST be one of: baseline, deep-dive, integration
+3. "question" MUST start with scenario language: "Imagine...", "Think about a time when...", "Consider a situation where...", "Describe a recent situation..."
+4. These fields are MANDATORY in every response - missing them will cause assessment failure
 
 IMPORTANT FOR MOST-LEAST-CHOICE QUESTIONS:
 - Each option in "most_least_options" must be a complete, descriptive statement (NOT single letters)

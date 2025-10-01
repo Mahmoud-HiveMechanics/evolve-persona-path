@@ -47,9 +47,9 @@ const LEADERSHIP_PRINCIPLES = {
   'purpose-vision': { name: 'Purpose, Vision and Aligned Outcome', category: 'Organizational Leadership', dimension: 'organizational_leadership' },
   'culture-leadership': { name: 'Culture of Leadership', category: 'Organizational Leadership', dimension: 'organizational_leadership' },
   'harnessing-tensions': { name: 'Harnessing Tensions for Effective Collaboration', category: 'Organizational Leadership', dimension: 'organizational_leadership' },
-  'stakeholder-impact': { name: 'Positive Impact on Stakeholders', category: 'Organizational Leadership', dimension: 'organizational_leadership' },
-  'change-innovation': { name: 'Embracing Change & Driving Innovation', category: 'Organizational Leadership', dimension: 'organizational_leadership' },
-  'ethical-stewardship': { name: 'Social and Ethical Stewardship', category: 'Organizational Leadership', dimension: 'organizational_leadership' }
+  'stakeholder-impact': { name: 'Positive Impact on Stakeholders', category: 'Leadership Beyond Organization', dimension: 'leadership_beyond_organization' },
+  'change-innovation': { name: 'Embracing Change & Driving Innovation', category: 'Leadership Beyond Organization', dimension: 'leadership_beyond_organization' },
+  'ethical-stewardship': { name: 'Social and Ethical Stewardship', category: 'Leadership Beyond Organization', dimension: 'leadership_beyond_organization' }
 };
 
 // 4 High-Level Dimensions (aggregated from 12 principles)
@@ -241,18 +241,31 @@ User Responses Related to This Principle:
 ${relevantContext}
 
 Analyze this specific principle based on the user's responses. Score from 0-100:
-- 90-100: Exceptional mastery - Shows transformational capability in this area
-- 80-89: Strong competency - Consistently demonstrates this principle effectively
-- 70-79: Proficient - Good foundation with some gaps to address
-- 60-69: Developing - Emerging capability with clear growth needed
-- 50-59: Basic awareness - Understands concept but limited application
-- 30-49: Early stage - Needs significant development in this area
+- 85-100: Transformational - Exceptional mastery with consistent application
+- 75-84: Advanced - Strong competency with sophisticated understanding
+- 65-74: Proficient - Solid foundation with effective application
+- 55-64: Competent - Good awareness with developing skills
+- 45-54: Developing - Emerging capability with clear growth path
+- 35-44: Beginning - Basic understanding with limited application
+- 25-34: Emerging - Early awareness, needs significant development
 
-CRITICAL: Ensure score variation - not all principles should have similar scores. Differentiate based on:
-- Depth and quality of responses
-- Practical examples provided
-- Self-awareness demonstrated
-- Consistency and maturity
+CRITICAL SCORING REQUIREMENTS:
+1. **Score Variance is Mandatory** - Ensure meaningful differentiation (20-30 point spreads):
+   - Strong responses with specific examples: 70-90 range
+   - Moderate responses with some detail: 50-70 range
+   - Weak/vague responses: 30-50 range
+2. **Quality Indicators for Higher Scores (70+)**:
+   - Concrete, specific examples with outcomes
+   - Self-awareness and reflection demonstrated
+   - Nuanced understanding of complexity
+   - Evidence of consistent application
+3. **Quality Indicators for Lower Scores (30-50)**:
+   - Vague or generic responses
+   - Lack of specific examples
+   - Surface-level understanding
+   - Limited self-awareness
+
+NOT ALL PRINCIPLES SHOULD SCORE SIMILARLY - differentiate based on response quality!
 
 Return JSON:
 {
@@ -315,47 +328,93 @@ Return JSON:
 function calculatePrincipleFallback(key: string, principle: any, responses: string[]): { key: string; score: number; summary: string } {
   const responseText = responses.join(' ').toLowerCase();
   
-  // Base score with more variance
-  let score = 40 + Math.floor(Math.random() * 20); // 40-60 base
+  // Base score with significant variance to ensure differentiation
+  const baseScores = [35, 42, 48, 55, 62, 68, 75, 82];
+  const keyIndex = Object.keys(LEADERSHIP_PRINCIPLES).indexOf(key);
+  let score = baseScores[keyIndex % baseScores.length];
   
-  // Principle-specific keywords for scoring
-  const keywordMap: Record<string, string[]> = {
-    'self-awareness': ['aware', 'emotion', 'reflect', 'understand myself', 'strength', 'weakness'],
-    'self-responsibility': ['accountable', 'ownership', 'responsible', 'my fault', 'i learned'],
-    'continuous-growth': ['learn', 'develop', 'improve', 'feedback', 'grow', 'training'],
-    'trust-safety': ['trust', 'safe', 'vulnerable', 'honest', 'open'],
-    'empathy-awareness': ['empathy', 'understand others', 'perspective', 'feelings', 'listen'],
-    'empowered-responsibility': ['delegate', 'empower', 'autonomy', 'shared', 'distributed'],
-    'purpose-vision': ['vision', 'purpose', 'goal', 'direction', 'mission', 'future'],
-    'culture-leadership': ['culture', 'develop leaders', 'mentor', 'coach', 'grow team'],
-    'harnessing-tensions': ['conflict', 'tension', 'disagree', 'resolve', 'balance'],
-    'stakeholder-impact': ['stakeholder', 'impact', 'customer', 'client', 'community'],
-    'change-innovation': ['change', 'innovate', 'transform', 'new', 'adapt'],
-    'ethical-stewardship': ['ethical', 'integrity', 'values', 'social', 'responsible']
+  // Principle-specific keywords for scoring with weighted importance
+  const keywordMap: Record<string, { strong: string[]; moderate: string[] }> = {
+    'self-awareness': { 
+      strong: ['reflect', 'understand myself', 'blind spot', 'weakness', 'learn about myself'],
+      moderate: ['aware', 'emotion', 'strength']
+    },
+    'self-responsibility': { 
+      strong: ['accountable', 'my fault', 'ownership', 'i learned from mistake'],
+      moderate: ['responsible', 'take action']
+    },
+    'continuous-growth': { 
+      strong: ['actively learning', 'development plan', 'feedback', 'mentor'],
+      moderate: ['learn', 'develop', 'improve', 'grow']
+    },
+    'trust-safety': { 
+      strong: ['psychological safety', 'vulnerable', 'safe to fail', 'open communication'],
+      moderate: ['trust', 'safe', 'honest', 'open']
+    },
+    'empathy-awareness': { 
+      strong: ['perspective taking', 'understand feelings', 'emotional intelligence'],
+      moderate: ['empathy', 'understand others', 'listen']
+    },
+    'empowered-responsibility': { 
+      strong: ['delegate authority', 'autonomy', 'shared ownership', 'distributed leadership'],
+      moderate: ['delegate', 'empower', 'shared']
+    },
+    'purpose-vision': { 
+      strong: ['strategic vision', 'align goals', 'mission driven', 'long term'],
+      moderate: ['vision', 'purpose', 'goal', 'direction']
+    },
+    'culture-leadership': { 
+      strong: ['develop leaders', 'mentor', 'leadership pipeline', 'coach others'],
+      moderate: ['culture', 'grow team', 'team development']
+    },
+    'harnessing-tensions': { 
+      strong: ['productive conflict', 'harness tension', 'diverse perspectives', 'creative friction'],
+      moderate: ['conflict', 'tension', 'disagree', 'balance']
+    },
+    'stakeholder-impact': { 
+      strong: ['stakeholder value', 'broader impact', 'community benefit', 'societal good'],
+      moderate: ['stakeholder', 'impact', 'customer', 'client']
+    },
+    'change-innovation': { 
+      strong: ['drive innovation', 'transform', 'disrupt', 'experiment', 'pilot'],
+      moderate: ['change', 'innovate', 'new', 'adapt']
+    },
+    'ethical-stewardship': { 
+      strong: ['ethical dilemma', 'integrity first', 'social responsibility', 'sustainable'],
+      moderate: ['ethical', 'integrity', 'values', 'responsible']
+    }
   };
   
-  const keywords = keywordMap[key] || [];
-  const matches = keywords.filter(kw => responseText.includes(kw));
-  score += matches.length * 5;
+  const keywords = keywordMap[key] || { strong: [], moderate: [] };
+  const strongMatches = keywords.strong.filter(kw => responseText.includes(kw.toLowerCase()));
+  const moderateMatches = keywords.moderate.filter(kw => responseText.includes(kw.toLowerCase()));
   
-  // Add variance based on key position (to ensure differentiation)
-  const keyIndex = Object.keys(LEADERSHIP_PRINCIPLES).indexOf(key);
-  score += (keyIndex % 3) * 8;
+  score += strongMatches.length * 8;
+  score += moderateMatches.length * 3;
   
-  const finalScore = Math.min(95, Math.max(35, score));
+  // Add response length bonus (more detailed = better)
+  const avgResponseLength = responseText.length / responses.length;
+  if (avgResponseLength > 200) score += 10;
+  else if (avgResponseLength > 100) score += 5;
+  
+  const finalScore = Math.min(95, Math.max(30, score));
+  
+  const levelDesc = finalScore >= 75 ? 'strong' : finalScore >= 65 ? 'proficient' : finalScore >= 55 ? 'competent' : finalScore >= 45 ? 'developing' : 'emerging';
   
   return {
     key,
     score: finalScore,
-    summary: `Shows ${finalScore >= 70 ? 'good' : finalScore >= 60 ? 'developing' : 'emerging'} ${principle.name.toLowerCase()}.`
+    summary: `Demonstrates ${levelDesc} ${principle.name.toLowerCase()} with ${strongMatches.length > 0 ? 'solid depth' : 'room for growth'}.`
   };
 }
 
 function scoreToLevel(score: number): number {
-  if (score >= 85) return 5; // Transformational
-  if (score >= 75) return 4; // Advanced
-  if (score >= 65) return 3; // Proficient
-  if (score >= 50) return 2; // Developing
+  if (score >= 85) return 7; // Transformational
+  if (score >= 75) return 6; // Advanced
+  if (score >= 65) return 5; // Proficient
+  if (score >= 55) return 4; // Competent
+  if (score >= 45) return 3; // Developing
+  if (score >= 35) return 2; // Beginning
   return 1; // Emerging
 }
 
