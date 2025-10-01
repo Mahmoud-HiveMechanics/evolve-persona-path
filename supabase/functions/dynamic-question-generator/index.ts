@@ -231,43 +231,70 @@ const corsHeaders = {
   };
 
   const determineAssessmentStage = (questionCount: number, coverage: { [key: string]: number }): string => {
-    // Stage 1: Baseline (Questions 1-12) - One question per principle
-    if (questionCount <= 12) return 'baseline';
+    // Check if all principles have at least 1 question (baseline complete)
+    const allHaveBaseline = Object.values(coverage).every(count => count >= 1);
     
-    // Stage 2: Deep-dive (Questions 13-18) - Focus on lowest-scoring principles
-    if (questionCount <= 18) return 'deep-dive';
+    // Check if all principles have at least 2 questions (minimum requirement met)
+    const allHaveMinimum = Object.values(coverage).every(count => count >= 2);
     
-    // Stage 3: Integration (Questions 19-21) - Consistency and completion
+    // Stage 1: Baseline (First 12 questions) - One question per principle
+    if (!allHaveBaseline) return 'baseline';
+    
+    // Stage 2: Deep-dive (Next 12 questions) - Second question per principle  
+    if (!allHaveMinimum) return 'deep-dive';
+    
+    // Stage 3: Integration (Questions 25+) - Third question for principles needing depth
     return 'integration';
   };
 
   const getNextPrincipleToAssess = (stage: string, coverage: { [key: string]: number }, conversationHistory: any[]): string | null => {
+    const principleKeys = Object.keys(LEADERSHIP_PRINCIPLES);
+    
     if (stage === 'baseline') {
-      // Find first principle with no coverage
-      for (const [key, count] of Object.entries(coverage)) {
-        if (count === 0) return key;
+      // Rotate through categories to ensure variety
+      const categories = ['Self-Leadership', 'Relational Leadership', 'Organizational Leadership', 'Organizational Leadership'];
+      
+      for (const category of categories) {
+        const principlesInCategory = principleKeys.filter(key => 
+          LEADERSHIP_PRINCIPLES[key as keyof typeof LEADERSHIP_PRINCIPLES].category === category &&
+          coverage[key] === 0
+        );
+        
+        if (principlesInCategory.length > 0) {
+          return principlesInCategory[0];
+        }
       }
-      return null; // All principles have baseline coverage
+      
+      // Fallback: Find ANY principle with no coverage
+      const uncovered = principleKeys.find(key => coverage[key] === 0);
+      return uncovered || null;
     }
     
     if (stage === 'deep-dive') {
-      // Find principles that need deep dive (have 1-2 questions, but less than 3)
-      const principlesNeedingDeepDive = Object.keys(LEADERSHIP_PRINCIPLES).filter(key => 
-        coverage[key] >= 1 && coverage[key] < 3 // Has baseline but not maxed out
-      );
+      // Find principles with exactly 1 question (need second question for minimum)
+      const principlesNeedingSecond = principleKeys.filter(key => coverage[key] === 1);
       
-      // Sort by lowest coverage first
-      principlesNeedingDeepDive.sort((a, b) => coverage[a] - coverage[b]);
+      // Rotate through categories for variety
+      const categories = ['Self-Leadership', 'Relational Leadership', 'Organizational Leadership', 'Organizational Leadership'];
       
-      return principlesNeedingDeepDive[0] || null;
+      for (const category of categories) {
+        const principleInCategory = principlesNeedingSecond.find(key =>
+          LEADERSHIP_PRINCIPLES[key as keyof typeof LEADERSHIP_PRINCIPLES].category === category
+        );
+        if (principleInCategory) return principleInCategory;
+      }
+      
+      // Fallback: Return first principle needing second question
+      return principlesNeedingSecond[0] || null;
     }
     
-    // Integration stage - find any principle with less than 3 questions
-    const principlesNeedingIntegration = Object.keys(LEADERSHIP_PRINCIPLES).filter(key => 
-      coverage[key] < 3
-    );
+    // Integration stage - find principles with less than 3 questions, prioritize lowest scores
+    const principlesNeedingMore = principleKeys.filter(key => coverage[key] < 3);
     
-    return principlesNeedingIntegration[0] || null;
+    // Sort by coverage (lowest first) for balanced assessment
+    principlesNeedingMore.sort((a, b) => coverage[a] - coverage[b]);
+    
+    return principlesNeedingMore[0] || null;
   };
 
 serve(async (req) => {
@@ -420,14 +447,14 @@ ${Object.entries(principleCoverage).map(([key, count]) =>
 ).join('\n')}
 
 CRITICAL REQUIREMENTS:
-1. **Systematic Coverage**: Each principle must receive MAXIMUM 3 questions total
+1. **Systematic Coverage**: Each principle must receive MINIMUM 2 questions total (baseline + deep-dive)
 2. **Stage-Based Progression**: 
-   - Baseline (Q1-12): One quantitative question per principle
-   - Deep-dive (Q13-18): Qualitative exploration of principles with gaps
-   - Integration (Q19-21): Resolve contradictions and ensure completeness
-3. **No Question Repetition**: Build on previous responses, avoid asking the same things
+   - Baseline (Q1-12): One quantitative question per principle (covers all 12)
+   - Deep-dive (Q13-24): One qualitative question per principle (2nd question for all 12)
+   - Integration (Q25+): Additional questions for principles needing more depth
+3. **Question Variety**: Rotate through categories to ensure diverse themes (not just team/ownership)
 4. **Progressive Depth**: Each question should build on previous answers about the same principle
-5. **ENFORCE MAXIMUM**: If a principle already has 3+ questions, SKIP it and move to next principle
+5. **Theme Diversity**: Cover various aspects - self-reflection, team dynamics, strategy, innovation, ethics, change, stakeholders
 
 ${nextPrinciple ? `
 FOCUS PRINCIPLE FOR THIS QUESTION: ${LEADERSHIP_PRINCIPLES[nextPrinciple as keyof typeof LEADERSHIP_PRINCIPLES].name}
