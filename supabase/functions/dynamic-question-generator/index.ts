@@ -213,7 +213,8 @@ const corsHeaders = {
   const ASSESSMENT_STAGES = {
     'baseline': 'Quantitative baseline across all 12 principles',
     'deep-dive': 'Qualitative deep dives into priority areas',
-    'integration': 'Integration questions to resolve contradictions'
+    'integration': 'Integration questions to resolve contradictions',
+    'wrap-up': 'Reflective questions to prepare for evaluation'
   };
 
   // Track principle coverage to ensure systematic assessment
@@ -243,7 +244,10 @@ const corsHeaders = {
     // Stage 2: Deep-dive (Next 12 questions) - Second question per principle  
     if (!allHaveMinimum) return 'deep-dive';
     
-    // Stage 3: Integration (Questions 25+) - Third question for principles needing depth
+    // Stage 3: Wrap-up (Questions 25-26) - Preparatory reflective questions
+    if (questionCount >= 24 && questionCount < 26) return 'wrap-up';
+    
+    // Stage 4: Integration (Questions 27+) - Third question for principles needing depth
     return 'integration';
   };
 
@@ -477,12 +481,27 @@ CRITICAL REQUIREMENTS - MANDATORY ENFORCEMENT:
       - Example: "As the ${profile.position} of your ${profile.role} organization, you're facing a conflict between two key leaders. The CPO wants to prioritize new features for market share, while the CTO insists on fixing critical technical debt. Both have valid data. Their disagreement is affecting team morale and upcoming investor discussions. How would you approach this situation?"
       - Purpose: Tests integration of multiple principles and stakeholder management
 
-**2. QUESTION TYPE ALTERNATION PATTERN:**
-   - Questions 1, 5, 9, 13, 17, 21: Most-Least Comparative (self-assessment)
-   - Questions 2, 6, 10, 14, 18, 22: Behavioral with Emotional Probes (past experiences)
-   - Questions 3, 7, 11, 15, 19, 23: Scenario-Based (hypothetical situations)
-   - Questions 4, 8, 12, 16, 20, 24: Complex Executive Scenarios (multi-stakeholder)
-   - This ensures diverse assessment approaches throughout all stages
+**2. QUESTION TYPE DISTRIBUTION PATTERN:**
+   
+   **Phase 1: Low-Friction Introduction (Questions 1-6):**
+   - Q1: Most-Least Comparative (self-assessment)
+   - Q2: Multiple Choice (simple selection)
+   - Q3: 1-10 Scale (self-rating with descriptive labels)
+   - Q4: Most-Least Comparative (self-assessment)
+   - Q5: Multiple Choice (simple selection)
+   - Q6: 1-10 Scale (self-rating with descriptive labels)
+   Purpose: Build comfort and engagement with easy-to-answer questions
+   
+   **Phase 2: Increasing Complexity (Questions 7-24):**
+   - Q7, 10, 13, 16, 19, 22: Scenario-Based (hypothetical situations)
+   - Q8, 11, 14, 17, 20, 23: Behavioral with Emotional Probes (past experiences)
+   - Q9, 12, 15, 18, 21, 24: Most-Least Comparative or Complex Executive Scenarios
+   Purpose: Deep assessment with varied formats
+   
+   **Phase 3: Wrap-Up (Questions 25-26):**
+   - Q25: "As we wrap up, what's one insight about your leadership style that has become clearer during this assessment?" (open-ended, reflective)
+   - Q26: "What aspect of leadership are you most curious to learn more about from your results?" (open-ended, forward-looking)
+   Purpose: Prepare user for evaluation and create smooth transition
 
 **3. EMOTIONAL DEPTH INSTRUCTIONS:**
    - For behavioral questions, ALWAYS probe emotional responses: "What emotions came up?" "How did that feel?" "What surprised you?"
@@ -552,22 +571,34 @@ JSON FORMAT (REQUIRED - ALL FIELDS MANDATORY):
 }
 
 **QUESTION FORMAT SELECTION GUIDE:**
-- Question numbers 1, 5, 9, 13, 17, 21 → Use MOST-LEAST format: "Please mark which is MOST and LEAST like you..."
-- Question numbers 2, 6, 10, 14, 18, 22 → Use BEHAVIORAL format: "Recall a time when..." or "Tell me about a time..." (use open-ended type)
-- Question numbers 3, 7, 11, 15, 19, 23 → Use SCENARIO format: "Imagine [situation]..." (use multiple-choice or most-least-choice)
-- Question numbers 4, 8, 12, 16, 20, 24 → Use COMPLEX EXECUTIVE format: Multi-stakeholder scenarios (use open-ended or most-least-choice)
+- Question 1 → MOST-LEAST format: "Please mark which is MOST and LEAST like you..."
+- Question 2 → MULTIPLE CHOICE format: Simple selection with 4 options
+- Question 3 → SCALE format: 1-10 rating with descriptive labels (e.g., "On a scale of 1-10, how [assessment]...")
+- Question 4 → MOST-LEAST format: "Please mark which is MOST and LEAST like you..."
+- Question 5 → MULTIPLE CHOICE format: Simple selection with 4 options
+- Question 6 → SCALE format: 1-10 rating with descriptive labels
+- Questions 7, 10, 13, 16, 19, 22 → SCENARIO format: "Imagine [situation]..." (use multiple-choice or most-least-choice)
+- Questions 8, 11, 14, 17, 20, 23 → BEHAVIORAL format: "Recall a time when..." (use open-ended type)
+- Questions 9, 12, 15, 18, 21, 24 → MOST-LEAST or COMPLEX EXECUTIVE format
+- Question 25 → WRAP-UP REFLECTIVE: "As we wrap up, what's one insight about your leadership style that has become clearer during this assessment?" (open-ended)
+- Question 26 → WRAP-UP FORWARD-LOOKING: "What aspect of leadership are you most curious to learn more about from your results?" (open-ended)
 - Current question number: ${questionCount + 1}
 
 **CRITICAL VALIDATION RULES:**
 1. "principle_focus" MUST be one of these EXACT keys: self-awareness, self-responsibility, continuous-growth, trust-safety, empathy-awareness, empowered-responsibility, purpose-vision, culture-leadership, harnessing-tensions, stakeholder-impact, change-innovation, ethical-stewardship
-2. "assessment_stage" MUST be one of: baseline, deep-dive, integration
+2. "assessment_stage" MUST be one of: baseline, deep-dive, wrap-up, integration
 3. "question" format MUST match the pattern for question number ${questionCount + 1}:
-   - Questions 1,5,9,13,17,21: "Please mark which is MOST and LEAST like you..."
-   - Questions 2,6,10,14,18,22: "Recall a time when..." or "Tell me about a time..."
-   - Questions 3,7,11,15,19,23: "Imagine [situation]..." or "Consider a situation..."
-   - Questions 4,8,12,16,20,24: Complex multi-stakeholder executive scenarios
-4. For behavioral questions (2,6,10,14,18,22), include emotional depth probes in the question text
-5. These fields are MANDATORY in every response - missing them will cause assessment failure
+   - Questions 1, 4: "Please mark which is MOST and LEAST like you..."
+   - Questions 2, 5: Multiple choice with 4 options
+   - Questions 3, 6: "On a scale of 1-10, how [assessment]..." (use scale type)
+   - Questions 7, 10, 13, 16, 19, 22: "Imagine [situation]..." or scenario-based
+   - Questions 8, 11, 14, 17, 20, 23: "Recall a time when..." or "Tell me about a time..."
+   - Questions 9, 12, 15, 18, 21, 24: Most-least or complex executive scenarios
+   - Question 25: "As we wrap up, what's one insight about your leadership style that has become clearer during this assessment?"
+   - Question 26: "What aspect of leadership are you most curious to learn more about from your results?"
+4. For behavioral questions, include emotional depth probes in the question text
+5. For wrap-up questions (25-26), use open-ended type and focus on reflection and forward-looking curiosity
+6. These fields are MANDATORY in every response - missing them will cause assessment failure
 
 IMPORTANT FOR MOST-LEAST-CHOICE QUESTIONS:
 - Each option in "most_least_options" must be a complete, descriptive statement (NOT single letters)

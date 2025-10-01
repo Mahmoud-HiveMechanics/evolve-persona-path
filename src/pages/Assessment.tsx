@@ -18,7 +18,7 @@ import type { Profile } from '@/config/assessment';
 
 export const Assessment = () => {
   const navigate = useNavigate();
-  const MIN_QUESTIONS = 24; // Minimum 2 questions per principle (12 principles × 2 = 24)
+  const MIN_QUESTIONS = 26; // 24 core questions + 2 wrap-up questions
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isStarted, setIsStarted] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
@@ -391,6 +391,10 @@ export const Assessment = () => {
     
     if (allPrinciplesHaveMinimum || askedQuestionsRef.current.size >= MIN_QUESTIONS) {
       console.log('Assessment complete - Principle coverage:', principleCoverage);
+      
+      // Add professional closing message before evaluation
+      await addMessage('bot', "Thank you for taking the time to share your leadership insights with me. I've got everything I need to prepare your results. Hold on just a moment while I analyze your responses and create your personalized leadership evaluation.");
+      
       setIsComplete(true);
       setEvaluationGenerating(true);
       
@@ -437,6 +441,10 @@ export const Assessment = () => {
     
     if (allPrinciplesHaveMinimum || askedQuestionsRef.current.size >= MIN_QUESTIONS) {
       console.log('Assessment complete - Principle coverage:', principleCoverage);
+      
+      // Add professional closing message before evaluation
+      await addMessage('bot', "Thank you for taking the time to share your leadership insights with me. I've got everything I need to prepare your results. Hold on just a moment while I analyze your responses and create your personalized leadership evaluation.");
+      
       setIsComplete(true);
       setEvaluationGenerating(true);
       
