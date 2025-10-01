@@ -448,38 +448,62 @@ ${Object.entries(principleCoverage).map(([key, count]) =>
 
 CRITICAL REQUIREMENTS - MANDATORY ENFORCEMENT:
 
-**1. SITUATIONAL/SCENARIO FORMAT IS MANDATORY** - Every question MUST be scenario-based:
-   
-   **Baseline Stage (Q1-12) - Present Situational Choices:**
-   - Format: "Imagine [specific leadership scenario tied to their role]... Which approach would you take?"
-   - Example: "Your team is divided on a strategic decision. Half favor a proven approach while others want to innovate. Which approach would you take?" [MC options]
-   - Example: "A key team member disagrees with your direction publicly in a meeting. How would you respond?" [Most-least-choice]
-   - Structure: Set up concrete scenario → Present multiple approaches to choose from
-   
-   **Deep-dive Stage (Q13-24) - Request Behavioral Examples:**
-   - Format: "Tell me about a time when [specific past situation]... Walk me through what happened."
-   - Example: "Think about a time when you had to balance competing priorities between team needs and organizational goals. What was the situation and how did you navigate it?"
-   - Example: "Describe a situation where you received critical feedback that surprised you. What did you discover about yourself?"
-   - Structure: Request specific past experience → Ask for detailed walkthrough → Probe for learnings
-   
-   **Integration Stage (Q25+) - Explore Complex Scenarios:**
-   - Format: "Consider a situation where [multi-faceted challenge]... How would you approach this?"
-   - Example: "Imagine you need to drive major change in your team while key stakeholders are resistant and team morale is low. How would you navigate these competing tensions?"
-   - Structure: Present complex multi-principle scenario → Explore trade-offs and integration
+**1. DIVERSE QUESTION FORMATS** - Mix question types throughout all stages for deeper understanding:
 
-**2. FORBIDDEN QUESTION PATTERNS** - NEVER start with these:
+   **Question Type Rotation (Apply Throughout All Stages):**
+   
+   A. **Most-Least Comparative Questions** - Self-assessment format:
+      - Format: "Please mark which statement is MOST like you and which is LEAST like you"
+      - Example: "Which of these leadership approaches is MOST and LEAST like you?
+        • I focus on building consensus before making decisions
+        • I make quick decisions and adjust based on feedback
+        • I delegate decisions to those closest to the work
+        • I analyze data thoroughly before deciding"
+      - Purpose: Reveals authentic leadership patterns through comparative self-assessment
+   
+   B. **Behavioral Questions with Emotional Depth** - Past experience exploration:
+      - Format: "Recall a time when [specific situation]... How did you process it?"
+      - Example: "Recall a time when you received feedback that initially stung but later proved valuable. How did you process it, and what changed in your leadership as a result?"
+      - Follow-up probes: "What emotions came up for you in that moment?" "How did that make you feel?" "What did you learn about yourself?"
+      - Purpose: Explores emotional intelligence and self-awareness through reflection
+   
+   C. **Scenario-Based Questions** - Hypothetical situations:
+      - Format: "Imagine [specific leadership scenario]... How would you approach this?"
+      - Example: "Imagine your team is hesitant to share ideas due to fear of criticism. How would you foster psychological safety?"
+      - Purpose: Assesses principle application in realistic contexts
+   
+   D. **Complex Executive Scenarios** - Multi-stakeholder challenges:
+      - Format: "As [their role], you're facing [complex situation with competing interests]... How would you approach this?"
+      - Example: "As the ${profile.position} of your ${profile.role} organization, you're facing a conflict between two key leaders. The CPO wants to prioritize new features for market share, while the CTO insists on fixing critical technical debt. Both have valid data. Their disagreement is affecting team morale and upcoming investor discussions. How would you approach this situation?"
+      - Purpose: Tests integration of multiple principles and stakeholder management
+
+**2. QUESTION TYPE ALTERNATION PATTERN:**
+   - Questions 1, 5, 9, 13, 17, 21: Most-Least Comparative (self-assessment)
+   - Questions 2, 6, 10, 14, 18, 22: Behavioral with Emotional Probes (past experiences)
+   - Questions 3, 7, 11, 15, 19, 23: Scenario-Based (hypothetical situations)
+   - Questions 4, 8, 12, 16, 20, 24: Complex Executive Scenarios (multi-stakeholder)
+   - This ensures diverse assessment approaches throughout all stages
+
+**3. EMOTIONAL DEPTH INSTRUCTIONS:**
+   - For behavioral questions, ALWAYS probe emotional responses: "What emotions came up?" "How did that feel?" "What surprised you?"
+   - Explore the "why behind the what" - understand motivations, fears, values
+   - Create space for vulnerability and authentic reflection
+
+**4. FORBIDDEN QUESTION PATTERNS** - NEVER use these generic formats:
    ❌ "How do you typically..."
    ❌ "What is your approach to..."  
    ❌ "How would you ensure..."
    ❌ "What strategies do you use for..."
    ❌ Generic "tell me about your leadership style" questions
+   ❌ Repetitive "Imagine..." for every single question
 
-**3. SYSTEMATIC COVERAGE** - Each principle requires MINIMUM 2 questions:
-   - All 12 principles must get baseline question (Q1-12)
-   - All 12 principles must get deep-dive question (Q13-24)
-   - Integration questions (Q25+) probe deeper into specific principles
+**5. SYSTEMATIC COVERAGE** - Each principle requires MINIMUM 2 questions using DIVERSE formats:
+   - Questions 1-12: First round through all 12 principles (using mixed question types)
+   - Questions 13-24: Second round through all 12 principles (using different formats than first round)
+   - Questions 25+: Deeper integration questions for specific principles
+   - IMPORTANT: Apply the question type rotation pattern (#2) to ensure variety
 
-**4. DIMENSION ROTATION** - Rotate through all 4 leadership dimensions:
+**6. DIMENSION ROTATION** - Rotate through all 4 leadership dimensions:
    - Self-Leadership (self-awareness, self-responsibility, continuous-growth)
    - Relational Leadership (trust-safety, empathy-awareness, empowered-responsibility)
    - Organizational Leadership (purpose-vision, culture-leadership, harnessing-tensions)
@@ -512,26 +536,38 @@ ${varietyGuidance}
 
 JSON FORMAT (REQUIRED - ALL FIELDS MANDATORY):
 {
-  "question": "MUST be situational/scenario-based - present a concrete leadership situation",
+  "question": "Use format based on question number pattern - most-least comparative, behavioral, scenario, or complex executive",
   "type": "multiple-choice|open-ended|scale|most-least-choice",
   "options": ["Option A", "Option B", "Option C", "Option D"] (only for multiple-choice),
   "most_least_options": [
-    "Detailed approach 1 (5-15 words)",
-    "Detailed approach 2 (5-15 words)", 
-    "Detailed approach 3 (5-15 words)",
-    "Detailed approach 4 (5-15 words)"
-  ] (only for most-least-choice),
+    "Complete descriptive statement (5-15 words)",
+    "Complete descriptive statement (5-15 words)", 
+    "Complete descriptive statement (5-15 words)",
+    "Complete descriptive statement (5-15 words)"
+  ] (only for most-least-choice - use for comparative self-assessment questions),
   "scale_info": {"min": 1, "max": 10, "min_label": "Low label", "max_label": "High label"} (only for scale),
   "principle_focus": "${nextPrinciple || 'REQUIRED - MUST MATCH ONE OF THE 12 PRINCIPLES'}",
   "assessment_stage": "${currentStage}",
-  "reasoning": "Explain how this scenario-based question assesses the target principle and builds on conversation context"
+  "reasoning": "Explain how this question assesses the target principle, which format you chose (most-least/behavioral/scenario/complex), and why it builds on conversation context"
 }
+
+**QUESTION FORMAT SELECTION GUIDE:**
+- Question numbers 1, 5, 9, 13, 17, 21 → Use MOST-LEAST format: "Please mark which is MOST and LEAST like you..."
+- Question numbers 2, 6, 10, 14, 18, 22 → Use BEHAVIORAL format: "Recall a time when..." or "Tell me about a time..." (use open-ended type)
+- Question numbers 3, 7, 11, 15, 19, 23 → Use SCENARIO format: "Imagine [situation]..." (use multiple-choice or most-least-choice)
+- Question numbers 4, 8, 12, 16, 20, 24 → Use COMPLEX EXECUTIVE format: Multi-stakeholder scenarios (use open-ended or most-least-choice)
+- Current question number: ${questionCount + 1}
 
 **CRITICAL VALIDATION RULES:**
 1. "principle_focus" MUST be one of these EXACT keys: self-awareness, self-responsibility, continuous-growth, trust-safety, empathy-awareness, empowered-responsibility, purpose-vision, culture-leadership, harnessing-tensions, stakeholder-impact, change-innovation, ethical-stewardship
 2. "assessment_stage" MUST be one of: baseline, deep-dive, integration
-3. "question" MUST start with scenario language: "Imagine...", "Think about a time when...", "Consider a situation where...", "Describe a recent situation..."
-4. These fields are MANDATORY in every response - missing them will cause assessment failure
+3. "question" format MUST match the pattern for question number ${questionCount + 1}:
+   - Questions 1,5,9,13,17,21: "Please mark which is MOST and LEAST like you..."
+   - Questions 2,6,10,14,18,22: "Recall a time when..." or "Tell me about a time..."
+   - Questions 3,7,11,15,19,23: "Imagine [situation]..." or "Consider a situation..."
+   - Questions 4,8,12,16,20,24: Complex multi-stakeholder executive scenarios
+4. For behavioral questions (2,6,10,14,18,22), include emotional depth probes in the question text
+5. These fields are MANDATORY in every response - missing them will cause assessment failure
 
 IMPORTANT FOR MOST-LEAST-CHOICE QUESTIONS:
 - Each option in "most_least_options" must be a complete, descriptive statement (NOT single letters)
