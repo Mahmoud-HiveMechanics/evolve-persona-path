@@ -429,11 +429,19 @@ async function generateContextualQuestion(
       return acc;
     }, {} as Record<string, number>);
 
-    const allowedTypes = questionCount < 5 
-      ? ['multiple-choice', 'scale', 'most-least-choice']
-      : questionCount < 10
-      ? ['multiple-choice', 'scale', 'most-least-choice', 'open-ended'] // Gradual introduction
-      : ['multiple-choice', 'scale', 'most-least-choice', 'open-ended'];
+    // Strict type enforcement based on question number for Q1-6
+    let allowedTypes: string[];
+    const nextQuestionNum = questionCount + 1;
+    
+    if (nextQuestionNum === 1 || nextQuestionNum === 4) {
+      allowedTypes = ['most-least-choice'];
+    } else if (nextQuestionNum === 2 || nextQuestionNum === 5) {
+      allowedTypes = ['multiple-choice'];
+    } else if (nextQuestionNum === 3 || nextQuestionNum === 6) {
+      allowedTypes = ['scale'];
+    } else {
+      allowedTypes = ['multiple-choice', 'open-ended', 'scale', 'most-least-choice'];
+    }
 
     const varietyGuidance = generateVarietyGuidance(questionTypeCount, allowedTypes, questionCount);
 
@@ -493,10 +501,11 @@ CRITICAL REQUIREMENTS - MANDATORY ENFORCEMENT:
    Purpose: Build comfort and engagement with easy-to-answer questions
    
    **Phase 2: Increasing Complexity (Questions 7-24):**
-   - Q7, 10, 13, 16, 19, 22: Scenario-Based (hypothetical situations)
-   - Q8, 11, 14, 17, 20, 23: Behavioral with Emotional Probes (past experiences)
-   - Q9, 12, 15, 18, 21, 24: Most-Least Comparative or Complex Executive Scenarios
+   - Q7, 10, 13, 16, 19, 22: Scenario-Based (use type "open-ended" - hypothetical situations)
+   - Q8, 11, 14, 17, 20, 23: Behavioral with Emotional Probes (use type "open-ended" - past experiences)
+   - Q9, 12, 15, 18, 21, 24: Most-Least Comparative or Complex Executive Scenarios (use type "most-least-choice" or "open-ended")
    Purpose: Deep assessment with varied formats
+   NOTE: "scenario-based" is NOT a valid type - always use "open-ended" for scenarios
    
    **Phase 3: Wrap-Up (Questions 25-26):**
    - Q25: "As we wrap up, what's one insight about your leadership style that has become clearer during this assessment?" (open-ended, reflective)
@@ -556,7 +565,7 @@ ${varietyGuidance}
 JSON FORMAT (REQUIRED - ALL FIELDS MANDATORY):
 {
   "question": "Use format based on question number pattern - most-least comparative, behavioral, scenario, or complex executive",
-  "type": "multiple-choice|open-ended|scale|most-least-choice",
+  "type": "${allowedTypes.length === 1 ? allowedTypes[0] : 'MUST BE ONE OF: ' + allowedTypes.join('|')}",
   "options": ["Option A", "Option B", "Option C", "Option D"] (only for multiple-choice),
   "most_least_options": [
     "Complete descriptive statement (5-15 words)",
@@ -567,37 +576,58 @@ JSON FORMAT (REQUIRED - ALL FIELDS MANDATORY):
   "scale_info": {"min": 1, "max": 10, "min_label": "Low label", "max_label": "High label"} (only for scale),
   "principle_focus": "${nextPrinciple || 'REQUIRED - MUST MATCH ONE OF THE 12 PRINCIPLES'}",
   "assessment_stage": "${currentStage}",
-  "reasoning": "Explain how this question assesses the target principle, which format you chose (most-least/behavioral/scenario/complex), and why it builds on conversation context"
+  "reasoning": "Explain how this question assesses the target principle, which format you chose, and why it builds on conversation context"
 }
 
-**QUESTION FORMAT SELECTION GUIDE:**
-- Question 1 → MOST-LEAST format: "Please mark which is MOST and LEAST like you..."
-- Question 2 → MULTIPLE CHOICE format: Simple selection with 4 options
-- Question 3 → SCALE format: 1-10 rating with descriptive labels (e.g., "On a scale of 1-10, how [assessment]...")
-- Question 4 → MOST-LEAST format: "Please mark which is MOST and LEAST like you..."
-- Question 5 → MULTIPLE CHOICE format: Simple selection with 4 options
-- Question 6 → SCALE format: 1-10 rating with descriptive labels
-- Questions 7, 10, 13, 16, 19, 22 → SCENARIO format: "Imagine [situation]..." (use multiple-choice or most-least-choice)
-- Questions 8, 11, 14, 17, 20, 23 → BEHAVIORAL format: "Recall a time when..." (use open-ended type)
-- Questions 9, 12, 15, 18, 21, 24 → MOST-LEAST or COMPLEX EXECUTIVE format
-- Question 25 → WRAP-UP REFLECTIVE: "As we wrap up, what's one insight about your leadership style that has become clearer during this assessment?" (open-ended)
-- Question 26 → WRAP-UP FORWARD-LOOKING: "What aspect of leadership are you most curious to learn more about from your results?" (open-ended)
-- Current question number: ${questionCount + 1}
+ALLOWED QUESTION TYPES FOR THIS QUESTION: ${allowedTypes.join(', ')}
+${allowedTypes.length === 1 ? `YOU MUST USE TYPE: "${allowedTypes[0]}" - No other type is allowed for question ${nextQuestionNum}` : ''}
+
+**MANDATORY TYPE REQUIREMENTS (STRICTLY ENFORCED):**
+
+CURRENT QUESTION NUMBER: ${nextQuestionNum}
+
+${nextQuestionNum === 1 || nextQuestionNum === 4 ? `
+✅ YOU MUST USE: type "most-least-choice"
+✅ REQUIRED FORMAT: "Please mark which is MOST and LEAST like you..."
+✅ MUST INCLUDE: 4 complete statements in "most_least_options" array
+❌ FORBIDDEN: Any other type (multiple-choice, scale, open-ended)
+` : ''}${nextQuestionNum === 2 || nextQuestionNum === 5 ? `
+✅ YOU MUST USE: type "multiple-choice"
+✅ REQUIRED FORMAT: Question with 4 distinct answer options
+✅ MUST INCLUDE: 4 options in "options" array
+❌ FORBIDDEN: Any other type (most-least-choice, scale, open-ended)
+` : ''}${nextQuestionNum === 3 || nextQuestionNum === 6 ? `
+✅ YOU MUST USE: type "scale"
+✅ REQUIRED FORMAT: "On a scale of 1-10, how [assessment]..."
+✅ MUST INCLUDE: "scale_info" with min: 1, max: 10, min_label, max_label
+❌ FORBIDDEN: Any other type (most-least-choice, multiple-choice, open-ended)
+` : ''}${nextQuestionNum >= 7 && nextQuestionNum <= 24 ? `
+✅ ALLOWED TYPES: "open-ended", "most-least-choice", "multiple-choice", "scale"
+✅ SCENARIO QUESTIONS (7, 10, 13, 16, 19, 22): Use "open-ended" type
+✅ BEHAVIORAL QUESTIONS (8, 11, 14, 17, 20, 23): Use "open-ended" type
+✅ COMPLEX/COMPARATIVE (9, 12, 15, 18, 21, 24): Use "most-least-choice" or "open-ended" type
+` : ''}${nextQuestionNum === 25 || nextQuestionNum === 26 ? `
+✅ YOU MUST USE: type "open-ended"
+✅ Q25 FORMAT: "As we wrap up, what's one insight about your leadership style that has become clearer during this assessment?"
+✅ Q26 FORMAT: "What aspect of leadership are you most curious to learn more about from your results?"
+❌ FORBIDDEN: Any other type
+` : ''}
+
+**REJECTION CRITERIA - YOUR RESPONSE WILL BE REJECTED IF:**
+- Question ${nextQuestionNum} does not use the required type
+- Type "scenario-based" is used (NOT A VALID TYPE - use "open-ended" instead)
+- most-least-choice type is used without 4 complete statements in most_least_options
+- scale type is used without proper scale_info object
+- multiple-choice type is used without 4 options
 
 **CRITICAL VALIDATION RULES:**
-1. "principle_focus" MUST be one of these EXACT keys: self-awareness, self-responsibility, continuous-growth, trust-safety, empathy-awareness, empowered-responsibility, purpose-vision, culture-leadership, harnessing-tensions, stakeholder-impact, change-innovation, ethical-stewardship
-2. "assessment_stage" MUST be one of: baseline, deep-dive, wrap-up, integration
-3. "question" format MUST match the pattern for question number ${questionCount + 1}:
-   - Questions 1, 4: "Please mark which is MOST and LEAST like you..."
-   - Questions 2, 5: Multiple choice with 4 options
-   - Questions 3, 6: "On a scale of 1-10, how [assessment]..." (use scale type)
-   - Questions 7, 10, 13, 16, 19, 22: "Imagine [situation]..." or scenario-based
-   - Questions 8, 11, 14, 17, 20, 23: "Recall a time when..." or "Tell me about a time..."
-   - Questions 9, 12, 15, 18, 21, 24: Most-least or complex executive scenarios
-   - Question 25: "As we wrap up, what's one insight about your leadership style that has become clearer during this assessment?"
-   - Question 26: "What aspect of leadership are you most curious to learn more about from your results?"
-4. For behavioral questions, include emotional depth probes in the question text
-5. For wrap-up questions (25-26), use open-ended type and focus on reflection and forward-looking curiosity
+1. "type" MUST be one of: "multiple-choice", "open-ended", "scale", "most-least-choice" (NEVER "scenario-based")
+2. "type" for question ${nextQuestionNum} MUST be from allowed types: ${allowedTypes.join(', ')}
+3. "principle_focus" MUST be one of these EXACT keys: self-awareness, self-responsibility, continuous-growth, trust-safety, empathy-awareness, empowered-responsibility, purpose-vision, culture-leadership, harnessing-tensions, stakeholder-impact, change-innovation, ethical-stewardship
+4. "assessment_stage" MUST be one of: baseline, deep-dive, wrap-up, integration
+5. For scenario questions (7, 10, 13, 16, 19, 22): Use type "open-ended" - NOT "scenario-based"
+6. For behavioral questions (8, 11, 14, 17, 20, 23): Use type "open-ended" and include emotional depth probes
+7. For wrap-up questions (25-26): Use type "open-ended" and focus on reflection
 6. These fields are MANDATORY in every response - missing them will cause assessment failure
 
 IMPORTANT FOR MOST-LEAST-CHOICE QUESTIONS:
