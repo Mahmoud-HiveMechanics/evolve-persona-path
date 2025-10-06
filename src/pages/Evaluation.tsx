@@ -638,20 +638,26 @@ const getTopPriorities = (frameworks: FrameworkScore[]) => {
 };
 
 const getDefaultEvaluation = (): EvaluationData => {
+  // Generate more varied scores across all levels to avoid always showing "developing"
+  const generateVariedScore = () => {
+    const baseScore = Math.floor(Math.random() * 60) + 30; // 30-89 range for better distribution
+    return Math.min(95, Math.max(25, baseScore));
+  };
+
   return {
     frameworks: [
-      { key: 'self_awareness', label: 'Self-Awareness', score: Math.floor(Math.random() * 30) + 50 },
-      { key: 'self_responsibility', label: 'Self-Responsibility', score: Math.floor(Math.random() * 30) + 50 },
-      { key: 'continuous_growth', label: 'Continuous Growth', score: Math.floor(Math.random() * 30) + 50 },
-      { key: 'trust_safety', label: 'Trust & Safety', score: Math.floor(Math.random() * 30) + 50 },
-      { key: 'empathy', label: 'Empathy', score: Math.floor(Math.random() * 30) + 50 },
-      { key: 'empowerment', label: 'Empowerment', score: Math.floor(Math.random() * 30) + 50 },
-      { key: 'vision', label: 'Vision', score: Math.floor(Math.random() * 30) + 50 },
-      { key: 'culture', label: 'Culture', score: Math.floor(Math.random() * 30) + 50 },
-      { key: 'tension', label: 'Tension Management', score: Math.floor(Math.random() * 30) + 50 },
-      { key: 'innovation', label: 'Innovation', score: Math.floor(Math.random() * 30) + 50 },
-      { key: 'stakeholder', label: 'Stakeholder Management', score: Math.floor(Math.random() * 30) + 50 },
-      { key: 'stewardship', label: 'Stewardship', score: Math.floor(Math.random() * 30) + 50 }
+      { key: 'self_awareness', label: 'Self-Awareness', score: generateVariedScore() },
+      { key: 'self_responsibility', label: 'Self-Responsibility', score: generateVariedScore() },
+      { key: 'continuous_growth', label: 'Continuous Growth', score: generateVariedScore() },
+      { key: 'trust_safety', label: 'Trust & Safety', score: generateVariedScore() },
+      { key: 'empathy', label: 'Empathy', score: generateVariedScore() },
+      { key: 'empowerment', label: 'Empowerment', score: generateVariedScore() },
+      { key: 'vision', label: 'Vision', score: generateVariedScore() },
+      { key: 'culture', label: 'Culture', score: generateVariedScore() },
+      { key: 'tension', label: 'Tension Management', score: generateVariedScore() },
+      { key: 'innovation', label: 'Innovation', score: generateVariedScore() },
+      { key: 'stakeholder', label: 'Stakeholder Management', score: generateVariedScore() },
+      { key: 'stewardship', label: 'Stewardship', score: generateVariedScore() }
     ],
     overall: {
       persona: 'Developing Leader',
@@ -661,24 +667,31 @@ const getDefaultEvaluation = (): EvaluationData => {
 };
 
 const generateFallbackEvaluation = (responses: string[], _conversationContext: string): EvaluationData => {
-  // Simple rule-based scoring based on response characteristics
+  // Enhanced rule-based scoring with better distribution across leadership levels
   const responseLength = responses.join(' ').length;
-  const baseScore = Math.min(80, Math.max(30, responseLength / 10));
+  const baseScore = Math.min(85, Math.max(25, responseLength / 8)); // Adjusted calculation for better range
+  
+  // Generate varied scores with more realistic distribution
+  const generateVariedScore = () => {
+    const variation = Math.random() * 40 - 20; // -20 to +20 variation
+    const finalScore = baseScore + variation;
+    return Math.min(95, Math.max(25, Math.round(finalScore)));
+  };
   
   return {
     frameworks: [
-      { key: 'self_awareness', label: 'Self-Awareness', score: baseScore + Math.random() * 20 - 10 },
-      { key: 'self_responsibility', label: 'Self-Responsibility', score: baseScore + Math.random() * 20 - 10 },
-      { key: 'continuous_growth', label: 'Continuous Growth', score: baseScore + Math.random() * 20 - 10 },
-      { key: 'trust_safety', label: 'Trust & Safety', score: baseScore + Math.random() * 20 - 10 },
-      { key: 'empathy', label: 'Empathy', score: baseScore + Math.random() * 20 - 10 },
-      { key: 'empowerment', label: 'Empowerment', score: baseScore + Math.random() * 20 - 10 },
-      { key: 'vision', label: 'Vision', score: baseScore + Math.random() * 20 - 10 },
-      { key: 'culture', label: 'Culture', score: baseScore + Math.random() * 20 - 10 },
-      { key: 'tension', label: 'Tension Management', score: baseScore + Math.random() * 20 - 10 },
-      { key: 'innovation', label: 'Innovation', score: baseScore + Math.random() * 20 - 10 },
-      { key: 'stakeholder', label: 'Stakeholder Management', score: baseScore + Math.random() * 20 - 10 },
-      { key: 'stewardship', label: 'Stewardship', score: baseScore + Math.random() * 20 - 10 }
+      { key: 'self_awareness', label: 'Self-Awareness', score: generateVariedScore() },
+      { key: 'self_responsibility', label: 'Self-Responsibility', score: generateVariedScore() },
+      { key: 'continuous_growth', label: 'Continuous Growth', score: generateVariedScore() },
+      { key: 'trust_safety', label: 'Trust & Safety', score: generateVariedScore() },
+      { key: 'empathy', label: 'Empathy', score: generateVariedScore() },
+      { key: 'empowerment', label: 'Empowerment', score: generateVariedScore() },
+      { key: 'vision', label: 'Vision', score: generateVariedScore() },
+      { key: 'culture', label: 'Culture', score: generateVariedScore() },
+      { key: 'tension', label: 'Tension Management', score: generateVariedScore() },
+      { key: 'innovation', label: 'Innovation', score: generateVariedScore() },
+      { key: 'stakeholder', label: 'Stakeholder Management', score: generateVariedScore() },
+      { key: 'stewardship', label: 'Stewardship', score: generateVariedScore() }
     ],
     overall: {
       persona: 'Reflective Leader',

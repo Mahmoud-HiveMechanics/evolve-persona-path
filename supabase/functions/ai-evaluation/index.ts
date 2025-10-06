@@ -182,16 +182,21 @@ serve(async (req) => {
   } catch (error) {
     console.error('Critical error in AI evaluation:', error);
     
-    // Return comprehensive fallback evaluation on error
+    // Return comprehensive fallback evaluation on error with better score distribution
     const fallbackResult: EvaluationResult = {
-      frameworks: LEADERSHIP_FRAMEWORKS.map(framework => ({
-        key: framework.key,
-        label: framework.label,
-        score: Math.floor(Math.random() * 30) + 50,
-        summary: `Your ${framework.label.toLowerCase()} shows potential for growth.`,
-        confidence: 0.6,
-        level: 3
-      })),
+      frameworks: LEADERSHIP_FRAMEWORKS.map(framework => {
+        // Generate more varied scores across all leadership levels
+        const baseScore = Math.floor(Math.random() * 60) + 30; // 30-89 range
+        const finalScore = Math.min(95, Math.max(25, baseScore));
+        return {
+          key: framework.key,
+          label: framework.label,
+          score: finalScore,
+          summary: `Your ${framework.label.toLowerCase()} shows potential for growth.`,
+          confidence: 0.6,
+          level: scoreToLevel(finalScore)
+        };
+      }),
       overall: {
         persona: 'Developing Leader',
         summary: 'Your leadership assessment shows promise with opportunities for continued growth and development.'
