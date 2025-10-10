@@ -56,10 +56,11 @@ export const generateEvaluationFromResponses = (responses: string[]): Evaluation
     // Adjust score based on keyword matches and response quality
     score += mentions.length * 5;
     
-    // Bonus for longer, more thoughtful responses
-    const avgResponseLength = responses.reduce((sum, r) => sum + r.length, 0) / responses.length;
-    if (avgResponseLength > 50) score += 10;
-    if (avgResponseLength > 100) score += 5;
+    // Quality-based scoring instead of length-based
+    const hasExamples = responses.some(r => r.toLowerCase().includes('example') || r.toLowerCase().includes('instance'));
+    const hasReflection = responses.some(r => r.toLowerCase().includes('learned') || r.toLowerCase().includes('realized'));
+    if (hasExamples) score += 8;
+    if (hasReflection) score += 5;
     
     // Ensure score is within bounds
     score = Math.min(95, Math.max(35, score));

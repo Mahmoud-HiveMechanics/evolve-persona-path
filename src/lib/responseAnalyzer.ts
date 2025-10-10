@@ -63,8 +63,10 @@ export class ResponseAnalyzer {
     const sentenceCount = text.split(/[.!?]+/).length;
     const avgWordsPerSentence = wordCount / sentenceCount;
 
-    // Depth: longer, more detailed responses score higher
-    const depth = Math.min(5, Math.max(1, Math.floor(wordCount / 20) + 1));
+    // Depth: based on content quality indicators, not word count
+    const depthIndicators = ['example', 'instance', 'specifically', 'detail', 'because', 'result', 'outcome'];
+    const depthScore = depthIndicators.filter(indicator => text.toLowerCase().includes(indicator)).length;
+    const depth = Math.min(5, Math.max(1, depthScore + 1));
     
     // Specificity: presence of specific examples, numbers, names
     const specificityIndicators = ['example', 'instance', 'specifically', 'particularly', '%', '$'];

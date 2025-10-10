@@ -266,6 +266,7 @@ export default function Evaluation() {
                         </h3>
                         <div className="mb-4">
                           <div className="text-2xl font-bold text-primary mb-2">{level}</div>
+                          <div className="text-lg font-semibold text-text-secondary mb-2">{Math.round(dimension.score)}/100</div>
                           <div className="flex justify-center">
                             <div className="flex space-x-1">
                               {[1, 2, 3, 4, 5, 6, 7].map((dot) => (
@@ -299,6 +300,59 @@ export default function Evaluation() {
                     </div>
                   );
                 })}
+              </div>
+
+              {/* Detailed 12 Principles Breakdown */}
+              <div className="bg-white rounded-2xl p-8 shadow-lg border border-gray-100 mb-12">
+                <h3 className="text-2xl font-bold text-text-primary mb-6 text-center">Your Leadership Principles Breakdown</h3>
+                <p className="text-text-secondary text-center mb-8 max-w-3xl mx-auto">
+                  Detailed analysis across all 12 leadership principles showing your specific strengths and growth areas.
+                </p>
+                
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {getDetailedPrincipleScores(normalizedFrameworks).map((principle, index) => (
+                    <div key={principle.key} className="bg-gradient-to-br from-gray-50 to-white rounded-xl p-6 border border-gray-100 hover:shadow-md transition-all duration-300">
+                      <div className="flex items-center justify-between mb-4">
+                        <h4 className="font-bold text-text-primary text-lg">{principle.label}</h4>
+                        <div className="text-right">
+                          <div className="text-2xl font-bold text-primary">{principle.score}/100</div>
+                          <div className="text-sm text-text-secondary">{getLeadershipLevel(principle.score)}</div>
+                        </div>
+                      </div>
+                      
+                      <div className="mb-4">
+                        <div className="w-full bg-gray-200 rounded-full h-3">
+                          <div 
+                            className="bg-gradient-to-r from-primary to-primary-dark h-3 rounded-full transition-all duration-1000 ease-out"
+                            style={{ width: `${Math.max(0, Math.min(100, principle.score))}%` }}
+                          ></div>
+                        </div>
+                      </div>
+                      
+                      <p className="text-sm text-text-secondary leading-relaxed">
+                        {principle.summary || `Your ${principle.label.toLowerCase()} shows ${getLeadershipLevel(principle.score).toLowerCase()} development.`}
+                      </p>
+                      
+                      <div className="mt-4 flex items-center justify-between">
+                        <div className="flex space-x-1">
+                          {[1, 2, 3, 4, 5, 6, 7].map((dot) => (
+                            <div
+                              key={dot}
+                              className={`w-2 h-2 rounded-full ${
+                                dot <= getLeadershipLevelNumber(principle.score)
+                                  ? 'bg-primary'
+                                  : 'bg-gray-200'
+                              }`}
+                            />
+                          ))}
+                        </div>
+                        <span className="text-xs text-text-secondary">
+                          {principle.score >= 75 ? 'Strong' : principle.score >= 60 ? 'Good' : principle.score >= 45 ? 'Developing' : 'Needs Focus'}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
 
               {/* Bottom Section with Top Priorities */}
@@ -635,6 +689,34 @@ const getTopPriorities = (frameworks: FrameworkScore[]) => {
     title: framework.label,
     description: `Current level: ${getLeadershipLevel(framework.score)}. Focus on specific actions to improve this critical leadership competency.`
   }));
+};
+
+// Helper function to get detailed principle scores for the 12 principles breakdown
+const getDetailedPrincipleScores = (frameworks: FrameworkScore[]) => {
+  // Map the 12 leadership principles with their detailed information
+  const principleDetails = [
+    { key: 'self_awareness', label: 'Self-Awareness', category: 'Self-Leadership' },
+    { key: 'self_responsibility', label: 'Self-Responsibility', category: 'Self-Leadership' },
+    { key: 'continuous_growth', label: 'Continuous Growth', category: 'Self-Leadership' },
+    { key: 'trust_safety', label: 'Trust & Safety', category: 'Relational Leadership' },
+    { key: 'empathy', label: 'Empathy', category: 'Relational Leadership' },
+    { key: 'empowerment', label: 'Empowerment', category: 'Relational Leadership' },
+    { key: 'vision', label: 'Vision', category: 'Organizational Leadership' },
+    { key: 'culture', label: 'Culture', category: 'Organizational Leadership' },
+    { key: 'tension', label: 'Tension Management', category: 'Organizational Leadership' },
+    { key: 'innovation', label: 'Innovation', category: 'Leadership Beyond Organization' },
+    { key: 'stakeholder', label: 'Stakeholder Management', category: 'Leadership Beyond Organization' },
+    { key: 'stewardship', label: 'Stewardship', category: 'Leadership Beyond Organization' }
+  ];
+
+  return principleDetails.map(principle => {
+    const framework = frameworks.find(f => f.key === principle.key);
+    return {
+      ...principle,
+      score: framework?.score || 50,
+      summary: framework?.summary || `Your ${principle.label.toLowerCase()} shows developing capabilities.`
+    };
+  });
 };
 
 const getDefaultEvaluation = (): EvaluationData => {
