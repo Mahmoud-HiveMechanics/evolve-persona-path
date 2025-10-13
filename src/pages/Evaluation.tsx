@@ -119,15 +119,6 @@ export default function Evaluation() {
     })();
   }, []);
 
-  const frameworks = data?.frameworks || [];
-  
-  // Normalize frameworks for backward compatibility
-  const normalizedFrameworks = useMemo(() => normalizeFrameworks(frameworks), [frameworks]);
-
-  const lowestThree = useMemo(() => {
-    return [...normalizedFrameworks].sort((a, b) => (a.score ?? 0) - (b.score ?? 0)).slice(0, 3);
-  }, [normalizedFrameworks]);
-
   // AI-powered evaluation derivation with enhanced analysis
   const deriveEvaluationFromMessages = useCallback(async (msgs: Array<{ message_type: string; content: string; question_type: string | null; created_at: string }>): Promise<EvaluationData> => {
     console.log('Deriving evaluation from messages using AI:', msgs.length);
@@ -210,6 +201,15 @@ export default function Evaluation() {
       return generateFallbackEvaluation(['Default response'], 'No context');
     }
   }, []);
+
+  const frameworks = data?.frameworks || [];
+  
+  // Normalize frameworks for backward compatibility
+  const normalizedFrameworks = useMemo(() => normalizeFrameworks(frameworks), [frameworks]);
+
+  const lowestThree = useMemo(() => {
+    return [...normalizedFrameworks].sort((a, b) => (a.score ?? 0) - (b.score ?? 0)).slice(0, 3);
+  }, [normalizedFrameworks]);
 
   function toggleImprovement(key: string) {
     setImprovementsDone(prev => ({ ...prev, [key]: !prev[key] }));
@@ -310,7 +310,7 @@ export default function Evaluation() {
                 </p>
                 
                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {getDetailedPrincipleScores(normalizedFrameworks).map((principle, index) => (
+                  {getDetailedPrincipleScores(normalizedFrameworks).map((principle) => (
                     <div key={principle.key} className="bg-gradient-to-br from-gray-50 to-white rounded-xl p-6 border border-gray-100 hover:shadow-md transition-all duration-300">
                       <div className="flex items-center justify-between mb-4">
                         <h4 className="font-bold text-text-primary text-lg">{principle.label}</h4>

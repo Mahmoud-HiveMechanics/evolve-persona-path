@@ -6,6 +6,7 @@ import { Slider } from '../components/ui/slider';
 import { ArrowRight, Send, User, Bot, Mic, Square, Check } from 'lucide-react';
 import { Skeleton } from '../components/ui/skeleton';
 import { MostLeastChoice } from '../components/MostLeastChoice';
+import { Progress } from '../components/ui/progress';
 import { supabase } from '@/integrations/supabase/client';
 
 import { useConversation } from '../hooks/useConversation';
@@ -811,7 +812,25 @@ export const Assessment = () => {
       <Header />
 
       <div className="max-w-5xl mx-auto px-6 py-8">
-
+        {/* Progress Bar - only show during active assessment */}
+        {introDone && !isComplete && (
+          <div className="mb-4">
+            <div className="bg-white/80 backdrop-blur-sm rounded-xl border border-primary/10 p-4 shadow-md">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium text-text-secondary">
+                  Assessment Progress
+                </span>
+                <span className="text-lg font-bold text-primary">
+                  {Math.round((questionCount / MIN_QUESTIONS) * 100)}%
+                </span>
+              </div>
+              <Progress 
+                value={(questionCount / MIN_QUESTIONS) * 100} 
+                className="h-2"
+              />
+            </div>
+          </div>
+        )}
 
         {/* Chat Container */}
         <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-primary/10 h-[700px] flex flex-col shadow-lg">
