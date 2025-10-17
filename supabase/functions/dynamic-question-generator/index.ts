@@ -214,7 +214,8 @@ const corsHeaders = {
     'baseline': 'Quantitative baseline across all 12 principles',
     'deep-dive': 'Qualitative deep dives into priority areas',
     'integration': 'Integration questions to resolve contradictions',
-    'wrap-up': 'Reflective questions to prepare for evaluation'
+    'wrap-up': 'Reflective questions to prepare for evaluation',
+    'gap-analysis': 'Targeted follow-ups on weakest principles based on response quality analysis'
   };
 
   // Track principle coverage to ensure systematic assessment
@@ -247,7 +248,10 @@ const corsHeaders = {
     // Stage 3: Wrap-up (Questions 25-26) - Preparatory reflective questions
     if (questionCount >= 24 && questionCount < 26) return 'wrap-up';
     
-    // Stage 4: Integration (Questions 27+) - Third question for principles needing depth
+    // Stage 4: Gap Analysis (Questions 27-29) - Targeted deep-dives into weak principles
+    if (questionCount >= 26 && questionCount < 29) return 'gap-analysis';
+    
+    // Stage 5: Integration (Questions 30+) - Third question for principles needing depth
     return 'integration';
   };
 
@@ -299,6 +303,96 @@ const corsHeaders = {
     principlesNeedingMore.sort((a, b) => coverage[a] - coverage[b]);
     
     return principlesNeedingMore[0] || null;
+  };
+
+  /**
+   * Analyzes conversation to identify 2-3 principles with the weakest responses
+   * Uses response_memories table for quality analysis
+   */
+  const identifyPrincipleGaps = async (
+    supabase: any,
+    conversationId: string,
+    userId: string
+  ): Promise<Array<{ principle: string; reason: string; averageQuality: number }>> => {
+    console.log('Identifying principle gaps for conversation:', conversationId);
+    
+    // Fetch all response memories for this conversation
+    const { data: memories, error } = await supabase
+      .from('response_memories')
+      .select('*')
+      .eq('conversation_id', conversationId)
+      .eq('user_id', userId);
+    
+    if (error) {
+      console.error('Error fetching response memories:', error);
+      return [];
+    }
+    
+    if (!memories || memories.length === 0) {
+      console.log('No response memories found, using fallback gaps');
+      // Fallback: return common weak spots
+      return [
+        { principle: 'Self-Awareness', reason: 'insufficient data for analysis', averageQuality: 0 },
+        { principle: 'Empowered Responsibility', reason: 'insufficient data for analysis', averageQuality: 0 }
+      ];
+    }
+    
+    // Group by principle and calculate average quality metrics
+    const principleStats: { [key: string]: { qualities: number[]; uncertainties: number[]; followUps: number } } = {};
+    
+    memories.forEach((memory: any) => {
+      const principle = memory.principle;
+      if (!principleStats[principle]) {
+        principleStats[principle] = { qualities: [], uncertainties: [], followUps: 0 };
+      }
+      
+      // Calculate average quality score (depth + specificity + authenticity + coherence) / 4
+      const qualityMetrics = memory.quality_metrics || {};
+      const avgQuality = (
+        (qualityMetrics.depth || 0) + 
+        (qualityMetrics.specificity || 0) + 
+        (qualityMetrics.authenticity || 0) + 
+        (qualityMetrics.coherence || 0)
+      ) / 4;
+      
+      principleStats[principle].qualities.push(avgQuality);
+      
+      // Track uncertainty
+      const sentiment = memory.sentiment || {};
+      principleStats[principle].uncertainties.push(sentiment.uncertainty || 0);
+      
+      // Track if follow-up was flagged
+      if (memory.follow_up_needed) {
+        principleStats[principle].followUps++;
+      }
+    });
+    
+    // Calculate scores for each principle
+    const principleScores = Object.entries(principleStats).map(([principle, stats]) => {
+      const avgQuality = stats.qualities.reduce((a, b) => a + b, 0) / stats.qualities.length;
+      const avgUncertainty = stats.uncertainties.reduce((a, b) => a + b, 0) / stats.uncertainties.length;
+      const followUpRatio = stats.followUps / stats.qualities.length;
+      
+      // Composite weakness score (lower is weaker)
+      const weaknessScore = avgQuality - (avgUncertainty * 0.3) - (followUpRatio * 0.2);
+      
+      let reason = '';
+      if (avgQuality < 2.5) reason = 'low response depth and quality';
+      else if (avgUncertainty > 0.6) reason = 'high uncertainty in responses';
+      else if (followUpRatio > 0.5) reason = 'multiple responses flagged for follow-up';
+      else reason = 'responses lack specificity and examples';
+      
+      return { principle, reason, averageQuality: avgQuality, weaknessScore };
+    });
+    
+    // Sort by weakness score (lowest first) and return top 2-3
+    const weakest = principleScores
+      .sort((a, b) => a.weaknessScore - b.weaknessScore)
+      .slice(0, 3)
+      .map(({ principle, reason, averageQuality }) => ({ principle, reason, averageQuality }));
+    
+    console.log('Identified principle gaps:', weakest);
+    return weakest;
   };
 
 serve(async (req) => {
@@ -362,6 +456,132 @@ serve(async (req) => {
       nextPrinciple,
       principleCoverage
     });
+
+    // Handle gap-analysis stage specially
+    if (currentStage === 'gap-analysis') {
+      console.log('Gap analysis stage - identifying weak principles');
+      
+      // Get user_id from conversation
+      const { data: conversation, error: convError } = await supabase
+        .from('conversations')
+        .select('user_id')
+        .eq('id', conversationId)
+        .single();
+      
+      if (convError || !conversation) {
+        console.error('Error fetching conversation:', convError);
+        // Continue with fallback
+      }
+      
+      const userId = conversation?.user_id;
+      
+      // Identify the weakest principles
+      const gaps = userId ? await identifyPrincipleGaps(supabase, conversationId, userId) : [];
+      
+      if (gaps.length === 0) {
+        console.log('No gaps identified, generating wrap-up question');
+        // Fallback to a general reflection question
+        const fallbackQuestion: QuestionResponse = {
+          question: 'Looking back at our conversation, what surprised you most about your leadership approach?',
+          type: 'open-ended',
+          reasoning: 'No specific gaps identified - using general reflection',
+          principle_focus: 'Multiple Principles',
+          assessment_stage: 'gap-analysis'
+        };
+        
+        return new Response(JSON.stringify({ question: fallbackQuestion }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      
+      // Determine which gap to focus on for this question (Q27, Q28, or Q29)
+      const gapIndex = questionCount - 26; // 0, 1, or 2
+      const targetGap = gaps[gapIndex] || gaps[0]; // Fallback to first gap if out of bounds
+      
+      console.log(`Generating gap question ${questionCount + 1} for principle: ${targetGap.principle}`);
+      
+      // Generate targeted follow-up question using GPT-4
+      const gapPrompt = `You are EvolveAI, conducting a leadership assessment gap analysis.
+
+CONTEXT:
+- We've completed 26 questions assessing 12 leadership principles
+- Analysis shows "${targetGap.principle}" is a weak area
+- Reason: ${targetGap.reason}
+- Average response quality: ${targetGap.averageQuality.toFixed(2)}/5
+
+USER PROFILE:
+Role: ${profile.role || 'Leader'}
+Team Size: ${profile.teamSize || 'Not specified'}
+Industry: ${profile.industry || 'Not specified'}
+
+CONVERSATION SUMMARY:
+${conversationHistoryWithTracking.slice(-10).map((msg: any) => `${msg.type}: ${msg.content.substring(0, 200)}...`).join('\n')}
+
+TASK:
+Generate ONE targeted follow-up question that digs deeper into "${targetGap.principle}".
+
+REQUIREMENTS:
+1. Reference something specific from their previous responses if possible
+2. Ask for a concrete example or recent situation
+3. Challenge them to be more specific and authentic
+4. Keep it conversational and non-judgmental
+5. Question must be "open-ended" type only
+6. Focus on uncovering blind spots or surface-level thinking
+
+STRICT JSON FORMAT (no markdown, no extra text):
+{
+  "question": "Your question here",
+  "type": "open-ended",
+  "reasoning": "Brief explanation of why this question targets the gap",
+  "principle_focus": "${targetGap.principle}",
+  "assessment_stage": "gap-analysis"
+}`;
+
+      try {
+        const gptResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${openAIApiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'gpt-4o',
+            messages: [{ role: 'user', content: gapPrompt }],
+            temperature: 0.8,
+            max_tokens: 300
+          }),
+        });
+        
+        const gptData = await gptResponse.json();
+        const gptContent = gptData.choices[0]?.message?.content || '';
+        
+        // Parse JSON response
+        const cleanJson = gptContent.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+        const gapQuestion = JSON.parse(cleanJson);
+        
+        console.log('Generated gap analysis question:', gapQuestion);
+        
+        return new Response(JSON.stringify({ question: gapQuestion }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+        
+      } catch (error) {
+        console.error('Error generating gap question:', error);
+        
+        // Fallback question
+        const fallbackQuestion: QuestionResponse = {
+          question: `Tell me about a recent situation where ${targetGap.principle.toLowerCase()} was particularly challenging for you. What made it difficult, and what did you learn?`,
+          type: 'open-ended',
+          reasoning: 'Fallback question due to GPT error',
+          principle_focus: targetGap.principle,
+          assessment_stage: 'gap-analysis'
+        };
+        
+        return new Response(JSON.stringify({ question: fallbackQuestion }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+    }
 
     // Generate contextual question based on full conversation history
     const questionResponse = await generateContextualQuestion(
