@@ -694,23 +694,31 @@ const getTopPriorities = (frameworks: FrameworkScore[]) => {
 // Helper function to get detailed principle scores for the 12 principles breakdown
 const getDetailedPrincipleScores = (frameworks: FrameworkScore[]) => {
   // Map the 12 leadership principles with their detailed information
+  // The AI evaluation returns 4 dimension scores, we map them to 12 principles
   const principleDetails = [
-    { key: 'self_awareness', label: 'Self-Awareness', category: 'Self-Leadership' },
-    { key: 'self_responsibility', label: 'Self-Responsibility', category: 'Self-Leadership' },
-    { key: 'continuous_growth', label: 'Continuous Growth', category: 'Self-Leadership' },
-    { key: 'trust_safety', label: 'Trust & Safety', category: 'Relational Leadership' },
-    { key: 'empathy', label: 'Empathy', category: 'Relational Leadership' },
-    { key: 'empowerment', label: 'Empowerment', category: 'Relational Leadership' },
-    { key: 'vision', label: 'Vision', category: 'Organizational Leadership' },
-    { key: 'culture', label: 'Culture', category: 'Organizational Leadership' },
-    { key: 'tension', label: 'Tension Management', category: 'Organizational Leadership' },
-    { key: 'innovation', label: 'Innovation', category: 'Leadership Beyond Organization' },
-    { key: 'stakeholder', label: 'Stakeholder Management', category: 'Leadership Beyond Organization' },
-    { key: 'stewardship', label: 'Stewardship', category: 'Leadership Beyond Organization' }
+    { key: 'self_awareness', label: 'Self-Awareness', category: 'Self-Leadership', dimension: 'self_leadership' },
+    { key: 'self_responsibility', label: 'Self-Responsibility', category: 'Self-Leadership', dimension: 'self_leadership' },
+    { key: 'continuous_growth', label: 'Continuous Growth', category: 'Self-Leadership', dimension: 'self_leadership' },
+    { key: 'trust_safety', label: 'Trust & Safety', category: 'Relational Leadership', dimension: 'relational_leadership' },
+    { key: 'empathy', label: 'Empathy', category: 'Relational Leadership', dimension: 'relational_leadership' },
+    { key: 'empowerment', label: 'Empowerment', category: 'Relational Leadership', dimension: 'relational_leadership' },
+    { key: 'vision', label: 'Vision', category: 'Organizational Leadership', dimension: 'organizational_leadership' },
+    { key: 'culture', label: 'Culture', category: 'Organizational Leadership', dimension: 'organizational_leadership' },
+    { key: 'tension', label: 'Tension Management', category: 'Organizational Leadership', dimension: 'organizational_leadership' },
+    { key: 'innovation', label: 'Innovation', category: 'Leadership Beyond Organization', dimension: 'leadership_beyond_organization' },
+    { key: 'stakeholder', label: 'Stakeholder Management', category: 'Leadership Beyond Organization', dimension: 'leadership_beyond_organization' },
+    { key: 'stewardship', label: 'Stewardship', category: 'Leadership Beyond Organization', dimension: 'leadership_beyond_organization' }
   ];
 
   return principleDetails.map(principle => {
-    const framework = frameworks.find(f => f.key === principle.key);
+    // First try to find the exact principle key
+    let framework = frameworks.find(f => f.key === principle.key);
+    
+    // If not found, look for the dimension score and use that
+    if (!framework) {
+      framework = frameworks.find(f => f.key === principle.dimension);
+    }
+    
     return {
       ...principle,
       score: framework?.score || 50,
