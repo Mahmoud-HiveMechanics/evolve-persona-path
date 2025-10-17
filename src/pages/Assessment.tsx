@@ -19,7 +19,7 @@ import type { Profile } from '@/config/assessment';
 
 export const Assessment = () => {
   const navigate = useNavigate();
-  const MIN_QUESTIONS = 29; // 24 core questions + 2 wrap-up + 3 gap analysis questions
+  const MIN_QUESTIONS = 26; // 24 core questions + 2 wrap-up questions
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isStarted, setIsStarted] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
