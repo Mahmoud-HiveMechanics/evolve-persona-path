@@ -203,6 +203,7 @@ export default function Evaluation() {
   }, []);
 
   const frameworks = data?.frameworks || [];
+  const principles = data?.principles || [];
   
   // Normalize frameworks for backward compatibility
   const normalizedFrameworks = useMemo(() => normalizeFrameworks(frameworks), [frameworks]);
@@ -310,7 +311,7 @@ export default function Evaluation() {
                 </p>
                 
                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {getDetailedPrincipleScores(normalizedFrameworks).map((principle) => (
+                  {getDetailedPrincipleScores(principles).map((principle) => (
                     <div key={principle.key} className="bg-gradient-to-br from-gray-50 to-white rounded-xl p-6 border border-gray-100 hover:shadow-md transition-all duration-300">
                       <div className="flex items-center justify-between mb-4">
                         <h4 className="font-bold text-text-primary text-lg">{principle.label}</h4>
@@ -692,8 +693,19 @@ const getTopPriorities = (frameworks: FrameworkScore[]) => {
 };
 
 // Helper function to get detailed principle scores for the 12 principles breakdown
-const getDetailedPrincipleScores = (frameworks: FrameworkScore[]) => {
-  // Map the 12 leadership principles with their detailed information
+const getDetailedPrincipleScores = (principles: FrameworkScore[]) => {
+  // If we have principles from the AI response, use them directly
+  if (principles && principles.length > 0) {
+    return principles.map(principle => ({
+      key: principle.key,
+      label: principle.label,
+      score: principle.score,
+      summary: principle.summary,
+      category: getPrincipleCategory(principle.key)
+    }));
+  }
+
+  // Fallback: Map the 12 leadership principles with their detailed information
   const principleDetails = [
     { key: 'self_awareness', label: 'Self-Awareness', category: 'Self-Leadership' },
     { key: 'self_responsibility', label: 'Self-Responsibility', category: 'Self-Leadership' },
@@ -709,14 +721,30 @@ const getDetailedPrincipleScores = (frameworks: FrameworkScore[]) => {
     { key: 'stewardship', label: 'Stewardship', category: 'Leadership Beyond Organization' }
   ];
 
-  return principleDetails.map(principle => {
-    const framework = frameworks.find(f => f.key === principle.key);
-    return {
-      ...principle,
-      score: framework?.score || 50,
-      summary: framework?.summary || `Your ${principle.label.toLowerCase()} shows developing capabilities.`
-    };
-  });
+  return principleDetails.map(principle => ({
+    ...principle,
+    score: 50,
+    summary: `Your ${principle.label.toLowerCase()} shows developing capabilities.`
+  }));
+};
+
+// Helper function to get category for principle key
+const getPrincipleCategory = (key: string): string => {
+  const categoryMap: Record<string, string> = {
+    'self_awareness': 'Self-Leadership',
+    'self_responsibility': 'Self-Leadership',
+    'continuous_growth': 'Self-Leadership',
+    'trust_safety': 'Relational Leadership',
+    'empathy': 'Relational Leadership',
+    'empowerment': 'Relational Leadership',
+    'vision': 'Organizational Leadership',
+    'culture': 'Organizational Leadership',
+    'tension': 'Organizational Leadership',
+    'innovation': 'Leadership Beyond Organization',
+    'stakeholder': 'Leadership Beyond Organization',
+    'stewardship': 'Leadership Beyond Organization'
+  };
+  return categoryMap[key] || 'Leadership';
 };
 
 const getDefaultEvaluation = (): EvaluationData => {
