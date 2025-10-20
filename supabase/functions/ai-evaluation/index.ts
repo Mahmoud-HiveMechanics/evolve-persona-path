@@ -38,18 +38,18 @@ interface EvaluationResult {
 
 // 12 Leadership Principles (assessed individually then aggregated to 4 dimensions)
 const LEADERSHIP_PRINCIPLES = {
-  'self-awareness': { name: 'Self-Awareness', category: 'Self-Leadership', dimension: 'self_leadership' },
-  'self-responsibility': { name: 'Self-Responsibility', category: 'Self-Leadership', dimension: 'self_leadership' },
-  'continuous-growth': { name: 'Continuous Personal Growth', category: 'Self-Leadership', dimension: 'self_leadership' },
-  'trust-safety': { name: 'Trust & Psychological Safety', category: 'Relational Leadership', dimension: 'relational_leadership' },
-  'empathy-awareness': { name: 'Empathy & Awareness of Others', category: 'Relational Leadership', dimension: 'relational_leadership' },
-  'empowered-responsibility': { name: 'Empowered & Shared Responsibility', category: 'Relational Leadership', dimension: 'relational_leadership' },
-  'purpose-vision': { name: 'Purpose, Vision and Aligned Outcome', category: 'Organizational Leadership', dimension: 'organizational_leadership' },
-  'culture-leadership': { name: 'Culture of Leadership', category: 'Organizational Leadership', dimension: 'organizational_leadership' },
-  'harnessing-tensions': { name: 'Harnessing Tensions for Effective Collaboration', category: 'Organizational Leadership', dimension: 'organizational_leadership' },
-  'stakeholder-impact': { name: 'Positive Impact on Stakeholders', category: 'Leadership Beyond Organization', dimension: 'leadership_beyond_organization' },
-  'change-innovation': { name: 'Embracing Change & Driving Innovation', category: 'Leadership Beyond Organization', dimension: 'leadership_beyond_organization' },
-  'ethical-stewardship': { name: 'Social and Ethical Stewardship', category: 'Leadership Beyond Organization', dimension: 'leadership_beyond_organization' }
+  'self_awareness': { name: 'Self-Awareness', category: 'Self-Leadership', dimension: 'self_leadership' },
+  'self_responsibility': { name: 'Self-Responsibility', category: 'Self-Leadership', dimension: 'self_leadership' },
+  'continuous_growth': { name: 'Continuous Personal Growth', category: 'Self-Leadership', dimension: 'self_leadership' },
+  'trust_safety': { name: 'Trust & Psychological Safety', category: 'Relational Leadership', dimension: 'relational_leadership' },
+  'empathy': { name: 'Empathy & Awareness of Others', category: 'Relational Leadership', dimension: 'relational_leadership' },
+  'empowerment': { name: 'Empowered & Shared Responsibility', category: 'Relational Leadership', dimension: 'relational_leadership' },
+  'vision': { name: 'Purpose, Vision and Aligned Outcome', category: 'Organizational Leadership', dimension: 'organizational_leadership' },
+  'culture': { name: 'Culture of Leadership', category: 'Organizational Leadership', dimension: 'organizational_leadership' },
+  'tension': { name: 'Harnessing Tensions for Effective Collaboration', category: 'Organizational Leadership', dimension: 'organizational_leadership' },
+  'stakeholder': { name: 'Positive Impact on Stakeholders', category: 'Leadership Beyond Organization', dimension: 'leadership_beyond_organization' },
+  'innovation': { name: 'Embracing Change & Driving Innovation', category: 'Leadership Beyond Organization', dimension: 'leadership_beyond_organization' },
+  'stewardship': { name: 'Social and Ethical Stewardship', category: 'Leadership Beyond Organization', dimension: 'leadership_beyond_organization' }
 };
 
 // 4 High-Level Dimensions (aggregated from 12 principles)
@@ -362,51 +362,51 @@ function calculatePrincipleFallback(key: string, principle: any, responses: stri
   
   // Principle-specific keywords for scoring with weighted importance
   const keywordMap: Record<string, { strong: string[]; moderate: string[] }> = {
-    'self-awareness': { 
+    'self_awareness': { 
       strong: ['reflect', 'understand myself', 'blind spot', 'weakness', 'learn about myself'],
       moderate: ['aware', 'emotion', 'strength']
     },
-    'self-responsibility': { 
+    'self_responsibility': { 
       strong: ['accountable', 'my fault', 'ownership', 'i learned from mistake'],
       moderate: ['responsible', 'take action']
     },
-    'continuous-growth': { 
+    'continuous_growth': { 
       strong: ['actively learning', 'development plan', 'feedback', 'mentor'],
       moderate: ['learn', 'develop', 'improve', 'grow']
     },
-    'trust-safety': { 
+    'trust_safety': { 
       strong: ['psychological safety', 'vulnerable', 'safe to fail', 'open communication'],
       moderate: ['trust', 'safe', 'honest', 'open']
     },
-    'empathy-awareness': { 
+    'empathy': { 
       strong: ['perspective taking', 'understand feelings', 'emotional intelligence'],
       moderate: ['empathy', 'understand others', 'listen']
     },
-    'empowered-responsibility': { 
+    'empowerment': { 
       strong: ['delegate authority', 'autonomy', 'shared ownership', 'distributed leadership'],
       moderate: ['delegate', 'empower', 'shared']
     },
-    'purpose-vision': { 
+    'vision': { 
       strong: ['strategic vision', 'align goals', 'mission driven', 'long term'],
       moderate: ['vision', 'purpose', 'goal', 'direction']
     },
-    'culture-leadership': { 
+    'culture': { 
       strong: ['develop leaders', 'mentor', 'leadership pipeline', 'coach others'],
       moderate: ['culture', 'grow team', 'team development']
     },
-    'harnessing-tensions': { 
+    'tension': { 
       strong: ['productive conflict', 'harness tension', 'diverse perspectives', 'creative friction'],
       moderate: ['conflict', 'tension', 'disagree', 'balance']
     },
-    'stakeholder-impact': { 
+    'stakeholder': { 
       strong: ['stakeholder value', 'broader impact', 'community benefit', 'societal good'],
       moderate: ['stakeholder', 'impact', 'customer', 'client']
     },
-    'change-innovation': { 
+    'innovation': { 
       strong: ['drive innovation', 'transform', 'disrupt', 'experiment', 'pilot'],
       moderate: ['change', 'innovate', 'new', 'adapt']
     },
-    'ethical-stewardship': { 
+    'stewardship': { 
       strong: ['ethical dilemma', 'integrity first', 'social responsibility', 'sustainable'],
       moderate: ['ethical', 'integrity', 'values', 'responsible']
     }
