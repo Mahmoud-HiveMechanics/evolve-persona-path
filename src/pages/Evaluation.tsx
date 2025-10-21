@@ -37,8 +37,14 @@ export default function Evaluation() {
 
         
         // Check if we have evaluation data, otherwise derive from conversation
-        if (!payload || (payload.frameworks && payload.frameworks.every(f => f.score === 0))) {
-          console.log('No evaluation data found or all scores are zero, deriving from conversation...');
+        // Also re-derive if principles array is missing or empty (old evaluation format)
+        const needsRefresh = !payload || 
+          (payload.frameworks && payload.frameworks.every(f => f.score === 0)) ||
+          !payload.principles || 
+          payload.principles.length === 0;
+        
+        if (needsRefresh) {
+          console.log('Evaluation needs refresh (missing, zero scores, or no principles), deriving from conversation...');
         const { data: conv, error: convError } = await supabase
           .from('conversations')
           .select('id')
@@ -311,7 +317,7 @@ export default function Evaluation() {
                 </p>
                 
                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {getDetailedPrincipleScores(principles).map((principle) => (
+                  {getDetailedPrincipleScores(principles, frameworks).map((principle) => (
                     <div key={principle.key} className="bg-gradient-to-br from-gray-50 to-white rounded-xl p-6 border border-gray-100 hover:shadow-md transition-all duration-300">
                       <div className="flex items-center justify-between mb-4">
                         <h4 className="font-bold text-text-primary text-lg">{principle.label}</h4>
@@ -693,7 +699,7 @@ const getTopPriorities = (frameworks: FrameworkScore[]) => {
 };
 
 // Helper function to get detailed principle scores for the 12 principles breakdown
-const getDetailedPrincipleScores = (principles: FrameworkScore[]) => {
+const getDetailedPrincipleScores = (principles: FrameworkScore[], frameworks?: FrameworkScore[]) => {
   // If we have principles from the AI response, use them directly
   if (principles && principles.length > 0) {
     return principles.map(principle => ({
@@ -705,27 +711,43 @@ const getDetailedPrincipleScores = (principles: FrameworkScore[]) => {
     }));
   }
 
-  // Fallback: Map the 12 leadership principles with their detailed information
+  // Improved fallback: If we have the 4 dimension frameworks, distribute their scores to child principles
   const principleDetails = [
-    { key: 'self_awareness', label: 'Self-Awareness', category: 'Self-Leadership' },
-    { key: 'self_responsibility', label: 'Self-Responsibility', category: 'Self-Leadership' },
-    { key: 'continuous_growth', label: 'Continuous Growth', category: 'Self-Leadership' },
-    { key: 'trust_safety', label: 'Trust & Safety', category: 'Relational Leadership' },
-    { key: 'empathy', label: 'Empathy', category: 'Relational Leadership' },
-    { key: 'empowerment', label: 'Empowerment', category: 'Relational Leadership' },
-    { key: 'vision', label: 'Vision', category: 'Organizational Leadership' },
-    { key: 'culture', label: 'Culture', category: 'Organizational Leadership' },
-    { key: 'tension', label: 'Tension Management', category: 'Organizational Leadership' },
-    { key: 'innovation', label: 'Innovation', category: 'Leadership Beyond Organization' },
-    { key: 'stakeholder', label: 'Stakeholder Management', category: 'Leadership Beyond Organization' },
-    { key: 'stewardship', label: 'Stewardship', category: 'Leadership Beyond Organization' }
+    { key: 'self_awareness', label: 'Self-Awareness', category: 'Self-Leadership', parentKey: 'self_leadership' },
+    { key: 'self_responsibility', label: 'Self-Responsibility', category: 'Self-Leadership', parentKey: 'self_leadership' },
+    { key: 'continuous_growth', label: 'Continuous Growth', category: 'Self-Leadership', parentKey: 'self_leadership' },
+    { key: 'trust_safety', label: 'Trust & Safety', category: 'Relational Leadership', parentKey: 'relational_leadership' },
+    { key: 'empathy', label: 'Empathy', category: 'Relational Leadership', parentKey: 'relational_leadership' },
+    { key: 'empowerment', label: 'Empowerment', category: 'Relational Leadership', parentKey: 'relational_leadership' },
+    { key: 'vision', label: 'Vision', category: 'Organizational Leadership', parentKey: 'organizational_leadership' },
+    { key: 'culture', label: 'Culture', category: 'Organizational Leadership', parentKey: 'organizational_leadership' },
+    { key: 'tension', label: 'Tension Management', category: 'Organizational Leadership', parentKey: 'organizational_leadership' },
+    { key: 'innovation', label: 'Innovation', category: 'Leadership Beyond Organization', parentKey: 'leadership_beyond_organization' },
+    { key: 'stakeholder', label: 'Stakeholder Management', category: 'Leadership Beyond Organization', parentKey: 'leadership_beyond_organization' },
+    { key: 'stewardship', label: 'Stewardship', category: 'Leadership Beyond Organization', parentKey: 'leadership_beyond_organization' }
   ];
 
-  return principleDetails.map(principle => ({
-    ...principle,
-    score: 50,
-    summary: `Your ${principle.label.toLowerCase()} shows developing capabilities.`
-  }));
+  // Try to get dimension scores from frameworks
+  const dimensionScores: Record<string, number> = {};
+  if (frameworks && frameworks.length > 0) {
+    frameworks.forEach(f => {
+      if (['self_leadership', 'relational_leadership', 'organizational_leadership', 'leadership_beyond_organization'].includes(f.key)) {
+        dimensionScores[f.key] = f.score;
+      }
+    });
+  }
+
+  return principleDetails.map(principle => {
+    // Use parent dimension score if available, otherwise fallback to 50
+    const score = dimensionScores[principle.parentKey] ?? 50;
+    return {
+      key: principle.key,
+      label: principle.label,
+      category: principle.category,
+      score: score,
+      summary: `Your ${principle.label.toLowerCase()} shows ${getLeadershipLevel(score).toLowerCase()} development.`
+    };
+  });
 };
 
 // Helper function to get category for principle key
