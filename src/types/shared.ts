@@ -48,6 +48,7 @@ export interface FrameworkScore {
 
 export interface EvaluationData {
   frameworks: FrameworkScore[];
+  principles?: FrameworkScore[];
   overall?: {
     persona?: string;
     summary?: string;
