@@ -95,10 +95,14 @@ export const Assessment = () => {
   // Enhanced AI-Driven Question Generation System with Adaptive Intelligence
   const getNextQuestionFromAI = async () => {
     if (!profile) {
+      console.log('⚠️ No profile available, cannot generate question');
       return;
     }
 
+    console.log('🔄 Starting question generation...');
     setAiProcessing(true);
+    setShowCurrentQuestion(false); // Ensure clean state
+    
     const askedCount = askedQuestionsRef.current.size;
     
     console.log(`🎯 Question ${askedCount + 1}: AI-Generated Question (Adaptive Mode)`);
@@ -128,7 +132,7 @@ export const Assessment = () => {
         }
       });
 
-      console.log('Calling dynamic-question-generator with:', {
+      console.log('📤 Calling dynamic-question-generator with:', {
         conversationId,
         profile,
         questionCount: askedCount,
@@ -159,7 +163,7 @@ export const Assessment = () => {
       const { data, error } = response as any;
 
       if (error) {
-        console.error('Error generating question:', error);
+        console.error('❌ Error generating question:', error);
         throw error;
       }
 
@@ -176,12 +180,14 @@ export const Assessment = () => {
         
         console.log('✅ Generated AI question:', q);
         console.log('🎯 Principle Focus:', q.principle_focus, '| Stage:', q.assessment_stage);
+        console.log('🔄 Setting current question state...');
         setCurrentQuestion(q);
+        console.log('✓ Question state updated');
       } else {
         throw new Error('No question returned from AI service');
       }
     } catch (error) {
-      console.error('Failed to generate AI question:', error);
+      console.error('❌ Failed to generate AI question:', error);
       
       // Enhanced fallback questions based on stage
       const isEarlyStage = askedCount < 5;
@@ -216,11 +222,13 @@ export const Assessment = () => {
         }
       ];
       
+      console.log('⚠️ Using fallback question');
       const fallbackIndex = askedCount % fallbackQuestions.length;
       setCurrentQuestion(fallbackQuestions[fallbackIndex]);
+    } finally {
+      console.log('✓ Question generation complete, clearing processing flag');
+      setAiProcessing(false);
     }
-    
-    setAiProcessing(false);
   };
 
   const scrollToBottom = () => {
@@ -288,9 +296,12 @@ export const Assessment = () => {
   // When a new currentQuestion is set, show it and increment display counter
   useEffect(() => {
     if (currentQuestion && !showCurrentQuestion) {
+      console.log('📝 Processing new question for display...');
+      
       // If duplicate, replace locally with a unique fallback (no recursion)
       const norm = normalizeQuestion(currentQuestion.question);
       if (askedNormalizedRef.current.has(norm)) {
+        console.log('⚠️ Duplicate question detected, generating unique variant');
         const uniqueText = ensureUniqueQuestion(
           currentQuestion.question,
           currentQuestion.type === 'multiple-choice'
@@ -298,6 +309,8 @@ export const Assessment = () => {
         setCurrentQuestion({ ...currentQuestion, question: uniqueText } as any);
         return;
       }
+      
+      console.log('✓ Question is unique, adding to chat');
       const nextCount = questionCount + 1;
       addMessage('bot', currentQuestion.question, {
         isQuestion: true,
@@ -308,16 +321,21 @@ export const Assessment = () => {
         principle_focus: currentQuestion.principle_focus,
         assessment_stage: currentQuestion.assessment_stage
       });
+      
+      console.log(`✓ Question ${nextCount} added to messages, showing UI`);
       setShowCurrentQuestion(true);
       setQuestionCount(nextCount);
       askedQuestionsRef.current.add(currentQuestion.question);
       askedNormalizedRef.current.add(norm);
+      
       if (currentQuestion.type === 'multiple-choice' && mcAskedCount < 4) {
         setMcAskedCount((c) => c + 1);
         // Track used MC option sets to prevent repeating the same options
         const sig = currentQuestion.options ? currentQuestion.options.join('|') : '';
         if (sig) console.log('Question options signature:', sig);
       }
+      
+      console.log('✅ Question display complete');
     }
   }, [currentQuestion, showCurrentQuestion, questionCount, navigate, mcAskedCount]);
 
@@ -371,9 +389,12 @@ export const Assessment = () => {
   }, [isStarted, kickoffSent, introDone, profile]);
 
   const handleMultipleChoiceAnswer = async (answer: string) => {
+    console.log('📤 Submitting multiple choice answer:', answer);
     setMcPending(true);
     try {
       await addMessage('user', answer);
+      
+      console.log('🔄 Hiding current question UI');
       setShowCurrentQuestion(false);
       
       // Clear current question first to ensure clean state
@@ -390,8 +411,11 @@ export const Assessment = () => {
     const allPrinciplesHaveMinimum = Object.keys(principleCoverage).length >= 12 && 
                                       Object.values(principleCoverage).every(count => count >= 2);
     
-    if (allPrinciplesHaveMinimum || askedQuestionsRef.current.size >= MIN_QUESTIONS) {
-      console.log('Assessment complete - Principle coverage:', principleCoverage);
+    const currentQuestionCount = askedQuestionsRef.current.size;
+    console.log(`📊 Assessment status: ${currentQuestionCount}/${MIN_QUESTIONS} questions, ${Object.keys(principleCoverage).length}/12 principles`);
+    
+    if (allPrinciplesHaveMinimum || currentQuestionCount >= MIN_QUESTIONS) {
+      console.log('✅ Assessment complete - Principle coverage:', principleCoverage);
       
       // Add professional closing message before evaluation
       await addMessage('bot', "Thank you for taking the time to share your leadership insights with me. I've got everything I need to prepare your results. Hold on just a moment while I analyze your responses and create your personalized leadership evaluation.");
@@ -412,6 +436,9 @@ export const Assessment = () => {
       return;
     }
       
+      console.log('➡️ Continuing to next question...');
+      // Add small delay to ensure state settles
+      await new Promise(resolve => setTimeout(resolve, 100));
       // Continue to next question in the routing system
       await getNextQuestionFromAI();
     } finally {
@@ -422,7 +449,10 @@ export const Assessment = () => {
   const handleOpenEndedSubmit = async () => {
     if (!openEndedResponse.trim()) return;
 
+    console.log('📤 Submitting open-ended answer');
     await addMessage('user', openEndedResponse);
+    
+    console.log('🔄 Hiding current question UI');
     setShowCurrentQuestion(false);
     setOpenEndedResponse('');
 
@@ -440,8 +470,11 @@ export const Assessment = () => {
     const allPrinciplesHaveMinimum = Object.keys(principleCoverage).length >= 12 && 
                                       Object.values(principleCoverage).every(count => count >= 2);
     
-    if (allPrinciplesHaveMinimum || askedQuestionsRef.current.size >= MIN_QUESTIONS) {
-      console.log('Assessment complete - Principle coverage:', principleCoverage);
+    const currentQuestionCount = askedQuestionsRef.current.size;
+    console.log(`📊 Assessment status: ${currentQuestionCount}/${MIN_QUESTIONS} questions, ${Object.keys(principleCoverage).length}/12 principles`);
+    
+    if (allPrinciplesHaveMinimum || currentQuestionCount >= MIN_QUESTIONS) {
+      console.log('✅ Assessment complete - Principle coverage:', principleCoverage);
       
       // Add professional closing message before evaluation
       await addMessage('bot', "Thank you for taking the time to share your leadership insights with me. I've got everything I need to prepare your results. Hold on just a moment while I analyze your responses and create your personalized leadership evaluation.");
@@ -461,13 +494,20 @@ export const Assessment = () => {
       return;
     }
     
+    console.log('➡️ Continuing to next question...');
+    // Add small delay to ensure state settles
+    await new Promise(resolve => setTimeout(resolve, 100));
     // Continue to next question in the routing system
     await getNextQuestionFromAI();
   };
 
   const handleScaleSubmit = async () => {
     const scaleResponse = `${scaleValue[0]} out of 10`;
+    
+    console.log('📤 Submitting scale answer:', scaleResponse);
     await addMessage('user', scaleResponse);
+    
+    console.log('🔄 Hiding current question UI');
     setShowCurrentQuestion(false);
     setScaleValue([5]); // Reset to middle value
 
@@ -485,8 +525,11 @@ export const Assessment = () => {
     const allPrinciplesHaveMinimum = Object.keys(principleCoverage).length >= 12 && 
                                       Object.values(principleCoverage).every(count => count >= 2);
     
-    if (allPrinciplesHaveMinimum || askedQuestionsRef.current.size >= MIN_QUESTIONS) {
-      console.log('Assessment complete - Principle coverage:', principleCoverage);
+    const currentQuestionCount = askedQuestionsRef.current.size;
+    console.log(`📊 Assessment status: ${currentQuestionCount}/${MIN_QUESTIONS} questions, ${Object.keys(principleCoverage).length}/12 principles`);
+    
+    if (allPrinciplesHaveMinimum || currentQuestionCount >= MIN_QUESTIONS) {
+      console.log('✅ Assessment complete - Principle coverage:', principleCoverage);
       setIsComplete(true);
       setEvaluationGenerating(true);
       
@@ -502,13 +545,19 @@ export const Assessment = () => {
       return;
     }
     
+    console.log('➡️ Continuing to next question...');
+    // Add small delay to ensure state settles
+    await new Promise(resolve => setTimeout(resolve, 100));
     // Continue to next question in the routing system
     await getNextQuestionFromAI();
   };
 
   const handleMostLeastAnswer = async (most: string, least: string) => {
+    console.log('📤 Submitting most-least answer...');
     const response = `Most like me: ${most}\nLeast like me: ${least}`;
     await addMessage('user', response);
+    
+    console.log('🔄 Hiding current question UI');
     setShowCurrentQuestion(false);
     setMostSelection(undefined);
     setLeastSelection(undefined);
@@ -527,8 +576,11 @@ export const Assessment = () => {
     const allPrinciplesHaveMinimum = Object.keys(principleCoverage).length >= 12 && 
                                       Object.values(principleCoverage).every(count => count >= 2);
     
-    if (allPrinciplesHaveMinimum || askedQuestionsRef.current.size >= MIN_QUESTIONS) {
-      console.log('Assessment complete - Principle coverage:', principleCoverage);
+    const currentQuestionCount = askedQuestionsRef.current.size;
+    console.log(`📊 Assessment status: ${currentQuestionCount}/${MIN_QUESTIONS} questions, ${Object.keys(principleCoverage).length}/12 principles`);
+    
+    if (allPrinciplesHaveMinimum || currentQuestionCount >= MIN_QUESTIONS) {
+      console.log('✅ Assessment complete - Principle coverage:', principleCoverage);
       setIsComplete(true);
       setEvaluationGenerating(true);
       
@@ -544,7 +596,9 @@ export const Assessment = () => {
       return;
     }
     
-    // Continue to next question in the routing system
+    console.log('➡️ Continuing to next question...');
+    // Add small delay to ensure state settles
+    await new Promise(resolve => setTimeout(resolve, 100));
     await getNextQuestionFromAI();
   };
 
