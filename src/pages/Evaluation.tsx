@@ -261,7 +261,7 @@ export default function Evaluation() {
 
               {/* Four Leadership Dimensions Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-                {getLeadershipDimensions(normalizedFrameworks).map((dimension) => {
+                {normalizedFrameworks.map((dimension) => {
                   const level = getLeadershipLevel(dimension.score);
                   const progressWidth = Math.max(0, Math.min(100, dimension.score));
                   
@@ -583,47 +583,6 @@ const normalizeFrameworks = (frameworks: FrameworkScore[]): FrameworkScore[] => 
   return Object.values(mappedFrameworks);
 };
 
-// Helper function to group frameworks into dimensions (4 leadership dimensions)
-const getLeadershipDimensions = (frameworks: FrameworkScore[]) => {
-  // Normalize frameworks for backward compatibility
-  const normalizedFrameworks = normalizeFrameworks(frameworks);
-  
-  const dimensionMap = {
-    'self_leadership': {
-      key: 'self_leadership',
-      label: 'Self-Leadership',
-      frameworks: ['self_awareness', 'self_responsibility', 'continuous_growth']
-    },
-    'relational_leadership': {
-      key: 'relational_leadership', 
-      label: 'Relational Leadership',
-      frameworks: ['trust_safety', 'empathy', 'empowerment']
-    },
-    'organizational_leadership': {
-      key: 'organizational_leadership',
-      label: 'Organizational Leadership', 
-      frameworks: ['vision', 'culture', 'tension']
-    },
-    'leadership_beyond_organization': {
-      key: 'leadership_beyond_organization',
-      label: 'Leadership Beyond the Organization',
-      frameworks: ['innovation', 'stakeholder', 'stewardship']
-    }
-  };
-
-  return Object.values(dimensionMap).map(dimension => {
-    const relevantFrameworks = normalizedFrameworks.filter(f => dimension.frameworks.includes(f.key));
-    const averageScore = relevantFrameworks.length > 0 
-      ? relevantFrameworks.reduce((sum, f) => sum + (f.score || 0), 0) / relevantFrameworks.length
-      : 0;
-    
-    return {
-      ...dimension,
-      score: averageScore,
-      frameworks: relevantFrameworks
-    };
-  });
-};
 
 const getLeadershipLevel = (score: number): string => {
   if (score >= 85) return 'Transformational';
