@@ -41,16 +41,16 @@ interface EvaluationResult {
 const LEADERSHIP_PRINCIPLES = {
   'self_awareness': { name: 'Self-Awareness', category: 'Self-Leadership', dimension: 'self_leadership' },
   'self_responsibility': { name: 'Self-Responsibility', category: 'Self-Leadership', dimension: 'self_leadership' },
-  'continuous_growth': { name: 'Continuous Growth', category: 'Self-Leadership', dimension: 'self_leadership' },
-  'trust_safety': { name: 'Trust & Safety', category: 'Relational Leadership', dimension: 'relational_leadership' },
-  'empathy': { name: 'Empathy & Awareness', category: 'Relational Leadership', dimension: 'relational_leadership' },
-  'empowerment': { name: 'Shared Responsibility', category: 'Relational Leadership', dimension: 'relational_leadership' },
-  'vision': { name: 'Vision & Purpose', category: 'Organizational Leadership', dimension: 'organizational_leadership' },
+  'continuous_growth': { name: 'Continuous Personal Growth', category: 'Self-Leadership', dimension: 'self_leadership' },
+  'trust_safety': { name: 'Trust & Psychological Safety', category: 'Relational Leadership', dimension: 'relational_leadership' },
+  'empathy': { name: 'Empathy & Awareness of Others', category: 'Relational Leadership', dimension: 'relational_leadership' },
+  'empowerment': { name: 'Empowered & Shared Responsibility', category: 'Relational Leadership', dimension: 'relational_leadership' },
+  'vision': { name: 'Purpose, Vision and Aligned Outcome', category: 'Organizational Leadership', dimension: 'organizational_leadership' },
   'culture': { name: 'Culture of Leadership', category: 'Organizational Leadership', dimension: 'organizational_leadership' },
-  'tension': { name: 'Managing Tensions', category: 'Organizational Leadership', dimension: 'organizational_leadership' },
-  'stakeholder': { name: 'Stakeholder Impact', category: 'Leadership Beyond Organization', dimension: 'leadership_beyond_organization' },
-  'innovation': { name: 'Change & Innovation', category: 'Leadership Beyond Organization', dimension: 'leadership_beyond_organization' },
-  'stewardship': { name: 'Ethical Stewardship', category: 'Leadership Beyond Organization', dimension: 'leadership_beyond_organization' }
+  'tension': { name: 'Harnessing Tensions for Effective Collaboration', category: 'Organizational Leadership', dimension: 'organizational_leadership' },
+  'stakeholder': { name: 'Positive Impact on Stakeholders', category: 'Leadership Beyond Organization', dimension: 'leadership_beyond_organization' },
+  'innovation': { name: 'Embracing Change & Driving Innovation', category: 'Leadership Beyond Organization', dimension: 'leadership_beyond_organization' },
+  'stewardship': { name: 'Social and Ethical Stewardship', category: 'Leadership Beyond Organization', dimension: 'leadership_beyond_organization' }
 };
 
 // 4 High-Level Dimensions (aggregated from 12 principles)
