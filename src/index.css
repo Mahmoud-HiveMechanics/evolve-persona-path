@@ -17,35 +17,38 @@ All colors MUST be HSL.
     --popover: 0 0% 100%;
     --popover-foreground: 210 11% 15%;
 
-    /* EVOLVE Leadership Brand Colors */
-    --primary: 173 43% 52%; /* #6DB5A5 - Main teal */
+    /* THRIVE Culture Brand Colors */
+    --primary: 168 29% 26%; /* #1E3735 - Petrol */
     --primary-foreground: 0 0% 100%;
-    --primary-dark: 173 43% 42%; /* #4A9B8E - Darker teal */
-    --primary-light: 173 43% 62%; /* #8BC4B8 - Lighter teal */
+    --primary-dark: 168 29% 20%; /* Darker Petrol */
+    --primary-light: 145 25% 69%; /* #9cc4a9 - Hellgrün (Sage) */
 
     --secondary: 0 0% 100%;
-    --secondary-foreground: 173 43% 52%;
+    --secondary-foreground: 168 29% 26%;
 
-    --muted: 220 14% 96%;
+    --muted: 140 33% 96%; /* #F3F8F5 - Thrive White */
     --muted-foreground: 220 9% 46%;
 
-    --accent: 173 43% 62%;
-    --accent-foreground: 210 11% 15%;
+    --accent: 54 89% 69%; /* #f5eb6a - Schwefelgelb (Yellow) */
+    --accent-foreground: 168 29% 16%;
+
+    --accent-sage: 145 25% 69%; /* Hellgrün */
+    --accent-blue-gray: 195 22% 73%; /* #adc3c8 - Blaugrau */
 
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 98%;
 
     --border: 220 13% 91%;
     --input: 220 13% 91%;
-    --ring: 173 43% 52%;
+    --ring: 168 29% 26%;
 
     /* Text Colors */
-    --text-primary: 210 11% 15%; /* #2C3E50 - Dark charcoal for headings */
-    --text-secondary: 220 9% 34%; /* #4A5568 - Medium gray for body */
+    --text-primary: 168 29% 16%; /* Darker for better contrast */
+    --text-secondary: 220 9% 34%; /* Medium gray for body */
 
     /* Gradients */
-    --gradient-spiral: radial-gradient(circle, hsl(173 43% 62%), hsl(173 43% 52%), hsl(173 43% 42%));
-    --gradient-hero: linear-gradient(135deg, hsl(173 43% 62% / 0.1), hsl(173 43% 52% / 0.05));
+    --gradient-spiral: radial-gradient(circle, hsl(145 25% 69%), hsl(168 29% 26%), hsl(168 29% 20%));
+    --gradient-hero: linear-gradient(135deg, hsl(145 25% 69% / 0.1), hsl(168 29% 26% / 0.05));
 
     /* Animations */
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -115,11 +118,14 @@ All colors MUST be HSL.
   }
 
   body {
-    @apply bg-background text-foreground font-sans;
+    @apply bg-background text-foreground;
+    font-family: 'Inter', sans-serif;
   }
 
   h1, h2, h3, h4, h5, h6 {
     @apply text-[hsl(var(--text-primary))];
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 600;
   }
 
   p, span {

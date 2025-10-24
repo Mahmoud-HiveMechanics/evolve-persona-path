@@ -15,13 +15,13 @@ export const Home = () => {
             <div className="space-y-10 lg:pr-8">
               <div className="space-y-6">
                 <h1 className="text-5xl lg:text-7xl font-bold text-text-primary leading-[1.1] tracking-tight">
-                  EVOLVE YOUR
+                  THRIVE AS A
                   <br />
-                  <span className="text-primary">LEADERSHIP</span>
+                  <span className="text-primary">LEADER</span>
                 </h1>
                 
                 <p className="text-xl text-text-secondary leading-relaxed max-w-xl">
-                  Unlock your potential with the EVOLVE Leadership Model – a proven framework 
+                  Unlock your potential with THRIVE Culture – a proven framework 
                   for personal and professional growth. Enhance your self-awareness and become 
                   a more effective leader.
                 </p>
@@ -127,7 +127,7 @@ export const Home = () => {
             <div className="space-y-8 lg:pr-8">
               <div className="space-y-6">
                 <h2 className="text-4xl lg:text-5xl font-bold text-text-primary leading-tight">
-                  THE <span className="text-primary">EVOLVE</span>
+                  THE <span className="text-primary">THRIVE</span>
                   <br />
                   LEADERSHIP
                   <br />
@@ -135,7 +135,7 @@ export const Home = () => {
                 </h2>
                 
                 <p className="text-xl text-text-secondary leading-relaxed max-w-lg">
-                  The EVOLVE Leadership Model focuses on cultivating awareness, 
+                  The THRIVE Leadership Model focuses on cultivating awareness, 
                   vision, and strategic action. It empowers leaders to navigate 
                   complexity and drive meaningful change within their organizations.
                 </p>
@@ -206,7 +206,7 @@ export const Home = () => {
                   ))}
                 </div>
                 <blockquote className="text-text-secondary text-lg leading-relaxed mb-6 italic">
-                  "The EVOLVE assessment gave me clarity on my leadership style and actionable insights for growth. Highly recommended for any executive looking to enhance their impact."
+                  "The THRIVE assessment gave me clarity on my leadership style and actionable insights for growth. Highly recommended for any executive looking to enhance their impact."
                 </blockquote>
                 <div className="flex items-center gap-4">
                   <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
@@ -253,7 +253,7 @@ export const Home = () => {
             <div className="relative inline-block">
               <SpiralElement size="lg" className="absolute -top-6 -right-6 opacity-30 animate-pulse" />
               <h2 className="text-4xl lg:text-6xl font-bold text-text-primary leading-tight">
-                Ready to <span className="text-primary">Evolve</span> Your Leadership?
+                Ready to <span className="text-primary">Thrive</span> as a Leader?
               </h2>
             </div>
             <p className="text-xl text-text-secondary max-w-3xl mx-auto leading-relaxed">
@@ -302,7 +302,7 @@ export const Home = () => {
               <div className="flex items-center gap-4">
                 <SpiralElement size="sm" />
                 <div className="text-2xl font-bold">
-                  EVOLVE LEADERSHIP
+                  THRIVE CULTURE
                 </div>
               </div>
               <p className="text-white/80 text-lg leading-relaxed max-w-md">

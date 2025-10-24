@@ -14,9 +14,9 @@ export const Header = () => {
         <Link to="/" className="flex items-center gap-3">
           <SpiralElement size="sm" />
           <div className="text-xl font-bold text-primary">
-            EVOLVE
+            THRIVE
             <div className="text-sm text-text-primary font-normal tracking-wide">
-              LEADERSHIP
+              CULTURE
             </div>
           </div>
         </Link>
