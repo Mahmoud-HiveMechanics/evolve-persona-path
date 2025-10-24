@@ -868,7 +868,7 @@ export const Assessment = () => {
       <div className="max-w-5xl mx-auto px-6 py-8">
         {/* Progress Bar - only show during active assessment */}
         {introDone && !isComplete && (
-          <div className="sticky top-0 z-10 mb-4 bg-background/95 backdrop-blur-sm pb-2 -mt-2 pt-2">
+          <div className="mb-4">
             <div className="bg-white/80 backdrop-blur-sm rounded-xl border border-primary/10 p-4 shadow-md">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-medium text-text-secondary">
