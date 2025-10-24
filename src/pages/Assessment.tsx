@@ -909,7 +909,7 @@ export const Assessment = () => {
                         : 'bg-white border border-border text-text-primary'
                     }`}
                   >
-                    <p className="text-sm leading-relaxed">{message.content}</p>
+                    <p className={`text-sm leading-relaxed ${message.type === 'user' ? 'text-white' : ''}`}>{message.content}</p>
 
                     {/* Dynamic Question UI based on type - only show for the current active question */}
                     {message.isQuestion && showCurrentQuestion && currentQuestion && message.content === currentQuestion.question && (
