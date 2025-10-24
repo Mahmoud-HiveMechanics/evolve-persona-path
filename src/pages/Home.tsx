@@ -2,6 +2,7 @@ import { Header } from '../components/Header';
 import { SpiralElement } from '../components/SpiralElement';
 import { Link } from 'react-router-dom';
 import { ArrowRight, CheckCircle, Users, Star, Clock } from 'lucide-react';
+import thriveLogo from '@/assets/thrive-logo.png';
 
 export const Home = () => {
   return (
@@ -299,11 +300,8 @@ export const Home = () => {
         <div className="max-w-7xl mx-auto relative z-10">
           <div className="grid md:grid-cols-4 gap-12 mb-12">
             <div className="md:col-span-2 space-y-6">
-              <div className="flex items-center gap-4">
-                <SpiralElement size="sm" />
-                <div className="text-2xl font-bold">
-                  THRIVE CULTURE
-                </div>
+              <div className="flex items-center">
+                <img src={thriveLogo} alt="THRIVE Culture" className="h-16 brightness-0 invert" />
               </div>
               <p className="text-white/80 text-lg leading-relaxed max-w-md">
                 Empowering leaders to navigate complexity and drive meaningful change through proven assessment and development frameworks.

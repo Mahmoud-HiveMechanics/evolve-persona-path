@@ -1,6 +1,6 @@
-import { SpiralElement } from './SpiralElement';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import thriveLogo from '@/assets/thrive-logo.png';
 
 export const Header = () => {
   const location = useLocation();
@@ -11,14 +11,8 @@ export const Header = () => {
   return (
     <header className="bg-white border-b border-border py-4 px-6">
       <div className="max-w-7xl mx-auto flex items-center justify-between">
-        <Link to="/" className="flex items-center gap-3">
-          <SpiralElement size="sm" />
-          <div className="text-xl font-bold text-primary">
-            THRIVE
-            <div className="text-sm text-text-primary font-normal tracking-wide">
-              CULTURE
-            </div>
-          </div>
+        <Link to="/" className="flex items-center">
+          <img src={thriveLogo} alt="THRIVE Culture" className="h-12" />
         </Link>
         
         <nav className="hidden md:flex items-center gap-8">
