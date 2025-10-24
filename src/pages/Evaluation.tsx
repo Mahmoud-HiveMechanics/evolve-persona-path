@@ -95,24 +95,8 @@ export default function Evaluation() {
               }
             }
           } else {
-            console.log('No conversation found for user - creating demo evaluation with your X responses');
-            // Create a demo evaluation since we can't fetch from DB
-            const demoMessages = [
-              { message_type: 'bot', content: 'How do you handle difficult situations?', question_type: 'open-ended', created_at: new Date().toISOString() },
-              { message_type: 'user', content: 'X', question_type: null, created_at: new Date().toISOString() },
-              { message_type: 'bot', content: 'How do you motivate your team?', question_type: 'open-ended', created_at: new Date().toISOString() },
-              { message_type: 'user', content: 'X', question_type: null, created_at: new Date().toISOString() },
-              { message_type: 'bot', content: 'How do you handle feedback?', question_type: 'open-ended', created_at: new Date().toISOString() },
-              { message_type: 'user', content: 'X', question_type: null, created_at: new Date().toISOString() },
-              { message_type: 'bot', content: 'How do you approach change?', question_type: 'open-ended', created_at: new Date().toISOString() },
-              { message_type: 'user', content: 'X', question_type: null, created_at: new Date().toISOString() },
-              { message_type: 'bot', content: 'How do you build trust with your team?', question_type: 'open-ended', created_at: new Date().toISOString() },
-              { message_type: 'user', content: 'X', question_type: null, created_at: new Date().toISOString() }
-            ];
-            
-            console.log('Creating demo evaluation with repetitive X responses');
-            payload = await deriveEvaluationFromMessages(demoMessages);
-            console.log('Demo evaluation generated:', payload);
+            console.log('No conversation found for user - user has not started assessment yet');
+            // payload remains null - user hasn't started assessment
           }
         }
 
