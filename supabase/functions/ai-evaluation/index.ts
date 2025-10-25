@@ -37,20 +37,20 @@ interface EvaluationResult {
   };
 }
 
-// 12 Leadership Principles (assessed individually then aggregated to 4 dimensions)
+// 12 Leadership Principles - CRITICAL: Keys must match dynamic-question-generator (kebab-case)
 const LEADERSHIP_PRINCIPLES = {
-  'self_awareness': { name: 'Self-Awareness', category: 'Self-Leadership', dimension: 'self_leadership' },
-  'self_responsibility': { name: 'Self-Responsibility', category: 'Self-Leadership', dimension: 'self_leadership' },
-  'continuous_growth': { name: 'Continuous Personal Growth', category: 'Self-Leadership', dimension: 'self_leadership' },
-  'trust_safety': { name: 'Trust & Psychological Safety', category: 'Relational Leadership', dimension: 'relational_leadership' },
-  'empathy': { name: 'Empathy & Awareness of Others', category: 'Relational Leadership', dimension: 'relational_leadership' },
-  'empowerment': { name: 'Empowered & Shared Responsibility', category: 'Relational Leadership', dimension: 'relational_leadership' },
-  'vision': { name: 'Purpose, Vision and Aligned Outcome', category: 'Organizational Leadership', dimension: 'organizational_leadership' },
-  'culture': { name: 'Culture of Leadership', category: 'Organizational Leadership', dimension: 'organizational_leadership' },
-  'tension': { name: 'Harnessing Tensions for Effective Collaboration', category: 'Organizational Leadership', dimension: 'organizational_leadership' },
-  'stakeholder': { name: 'Positive Impact on Stakeholders', category: 'Leadership Beyond Organization', dimension: 'leadership_beyond_organization' },
-  'innovation': { name: 'Embracing Change & Driving Innovation', category: 'Leadership Beyond Organization', dimension: 'leadership_beyond_organization' },
-  'stewardship': { name: 'Social and Ethical Stewardship', category: 'Leadership Beyond Organization', dimension: 'leadership_beyond_organization' }
+  'self-awareness': { name: 'Self-Awareness', category: 'Self-Leadership', dimension: 'self_leadership' },
+  'self-responsibility': { name: 'Self-Responsibility', category: 'Self-Leadership', dimension: 'self_leadership' },
+  'continuous-growth': { name: 'Continuous Personal Growth', category: 'Self-Leadership', dimension: 'self_leadership' },
+  'trust-safety': { name: 'Trust & Psychological Safety', category: 'Relational Leadership', dimension: 'relational_leadership' },
+  'empathy-awareness': { name: 'Empathy & Awareness of Others', category: 'Relational Leadership', dimension: 'relational_leadership' },
+  'empowered-responsibility': { name: 'Empowered & Shared Responsibility', category: 'Relational Leadership', dimension: 'relational_leadership' },
+  'purpose-vision': { name: 'Purpose, Vision and Aligned Outcome', category: 'Organizational Leadership', dimension: 'organizational_leadership' },
+  'culture-leadership': { name: 'Culture of Leadership', category: 'Organizational Leadership', dimension: 'organizational_leadership' },
+  'harnessing-tensions': { name: 'Harnessing Tensions for Effective Collaboration', category: 'Organizational Leadership', dimension: 'organizational_leadership' },
+  'stakeholder-impact': { name: 'Positive Impact on Stakeholders', category: 'Leadership Beyond Organization', dimension: 'leadership_beyond_organization' },
+  'change-innovation': { name: 'Embracing Change & Driving Innovation', category: 'Leadership Beyond Organization', dimension: 'leadership_beyond_organization' },
+  'ethical-stewardship': { name: 'Social and Ethical Stewardship', category: 'Leadership Beyond Organization', dimension: 'leadership_beyond_organization' }
 };
 
 // 4 High-Level Dimensions (aggregated from 12 principles)
@@ -84,8 +84,18 @@ serve(async (req) => {
     console.log('AI Evaluation request received:', { 
       responsesCount: responses?.length || 0,
       conversationLength: conversationContext?.length || 0,
+      messagesCount: messages?.length || 0,
       hasApiKey: !!openAIApiKey
     });
+
+    // Log principle coverage from messages for debugging
+    const principleCoverageLog: Record<string, number> = {};
+    messages.forEach(msg => {
+      if (msg.message_type === 'bot' && msg.principle_focus) {
+        principleCoverageLog[msg.principle_focus] = (principleCoverageLog[msg.principle_focus] || 0) + 1;
+      }
+    });
+    console.log('📊 Principle coverage in messages:', principleCoverageLog);
 
     if (!openAIApiKey) {
       console.error('OpenAI API key not configured');
@@ -110,6 +120,7 @@ serve(async (req) => {
     }
 
     console.log('Starting principle-based analysis with timeout protection...');
+    console.log(`🎯 Analyzing ${Object.keys(LEADERSHIP_PRINCIPLES).length} principles individually...`);
     
     // Create timeout promise (60 seconds total for 12 principles)
     const timeoutPromise = new Promise<never>((_, reject) => {
@@ -134,24 +145,17 @@ serve(async (req) => {
       timeoutPromise
     ]) as Array<{ key: string; score: number; summary: string }>;
 
-    // Step 2: Validate score distribution and ensure minimum variance
-    console.log('Validating score distribution...');
+    // Step 2: Log natural score distribution (no artificial adjustments)
+    console.log('✅ All principles analyzed - Score Distribution:');
     const scores = principleAnalyses.map(p => p.score);
     const minScore = Math.min(...scores);
     const maxScore = Math.max(...scores);
     const scoreSpread = maxScore - minScore;
+    const avgScore = scores.reduce((a, b) => a + b, 0) / scores.length;
     
-    // If scores are too clustered (less than 25 point spread), adjust them
-    if (scoreSpread < 25) {
-      console.log(`Score spread too narrow (${scoreSpread}), adjusting for better differentiation...`);
-      principleAnalyses.forEach((analysis, index) => {
-        // Create artificial variance while maintaining relative order
-        const adjustment = (index % 3) * 15 - 15; // -15, 0, +15 pattern
-        analysis.score = Math.min(95, Math.max(25, analysis.score + adjustment));
-      });
-    }
-    
-    console.log(`Final score range: ${Math.min(...principleAnalyses.map(p => p.score))} - ${Math.max(...principleAnalyses.map(p => p.score))}`);
+    console.log(`  📊 Range: ${minScore}-${maxScore} (spread: ${scoreSpread} points)`);
+    console.log(`  📊 Average: ${Math.round(avgScore)}`);
+    console.log(`  📊 Distribution: ${principleAnalyses.map(p => `${p.key}=${p.score}`).join(', ')}`);
 
     // Step 3: Aggregate principles into 4 high-level dimensions
     console.log('Aggregating principles into 4 dimensions...');
@@ -281,11 +285,16 @@ async function analyzePrinciple(
     }
   }
   
-  console.log(`Principle ${principle.name} - Found ${principleResponses.length} targeted responses`);
+  console.log(`🎯 Principle ${principle.name} (${key}) - Found ${principleResponses.length} targeted responses`);
+  if (principleResponses.length > 0) {
+    console.log(`  📝 Response samples: ${principleResponses.slice(0, 2).map(r => r.slice(0, 60) + '...').join(' | ')}`);
+  }
   
   const relevantContext = principleResponses.length > 0 
     ? principleResponses.join('\n\n') 
     : conversationContext.slice(-800);
+  
+  console.log(`  📊 Context length: ${relevantContext.length} chars, ${principleResponses.length} targeted responses`);
   
   const prompt = `You are an expert leadership coach analyzing a specific leadership principle.
 
@@ -295,40 +304,46 @@ Category: ${principle.category}
 User Responses Related to This Principle:
 ${relevantContext}
 
-Analyze this specific principle based on the user's responses. Score from 0-100:
-- 85-100: Transformational - Exceptional mastery with consistent application
-- 75-84: Advanced - Strong competency with sophisticated understanding
-- 65-74: Proficient - Solid foundation with effective application
-- 55-64: Competent - Good awareness with developing skills
-- 45-54: Developing - Emerging capability with clear growth path
-- 35-44: Beginning - Basic understanding with limited application
-- 25-34: Emerging - Early awareness, needs significant development
+SCORING RUBRIC (0-100 scale):
 
-CRITICAL SCORING REQUIREMENTS:
-1. **MANDATORY Score Variance** - You MUST create 30-50 point spreads between principles:
-   - Exceptional responses with detailed examples: 80-95 range
-   - Strong responses with good examples: 65-79 range  
-   - Moderate responses with some detail: 45-64 range
-   - Weak/vague responses: 25-44 range
-2. **Strict Quality Standards for High Scores (75+)**:
-   - MUST have concrete, specific examples with measurable outcomes
-   - MUST demonstrate deep self-awareness and reflection
-   - MUST show nuanced understanding of leadership complexity
-   - MUST provide evidence of consistent application over time
-3. **Critical Analysis for Low Scores (25-45)**:
-   - Vague, generic, or surface-level responses
-   - Complete lack of specific examples or outcomes
-   - No evidence of self-awareness or reflection
-   - Contradictory or inconsistent statements
+**HIGH SCORES (75-95)** - Reserve for EXCEPTIONAL responses:
+✓ Contains specific, detailed examples with measurable outcomes
+✓ Shows deep self-reflection and awareness of personal patterns
+✓ Demonstrates nuanced understanding of complexity and trade-offs
+✓ Provides evidence of consistent application over time
 
-SCORING MANDATE: You MUST differentiate scores by at least 30 points between principles. 
-If all responses are similar quality, still create variance based on principle complexity and user engagement.
-NEVER give similar scores (within 10 points) to different principles unless responses are genuinely identical.
+Example 75+ response: "I established weekly 1-on-1s where team members share challenges without judgment. This reduced turnover by 30% and increased engagement scores from 6.2 to 8.4. I learned to ask open-ended questions and actively listen without rushing to solutions."
 
-Return JSON:
+**MEDIUM SCORES (50-74)** - For good responses with room to grow:
+✓ Has some specific examples but lacks measurable outcomes
+✓ Shows awareness but limited reflection on personal impact
+✓ Demonstrates understanding but not yet sophisticated
+✓ Evidence of application but not consistently
+
+Example 60 response: "I try to create a safe environment by being approachable and having regular check-ins. People seem comfortable sharing concerns with me."
+
+**LOW SCORES (25-49)** - For generic or vague responses:
+✓ No specific examples or measurable outcomes
+✓ Generic statements without personal insight ("I value trust")
+✓ Lack of self-awareness or reflection
+✓ No evidence of practical application
+
+Example 35 response: "Trust is important. I think I'm trustworthy and try to be honest with my team."
+
+CRITICAL INSTRUCTIONS:
+1. BE STRICT: Only 75+ if response has specific examples WITH measurable outcomes
+2. CREATE VARIANCE: If user gives similar-quality answers, differentiate by:
+   - Depth of self-reflection shown
+   - Specificity of examples provided  
+   - Evidence of learning from experience
+   - Sophistication of understanding
+3. BE HONEST: Low scores (25-45) are VALID when responses lack substance
+4. REFERENCE ACTUAL CONTENT: Your summary must cite specific things the user said
+
+Return JSON only:
 {
-  "score": [0-100 integer - ensure variation],
-  "summary": "[1-2 sentences on this specific principle]"
+  "score": [0-100 integer based on strict rubric above],
+  "summary": "[1-2 sentences referencing user's actual response content]"
 }`;
 
   try {
@@ -373,94 +388,132 @@ Return JSON:
     const score = typeof analysis.score === 'number' ? Math.max(30, Math.min(100, Math.round(analysis.score))) : 60;
     const summary = typeof analysis.summary === 'string' ? analysis.summary : `Shows developing ${principle.name.toLowerCase()}.`;
 
-    console.log(`Principle ${principle.name} analysis successful: Score ${score}`);
+    console.log(`✅ Principle ${principle.name} scored: ${score}/100`);
+    if (principleResponses.length === 0) {
+      console.log(`  ⚠️ No targeted responses found - used fallback context`);
+    }
 
     return { key, score, summary };
 
   } catch (error) {
-    console.error(`Error analyzing principle ${principle.name}:`, error);
+    console.error(`❌ Error analyzing principle ${principle.name}:`, error);
+    console.log(`  🔄 Falling back to keyword-based scoring...`);
     return calculatePrincipleFallback(key, principle, responses);
   }
 }
 
 function calculatePrincipleFallback(key: string, principle: any, responses: string[]): { key: string; score: number; summary: string } {
+  console.log(`⚠️ Using fallback scoring for ${principle.name}`);
   const responseText = responses.join(' ').toLowerCase();
   
-  // Enhanced base scoring with wider variance (25-95 range)
-  const baseScores = [28, 35, 42, 48, 55, 62, 68, 75, 82, 88];
+  // Wider base score variance (25-85 range)
+  const baseScores = [30, 38, 45, 52, 58, 65, 71, 78, 83];
   const keyIndex = Object.keys(LEADERSHIP_PRINCIPLES).indexOf(key);
   let score = baseScores[keyIndex % baseScores.length];
   
-  // Principle-specific keywords for scoring with weighted importance
-  const keywordMap: Record<string, { strong: string[]; moderate: string[] }> = {
-    'self_awareness': { 
-      strong: ['reflect', 'understand myself', 'blind spot', 'weakness', 'learn about myself'],
-      moderate: ['aware', 'emotion', 'strength']
+  // Principle-specific evidence indicators (kebab-case keys)
+  const keywordMap: Record<string, { strong: string[]; moderate: string[]; weak: string[] }> = {
+    'self-awareness': { 
+      strong: ['reflect on', 'understand my', 'blind spot', 'realized', 'pattern in my'],
+      moderate: ['aware', 'emotion', 'strength', 'weakness'],
+      weak: ['think', 'feel', 'myself']
     },
-    'self_responsibility': { 
-      strong: ['accountable', 'my fault', 'ownership', 'i learned from mistake'],
-      moderate: ['responsible', 'take action']
+    'self-responsibility': { 
+      strong: ['accountable', 'my mistake', 'ownership', 'i learned from', 'my fault'],
+      moderate: ['responsible', 'take action', 'my decision'],
+      weak: ['should', 'could have', 'responsibility']
     },
-    'continuous_growth': { 
-      strong: ['actively learning', 'development plan', 'feedback', 'mentor'],
-      moderate: ['learn', 'develop', 'improve', 'grow']
+    'continuous-growth': { 
+      strong: ['development plan', 'actively learning', 'sought feedback', 'mentor', 'course'],
+      moderate: ['learn', 'develop', 'improve', 'grow'],
+      weak: ['want to learn', 'trying to improve']
     },
-    'trust_safety': { 
-      strong: ['psychological safety', 'vulnerable', 'safe to fail', 'open communication'],
-      moderate: ['trust', 'safe', 'honest', 'open']
+    'trust-safety': { 
+      strong: ['psychological safety', 'vulnerable', 'safe to fail', 'open dialogue'],
+      moderate: ['trust', 'safe space', 'honest', 'transparent'],
+      weak: ['trust', 'honest', 'open']
     },
-    'empathy': { 
-      strong: ['perspective taking', 'understand feelings', 'emotional intelligence'],
-      moderate: ['empathy', 'understand others', 'listen']
+    'empathy-awareness': {
+      strong: ['perspective taking', 'understand feelings', 'emotional intelligence', 'put myself in'],
+      moderate: ['empathy', 'understand others', 'listen'],
+      weak: ['care', 'nice', 'kind']
     },
-    'empowerment': { 
-      strong: ['delegate authority', 'autonomy', 'shared ownership', 'distributed leadership'],
-      moderate: ['delegate', 'empower', 'shared']
+    'empowered-responsibility': { 
+      strong: ['delegate authority', 'autonomy', 'shared ownership', 'distributed decision'],
+      moderate: ['delegate', 'empower', 'trust team'],
+      weak: ['let them', 'allow']
     },
-    'vision': { 
-      strong: ['strategic vision', 'align goals', 'mission driven', 'long term'],
-      moderate: ['vision', 'purpose', 'goal', 'direction']
+    'purpose-vision': { 
+      strong: ['strategic vision', 'align goals', 'mission driven', 'clear direction'],
+      moderate: ['vision', 'purpose', 'goal', 'direction'],
+      weak: ['plan', 'want']
     },
-    'culture': { 
-      strong: ['develop leaders', 'mentor', 'leadership pipeline', 'coach others'],
-      moderate: ['culture', 'grow team', 'team development']
+    'culture-leadership': { 
+      strong: ['develop leaders', 'coaching', 'leadership pipeline', 'grow capabilities'],
+      moderate: ['culture', 'grow team', 'mentor'],
+      weak: ['help', 'support']
     },
-    'tension': { 
-      strong: ['productive conflict', 'harness tension', 'diverse perspectives', 'creative friction'],
-      moderate: ['conflict', 'tension', 'disagree', 'balance']
+    'harnessing-tensions': { 
+      strong: ['productive conflict', 'harness tension', 'diverse perspectives', 'healthy debate'],
+      moderate: ['conflict', 'tension', 'disagree', 'balance'],
+      weak: ['different', 'argue']
     },
-    'stakeholder': { 
-      strong: ['stakeholder value', 'broader impact', 'community benefit', 'societal good'],
-      moderate: ['stakeholder', 'impact', 'customer', 'client']
+    'stakeholder-impact': { 
+      strong: ['stakeholder value', 'broader impact', 'community benefit', 'beyond profit'],
+      moderate: ['stakeholder', 'impact', 'customer', 'client'],
+      weak: ['people', 'others']
     },
-    'innovation': { 
-      strong: ['drive innovation', 'transform', 'disrupt', 'experiment', 'pilot'],
-      moderate: ['change', 'innovate', 'new', 'adapt']
+    'change-innovation': { 
+      strong: ['drive innovation', 'transform', 'experiment', 'pilot new'],
+      moderate: ['change', 'innovate', 'new', 'adapt'],
+      weak: ['different', 'try']
     },
-    'stewardship': { 
-      strong: ['ethical dilemma', 'integrity first', 'social responsibility', 'sustainable'],
-      moderate: ['ethical', 'integrity', 'values', 'responsible']
+    'ethical-stewardship': { 
+      strong: ['ethical dilemma', 'integrity first', 'social responsibility', 'values-based'],
+      moderate: ['ethical', 'integrity', 'values', 'responsible'],
+      weak: ['right', 'good', 'should']
     }
   };
   
-  const keywords = keywordMap[key] || { strong: [], moderate: [] };
+  const keywords = keywordMap[key] || { strong: [], moderate: [], weak: [] };
+  
+  // Count evidence strength
   const strongMatches = keywords.strong.filter(kw => responseText.includes(kw.toLowerCase()));
   const moderateMatches = keywords.moderate.filter(kw => responseText.includes(kw.toLowerCase()));
+  const weakMatches = keywords.weak ? keywords.weak.filter(kw => responseText.includes(kw.toLowerCase())) : [];
   
-  // Enhanced scoring with quality-weighted bonuses
-  score += strongMatches.length * 12; // Increased weight for strong indicators
-  score += moderateMatches.length * 4; // Moderate weight for basic indicators
+  console.log(`  📊 Fallback keywords for ${key}: strong=${strongMatches.length}, moderate=${moderateMatches.length}, weak=${weakMatches.length}`);
   
-  // Quality-based adjustments (not length-based)
-  const hasSpecificExamples = responseText.includes('example') || responseText.includes('instance') || responseText.includes('time when');
-  const hasOutcomes = responseText.includes('result') || responseText.includes('outcome') || responseText.includes('impact');
-  const hasReflection = responseText.includes('learned') || responseText.includes('realized') || responseText.includes('understood');
+  // Scoring logic: strong evidence boosts, weak evidence doesn't help much
+  score += strongMatches.length * 15; // Strong evidence = significant boost
+  score += moderateMatches.length * 7; // Moderate evidence = medium boost
+  score += weakMatches.length * 2; // Weak evidence = minimal boost
   
-  if (hasSpecificExamples) score += 8;
-  if (hasOutcomes) score += 6;
-  if (hasReflection) score += 4;
+  // Quality indicators (not length-based)
+  const hasSpecificExamples = /\b(example|instance|time when|situation where|case of)\b/.test(responseText);
+  const hasOutcomes = /\b(result|outcome|impact|effect|led to|caused|increased|decreased|improved)\b/.test(responseText);
+  const hasReflection = /\b(learned|realized|understood|discovered|recognized|became aware)\b/.test(responseText);
+  const hasNumbers = /\d+%|\d+ people|\d+ months|\d+ years|by \d+/.test(responseText);
+  
+  if (hasSpecificExamples) {
+    score += 10;
+    console.log(`  ✓ Has specific examples (+10)`);
+  }
+  if (hasOutcomes) {
+    score += 8;
+    console.log(`  ✓ Has measurable outcomes (+8)`);
+  }
+  if (hasReflection) {
+    score += 6;
+    console.log(`  ✓ Shows reflection (+6)`);
+  }
+  if (hasNumbers) {
+    score += 5;
+    console.log(`  ✓ Contains metrics (+5)`);
+  }
   
   const finalScore = Math.min(95, Math.max(25, score));
+  console.log(`  📊 Fallback final score for ${principle.name}: ${finalScore}`);
   
   const levelDesc = finalScore >= 75 ? 'strong' : finalScore >= 65 ? 'proficient' : finalScore >= 55 ? 'competent' : finalScore >= 45 ? 'developing' : 'emerging';
   
