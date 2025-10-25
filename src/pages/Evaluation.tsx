@@ -192,15 +192,12 @@ export default function Evaluation() {
     }
   }, []);
 
-  const frameworks = data?.frameworks || [];
-  const principles = data?.principles || [];
-  
-  // Normalize frameworks for backward compatibility
-  const normalizedFrameworks = useMemo(() => normalizeFrameworks(frameworks), [frameworks]);
+  const frameworks = data?.frameworks || []; // 4 dimensions
+  const principles = data?.principles || []; // 12 principles
 
   const lowestThree = useMemo(() => {
-    return [...normalizedFrameworks].sort((a, b) => (a.score ?? 0) - (b.score ?? 0)).slice(0, 3);
-  }, [normalizedFrameworks]);
+    return [...frameworks].sort((a, b) => (a.score ?? 0) - (b.score ?? 0)).slice(0, 3);
+  }, [frameworks]);
 
   function toggleImprovement(key: string) {
     setImprovementsDone(prev => ({ ...prev, [key]: !prev[key] }));
@@ -245,7 +242,7 @@ export default function Evaluation() {
 
               {/* Four Leadership Dimensions Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-                {normalizedFrameworks.map((dimension) => {
+                {frameworks.map((dimension) => {
                   const level = getLeadershipLevel(dimension.score);
                   const progressWidth = Math.max(0, Math.min(100, dimension.score));
                   
@@ -301,7 +298,7 @@ export default function Evaluation() {
                 </p>
                 
                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {getDetailedPrincipleScores(principles, frameworks).map((principle) => (
+                  {principles.map((principle) => (
                     <div key={principle.key} className="bg-gradient-to-br from-gray-50 to-white rounded-xl p-6 border border-gray-100 hover:shadow-md transition-all duration-300">
                       <div className="flex items-center justify-between mb-4">
                         <h4 className="font-bold text-text-primary text-lg">{principle.label}</h4>
@@ -372,7 +369,7 @@ export default function Evaluation() {
                     <h3 className="text-xl font-bold text-text-primary mb-6">Top 2 Priorities</h3>
                     
                     <div className="space-y-4">
-                      {getTopPriorities(normalizedFrameworks).map((priority, index) => (
+                      {getTopPriorities(frameworks).map((priority, index) => (
                         <div key={index} className="border-l-4 border-primary pl-4">
                           <h4 className="font-semibold text-text-primary mb-2">{priority.title}</h4>
                           <p className="text-sm text-text-secondary">{priority.description}</p>
@@ -484,88 +481,6 @@ export default function Evaluation() {
 // --- Enhanced Scoring System with 12 Principles Framework ---
 
 // OLD to NEW framework mapping for backward compatibility
-const OLD_TO_NEW_FRAMEWORK_MAPPING: Record<string, string> = {
-  // Old framework keys → New framework keys
-  'communication': 'empathy',
-  'decision_making': 'vision', 
-  'team_building': 'trust_safety',
-  'strategic_thinking': 'vision',
-  'emotional_intelligence': 'empathy',
-  'change_management': 'tension',
-  'conflict_resolution': 'tension',
-  'delegation': 'empowerment',
-  'performance_management': 'empowerment',
-  'adaptability': 'continuous_growth',
-  'accountability': 'self_responsibility',
-  'leadership_presence': 'self_awareness',
-  'coaching_mentoring': 'empowerment',
-  'innovation_creativity': 'innovation',
-  'stakeholder_management': 'stakeholder',
-  'ethical_leadership': 'stewardship',
-  'cultural_awareness': 'culture',
-  'resilience': 'self_responsibility',
-  'influence': 'stakeholder',
-  'time_management': 'self_responsibility'
-};
-
-// Function to normalize frameworks for backward compatibility
-const normalizeFrameworks = (frameworks: FrameworkScore[]): FrameworkScore[] => {
-  const newFrameworkKeys = [
-    'self_awareness', 'self_responsibility', 'continuous_growth',
-    'trust_safety', 'empathy', 'empowerment', 
-    'vision', 'culture', 'tension',
-    'innovation', 'stakeholder', 'stewardship'
-  ];
-
-  // Check if we already have new frameworks
-  const hasNewFrameworks = frameworks.some(f => newFrameworkKeys.includes(f.key));
-  
-  if (hasNewFrameworks) {
-    // Already using new structure, return as-is
-    return frameworks;
-  }
-
-  // Map old frameworks to new ones
-  const mappedFrameworks: Record<string, FrameworkScore> = {};
-  
-  // Initialize all new frameworks with default values
-  const newFrameworkLabels: Record<string, string> = {
-    'self_awareness': 'Self-Awareness',
-    'self_responsibility': 'Self-Responsibility', 
-    'continuous_growth': 'Continuous Growth',
-    'trust_safety': 'Trust & Safety',
-    'empathy': 'Empathy',
-    'empowerment': 'Empowerment',
-    'vision': 'Vision',
-    'culture': 'Culture', 
-    'tension': 'Tension Management',
-    'innovation': 'Innovation',
-    'stakeholder': 'Stakeholder Management',
-    'stewardship': 'Stewardship'
-  };
-
-  newFrameworkKeys.forEach(key => {
-    mappedFrameworks[key] = {
-      key,
-      label: newFrameworkLabels[key],
-      score: 50 // Default score
-    };
-  });
-
-  // Map old framework scores to new ones
-  frameworks.forEach(oldFramework => {
-    const newKey = OLD_TO_NEW_FRAMEWORK_MAPPING[oldFramework.key];
-    if (newKey && mappedFrameworks[newKey]) {
-      // Average with existing score if multiple old frameworks map to same new one
-      const currentScore = mappedFrameworks[newKey].score || 0;
-      mappedFrameworks[newKey].score = (currentScore + (oldFramework.score || 0)) / 2;
-      mappedFrameworks[newKey].summary = oldFramework.summary || mappedFrameworks[newKey].summary;
-      mappedFrameworks[newKey].confidence = oldFramework.confidence || mappedFrameworks[newKey].confidence;
-    }
-  });
-
-  return Object.values(mappedFrameworks);
-};
 
 
 const getLeadershipLevel = (score: number): string => {
@@ -641,76 +556,6 @@ const getTopPriorities = (frameworks: FrameworkScore[]) => {
   }));
 };
 
-// Helper function to get detailed principle scores for the 12 principles breakdown
-const getDetailedPrincipleScores = (principles: FrameworkScore[], frameworks?: FrameworkScore[]) => {
-  // If we have principles from the AI response, use them directly
-  if (principles && principles.length > 0) {
-    return principles.map(principle => ({
-      key: principle.key,
-      label: principle.label,
-      score: principle.score,
-      summary: principle.summary,
-      category: getPrincipleCategory(principle.key)
-    }));
-  }
-
-  // Improved fallback: If we have the 4 dimension frameworks, distribute their scores to child principles
-  const principleDetails = [
-    { key: 'self_awareness', label: 'Self-Awareness', category: 'Self-Leadership', parentKey: 'self_leadership' },
-    { key: 'self_responsibility', label: 'Self-Responsibility', category: 'Self-Leadership', parentKey: 'self_leadership' },
-    { key: 'continuous_growth', label: 'Continuous Growth', category: 'Self-Leadership', parentKey: 'self_leadership' },
-    { key: 'trust_safety', label: 'Trust & Safety', category: 'Relational Leadership', parentKey: 'relational_leadership' },
-    { key: 'empathy', label: 'Empathy', category: 'Relational Leadership', parentKey: 'relational_leadership' },
-    { key: 'empowerment', label: 'Empowerment', category: 'Relational Leadership', parentKey: 'relational_leadership' },
-    { key: 'vision', label: 'Vision', category: 'Organizational Leadership', parentKey: 'organizational_leadership' },
-    { key: 'culture', label: 'Culture', category: 'Organizational Leadership', parentKey: 'organizational_leadership' },
-    { key: 'tension', label: 'Tension Management', category: 'Organizational Leadership', parentKey: 'organizational_leadership' },
-    { key: 'innovation', label: 'Innovation', category: 'Leadership Beyond Organization', parentKey: 'leadership_beyond_organization' },
-    { key: 'stakeholder', label: 'Stakeholder Management', category: 'Leadership Beyond Organization', parentKey: 'leadership_beyond_organization' },
-    { key: 'stewardship', label: 'Stewardship', category: 'Leadership Beyond Organization', parentKey: 'leadership_beyond_organization' }
-  ];
-
-  // Try to get dimension scores from frameworks
-  const dimensionScores: Record<string, number> = {};
-  if (frameworks && frameworks.length > 0) {
-    frameworks.forEach(f => {
-      if (['self_leadership', 'relational_leadership', 'organizational_leadership', 'leadership_beyond_organization'].includes(f.key)) {
-        dimensionScores[f.key] = f.score;
-      }
-    });
-  }
-
-  return principleDetails.map(principle => {
-    // Use parent dimension score if available, otherwise fallback to 50
-    const score = dimensionScores[principle.parentKey] ?? 50;
-    return {
-      key: principle.key,
-      label: principle.label,
-      category: principle.category,
-      score: score,
-      summary: `Your ${principle.label.toLowerCase()} shows ${getLeadershipLevel(score).toLowerCase()} development.`
-    };
-  });
-};
-
-// Helper function to get category for principle key
-const getPrincipleCategory = (key: string): string => {
-  const categoryMap: Record<string, string> = {
-    'self_awareness': 'Self-Leadership',
-    'self_responsibility': 'Self-Leadership',
-    'continuous_growth': 'Self-Leadership',
-    'trust_safety': 'Relational Leadership',
-    'empathy': 'Relational Leadership',
-    'empowerment': 'Relational Leadership',
-    'vision': 'Organizational Leadership',
-    'culture': 'Organizational Leadership',
-    'tension': 'Organizational Leadership',
-    'innovation': 'Leadership Beyond Organization',
-    'stakeholder': 'Leadership Beyond Organization',
-    'stewardship': 'Leadership Beyond Organization'
-  };
-  return categoryMap[key] || 'Leadership';
-};
 
 const getDefaultEvaluation = (): EvaluationData => {
   // Generate more varied scores across all levels to avoid always showing "developing"
