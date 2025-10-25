@@ -306,13 +306,23 @@ ${relevantContext}
 
 SCORING RUBRIC (0-100 scale):
 
-**HIGH SCORES (75-95)** - Reserve for EXCEPTIONAL responses:
+**RESPONSE TYPE MODIFIERS** - Apply FIRST based on response format:
+• Minimal effort ("x", "xx", one-word, blank) → 5-20 range MAXIMUM
+• Very low scale self-rating (1-3 out of 10) → 15-30 range
+• Low-medium scale rating (4-6 out of 10) → 30-50 range  
+• High scale rating (7-10 out of 10) → 45-65 range (shows confidence)
+• Multiple choice selection only → 28-45 range (lacks personal depth)
+• Most/Least choice pair → 30-50 range (shows some reflection)
+• Contradictory most/least → 20-35 range (logical inconsistency)
+• Open-ended with examples → Full 0-100 range based on quality below
+
+**HIGH SCORES (75-95)** - Reserve for EXCEPTIONAL open-ended responses:
 ✓ Contains specific, detailed examples with measurable outcomes
 ✓ Shows deep self-reflection and awareness of personal patterns
 ✓ Demonstrates nuanced understanding of complexity and trade-offs
 ✓ Provides evidence of consistent application over time
 
-Example 75+ response: "I established weekly 1-on-1s where team members share challenges without judgment. This reduced turnover by 30% and increased engagement scores from 6.2 to 8.4. I learned to ask open-ended questions and actively listen without rushing to solutions."
+Example: "I established weekly 1-on-1s where team members share challenges without judgment. This reduced turnover by 30% and increased engagement scores from 6.2 to 8.4."
 
 **MEDIUM SCORES (50-74)** - For good responses with room to grow:
 ✓ Has some specific examples but lacks measurable outcomes
@@ -320,25 +330,27 @@ Example 75+ response: "I established weekly 1-on-1s where team members share cha
 ✓ Demonstrates understanding but not yet sophisticated
 ✓ Evidence of application but not consistently
 
-Example 60 response: "I try to create a safe environment by being approachable and having regular check-ins. People seem comfortable sharing concerns with me."
+Example: "I try to create a safe environment by being approachable and having regular check-ins. People seem comfortable sharing concerns with me."
 
 **LOW SCORES (25-49)** - For generic or vague responses:
 ✓ No specific examples or measurable outcomes
-✓ Generic statements without personal insight ("I value trust")
+✓ Generic statements without personal insight
 ✓ Lack of self-awareness or reflection
-✓ No evidence of practical application
+✓ MCQ/Most-Least without elaboration
 
-Example 35 response: "Trust is important. I think I'm trustworthy and try to be honest with my team."
+Example: "Trust is important. I think I'm trustworthy."
+
+**VERY LOW SCORES (5-24)** - For minimal/no effort:
+✓ One-word or placeholder responses ("x", "xx")
+✓ Very low scale ratings (1-3) showing low self-assessment
+✓ No substantive content
+✓ Contradictory statements
 
 CRITICAL INSTRUCTIONS:
-1. BE STRICT: Only 75+ if response has specific examples WITH measurable outcomes
-2. CREATE VARIANCE: If user gives similar-quality answers, differentiate by:
-   - Depth of self-reflection shown
-   - Specificity of examples provided  
-   - Evidence of learning from experience
-   - Sophistication of understanding
-3. BE HONEST: Low scores (25-45) are VALID when responses lack substance
-4. REFERENCE ACTUAL CONTENT: Your summary must cite specific things the user said
+1. **FORCE VARIANCE**: Even if all responses are weak, create 15-30 point spreads based on effort level, scale values, and logical consistency
+2. **BE BRUTALLY HONEST**: Score 8-15 for "xx" responses - don't artificially inflate to 30
+3. **SCALE VALUES MATTER**: 3/10 self-rating scores MUCH lower than 8/10 rating
+4. **REFERENCE ACTUAL CONTENT**: Summary must cite what user actually said or selected
 
 Return JSON only:
 {
