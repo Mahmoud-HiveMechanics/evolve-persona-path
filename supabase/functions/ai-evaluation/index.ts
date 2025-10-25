@@ -385,7 +385,7 @@ Return JSON only:
     const content = data.choices[0].message.content;
     const analysis = JSON.parse(content);
 
-    const score = typeof analysis.score === 'number' ? Math.max(30, Math.min(100, Math.round(analysis.score))) : 60;
+    const score = typeof analysis.score === 'number' ? Math.max(0, Math.min(100, Math.round(analysis.score))) : 60;
     const summary = typeof analysis.summary === 'string' ? analysis.summary : `Shows developing ${principle.name.toLowerCase()}.`;
 
     console.log(`✅ Principle ${principle.name} scored: ${score}/100`);
@@ -407,7 +407,7 @@ function calculatePrincipleFallback(key: string, principle: any, responses: stri
   const responseText = responses.join(' ').toLowerCase();
   
   // Wider base score variance (25-85 range)
-  const baseScores = [30, 38, 45, 52, 58, 65, 71, 78, 83];
+  const baseScores = [25, 33, 42, 51, 60, 68, 75, 82, 88];
   const keyIndex = Object.keys(LEADERSHIP_PRINCIPLES).indexOf(key);
   let score = baseScores[keyIndex % baseScores.length];
   
