@@ -32,7 +32,7 @@ export default function Evaluation() {
         if (evalErr) throw evalErr;
         
         console.log('Evaluation rows found:', evalRows?.length);
-        let payload = ((evalRows as any)?.[0]?.data as EvaluationData) || null;
+        let payload: EvaluationData | null = ((evalRows as any)?.[0]?.data as EvaluationData) || null;
         console.log('Initial payload:', payload);
 
         
@@ -47,14 +47,18 @@ export default function Evaluation() {
           console.log('Evaluation needs refresh (missing, zero scores, or no principles), deriving from conversation...');
         const { data: conv, error: convError } = await supabase
           .from('conversations')
-          .select('id')
+          .select('id, assessment_complete, completed_at')
           .eq('user_id', userId)
-          .order('started_at', { ascending: false })
+          .eq('assessment_complete', true)
+          .order('completed_at', { ascending: false })
           .limit(1)
           .maybeSingle();
           
           if (convError) {
             console.error('Error fetching conversation:', convError);
+          } else if (!conv || !conv.assessment_complete) {
+            console.log('No completed assessment found for user');
+            payload = null;
           } else if (conv?.id) {
             console.log('Found conversation:', conv.id);
             const { data: msgs, error: msgError } = await supabase
@@ -457,15 +461,15 @@ export default function Evaluation() {
               <div className="w-16 h-16 bg-gradient-to-r from-primary to-primary/80 rounded-full flex items-center justify-center mx-auto mb-6">
                 <span className="text-2xl text-white">📊</span>
               </div>
-              <h2 className="text-3xl font-bold text-text-primary mb-4">No Evaluation Yet</h2>
+              <h2 className="text-3xl font-bold text-text-primary mb-4">Assessment In Progress</h2>
               <p className="text-xl text-text-secondary mb-8">
-                Complete your leadership assessment to generate your personalized evaluation and growth plan.
+                Complete your full leadership assessment to unlock your personalized evaluation and growth plan. Your results will appear here once you finish.
               </p>
               <a 
                 href="/assessment" 
                 className="inline-flex items-center gap-3 bg-gradient-to-r from-primary to-primary/80 text-white px-8 py-4 rounded-2xl font-semibold text-lg shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
               >
-                Start Assessment
+                Continue Assessment
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
                 </svg>
