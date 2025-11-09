@@ -296,66 +296,88 @@ async function analyzePrinciple(
   
   console.log(`  📊 Context length: ${relevantContext.length} chars, ${principleResponses.length} targeted responses`);
   
-  const prompt = `You are an expert leadership coach analyzing a specific leadership principle.
+  const prompt = `You are an expert leadership coach analyzing responses for the principle: ${principle.name}
 
-Principle: ${principle.name}
-Category: ${principle.category}
-
-User Responses Related to This Principle:
+User Response:
 ${relevantContext}
 
-SCORING RUBRIC (0-100 scale):
+SCORING APPROACH: Focus ONLY on LANGUAGE PATTERNS and CONTENT, NOT response length or format. Score based on WHAT they say, not HOW MUCH they say.
 
-**RESPONSE TYPE MODIFIERS** - Apply FIRST based on response format:
-• Minimal effort ("x", "xx", one-word, blank) → 5-20 range MAXIMUM
-• Very low scale self-rating (1-3 out of 10) → 15-30 range
-• Low-medium scale rating (4-6 out of 10) → 30-50 range  
-• High scale rating (7-10 out of 10) → 45-65 range (shows confidence)
-• Multiple choice selection only → 28-45 range (lacks personal depth)
-• Most/Least choice pair → 30-50 range (shows some reflection)
-• Contradictory most/least → 20-35 range (logical inconsistency)
-• Open-ended with examples → Full 0-100 range based on quality below
+SCORE BASED ON THESE LANGUAGE INDICATORS:
 
-**HIGH SCORES (75-95)** - Reserve for EXCEPTIONAL open-ended responses:
-✓ Contains specific, detailed examples with measurable outcomes
-✓ Shows deep self-reflection and awareness of personal patterns
-✓ Demonstrates nuanced understanding of complexity and trade-offs
-✓ Provides evidence of consistent application over time
+**LEVEL 1 - Emerging (1-20):**
+Look for these language patterns:
+- External blame: "the team didn't", "they failed", "others didn't", "it wasn't really my failure"
+- No ownership: "I had given clear guidance", "the team needed to perform better"
+- Defensive: "I felt they didn't appreciate", "I dismissed it", "I felt misunderstood"
+- Control-focused: "I told them to", "I made sure they", "my job is to"
+- No emotional awareness: Describes events without feelings or reflection
+- Dismissive: "I don't really see a need", "I've been doing this long enough", "I prefer to move forward"
+- Complacency: "I focus on what I do best", "I don't think much about"
 
-Example: "I established weekly 1-on-1s where team members share challenges without judgment. This reduced turnover by 30% and increased engagement scores from 6.2 to 8.4."
+Example Level 1: "During a board meeting, one of our investors told me I tend to shut down debate when my ideas are challenged. Honestly, it irritated me — I felt they didn't appreciate how much pressure I'm under. I dismissed it at first, assuming they just didn't see the bigger picture."
+Key indicators: "it irritated me", "I felt they didn't appreciate", "I dismissed it"
 
-**MEDIUM SCORES (50-74)** - For good responses with room to grow:
-✓ Has some specific examples but lacks measurable outcomes
-✓ Shows awareness but limited reflection on personal impact
-✓ Demonstrates understanding but not yet sophisticated
-✓ Evidence of application but not consistently
+**LEVEL 2 - Developing (20-40):**
+Look for these language patterns:
+- Surface acknowledgment: "I realized I could have", "I should have", "I later realized"
+- Compliance mindset: "I need to", "I should", "I went along because", "it seemed expected"
+- Procedural focus: "I implemented", "I set up processes", "I apologized to"
+- After-the-fact reflection: "Eventually I", "A few days later", "Later I realized"
+- Inconsistent change: "I still catch myself", "though I still", "I didn't make big changes"
+- Conditional: "I think it's okay to be open sometimes, but it has to be carefully managed"
 
-Example: "I try to create a safe environment by being approachable and having regular check-ins. People seem comfortable sharing concerns with me."
+Example Level 2: "I once received feedback that I sometimes dominate discussions. It stung, because I saw myself as a decisive leader. Initially, I felt misunderstood. A few days later, I realized they might be right. I've started pausing more before responding, though I still catch myself reverting under pressure."
+Key indicators: "A few days later, I realized", "I've started", "though I still catch myself"
 
-**LOW SCORES (25-49)** - For generic or vague responses:
-✓ No specific examples or measurable outcomes
-✓ Generic statements without personal insight
-✓ Lack of self-awareness or reflection
-✓ MCQ/Most-Least without elaboration
+**LEVEL 3 - Expanding (40-60):**
+Look for these language patterns:
+- Genuine reflection: "I took time to think", "I realized", "as I reflected", "I saw"
+- Links intent to impact: "my tone could make others", "I saw how my actions", "it taught me that"
+- Behavioral change: "I began asking", "I started", "I invited them", "I tried to listen"
+- Values awareness: "I value", "I learned that", "it reminded me"
+- Impact awareness: "It's made our", "it helped", "that experience taught me"
+- Practical vulnerability: "I admitted I didn't have all the answers", "I asked for their candid input"
 
-Example: "Trust is important. I think I'm trustworthy."
+Example Level 3: "After a major presentation, one of my senior leaders told me that my communication can feel intimidating. My first reaction was defensive — I've always valued candor. But I took time to think about it and realized my tone could make others hesitant. I began asking my team to give me real-time feedback and experimented with softer phrasing. It's made our strategic discussions more balanced."
+Key indicators: "I took time to think", "I realized", "I began asking", "It's made our"
 
-**VERY LOW SCORES (5-24)** - For minimal/no effort:
-✓ One-word or placeholder responses ("x", "xx")
-✓ Very low scale ratings (1-3) showing low self-assessment
-✓ No substantive content
-✓ Contradictory statements
+**LEVEL 4 - Flourishing (60-80):**
+Look for these language patterns:
+- Mature emotional intelligence: "as I reflected, I saw the truth in it", "I communicated candidly"
+- Transparent accountability: "I addressed the entire company", "I took full responsibility", "I acknowledged"
+- Systemic thinking: "strengthened our culture", "improved team morale", "across the organization", "people began speaking"
+- Values-driven: "it didn't align with our values", "credibility isn't built by", "I learned that trust grows"
+- Creates safety: "people began speaking more honestly", "strengthened trust", "deepened trust"
+- Co-creation: "I facilitated workshops", "we co-created", "we mapped each role"
 
-CRITICAL INSTRUCTIONS:
-1. **FORCE VARIANCE**: Even if all responses are weak, create 15-30 point spreads based on effort level, scale values, and logical consistency
-2. **BE BRUTALLY HONEST**: Score 8-15 for "xx" responses - don't artificially inflate to 30
-3. **SCALE VALUES MATTER**: 3/10 self-rating scores MUCH lower than 8/10 rating
-4. **REFERENCE ACTUAL CONTENT**: Summary must cite what user actually said or selected
+Example Level 4: "After a leadership retreat, my CHRO shared that I often move too quickly from problem to solution. It stung because I pride myself on being efficient. But as I reflected, I saw the truth in it — my need for speed sometimes overshadows the emotional processing others need. Since then, I've made it a practice to slow down, name the tension, and invite more perspectives. It's deepened trust and improved decision quality across the organization."
+Key indicators: "as I reflected, I saw the truth", "I've made it a practice", "It's deepened trust", "across the organization"
+
+**LEVEL 5 - Thriving (80-100):**
+Look for these language patterns:
+- Transformative wisdom: "became transformative", "completely reshaped my perspective", "that feedback became transformative"
+- Cultural transformation: "created a leadership culture", "we redesigned", "we built", "we've embedded", "it's now part of"
+- Regenerative: "transforming error into wisdom", "turned that experience into", "we turned that experience"
+- Deep conscience: "our company exists to", "foundation of sustainable growth", "for me, ethics isn't a trade-off"
+- Collective learning: "we redesigned", "we built", "normalizing", "the result strengthened"
+- Systemic awareness: "I used the experience to start a broader dialogue", "normalizing open conversations", "strengthened both individual trust and our organizational culture"
+
+Example Level 5: "Several years ago, my coach told me that my constant drive to protect sometimes prevents others from developing their own resilience. It was uncomfortable to hear because care is core to who I am. But that feedback became transformative. I realized that by stepping in too quickly, I was unintentionally limiting others' leadership growth. I began practicing deeper listening and asking generative questions. Over time, that shift created a leadership culture rooted in trust, empowerment, and shared ownership."
+Key indicators: "became transformative", "I realized", "Over time, that shift created a leadership culture", "rooted in trust, empowerment"
+
+CRITICAL SCORING RULES:
+1. IGNORE response length - a short response with high-level language can score 80+
+2. IGNORE format - MCQ responses can score high if language shows high-level thinking
+3. FOCUS on language patterns - match the actual words and phrases used
+4. USE FULL RANGE - don't compress scores. If language shows Level 5, score 80-100. If Level 1, score 1-20
+5. DIFFERENTIATE clearly - Level 1 responses should score 1-20, Level 5 should score 80-100
+6. MINIMAL EFFORT ONLY: If response is truly minimal ("x", "xx", blank), score 5-15. Otherwise, score based on language patterns above.
 
 Return JSON only:
 {
-  "score": [0-100 integer based on strict rubric above],
-  "summary": "[1-2 sentences referencing user's actual response content]"
+  "score": [1-100 integer matching language patterns above],
+  "summary": "[1-2 sentences citing specific language from response that indicates this level]"
 }`;
 
   try {
@@ -376,7 +398,7 @@ Return JSON only:
         messages: [
           { 
             role: 'system', 
-            content: 'You are an expert leadership assessment analyst. Ensure scores vary meaningfully between principles. Always respond with valid JSON only.' 
+            content: 'You are an expert leadership assessment analyst. Score based on LANGUAGE PATTERNS only, not response length or format. Use the FULL 1-100 range - Level 1 responses score 1-20, Level 5 responses score 80-100. Always respond with valid JSON only.' 
           },
           { role: 'user', content: prompt }
         ],
@@ -416,133 +438,155 @@ Return JSON only:
 
 function calculatePrincipleFallback(key: string, principle: any, responses: string[]): { key: string; score: number; summary: string } {
   console.log(`⚠️ Using fallback scoring for ${principle.name}`);
-  const responseText = responses.join(' ').toLowerCase();
+  const responseText = responses.join(' ');
   
-  // Wider base score variance (25-85 range)
-  const baseScores = [25, 33, 42, 51, 60, 68, 75, 82, 88];
-  const keyIndex = Object.keys(LEADERSHIP_PRINCIPLES).indexOf(key);
-  let score = baseScores[keyIndex % baseScores.length];
-  
-  // Principle-specific evidence indicators (kebab-case keys)
-  const keywordMap: Record<string, { strong: string[]; moderate: string[]; weak: string[] }> = {
-    'self-awareness': { 
-      strong: ['reflect on', 'understand my', 'blind spot', 'realized', 'pattern in my'],
-      moderate: ['aware', 'emotion', 'strength', 'weakness'],
-      weak: ['think', 'feel', 'myself']
-    },
-    'self-responsibility': { 
-      strong: ['accountable', 'my mistake', 'ownership', 'i learned from', 'my fault'],
-      moderate: ['responsible', 'take action', 'my decision'],
-      weak: ['should', 'could have', 'responsibility']
-    },
-    'continuous-growth': { 
-      strong: ['development plan', 'actively learning', 'sought feedback', 'mentor', 'course'],
-      moderate: ['learn', 'develop', 'improve', 'grow'],
-      weak: ['want to learn', 'trying to improve']
-    },
-    'trust-safety': { 
-      strong: ['psychological safety', 'vulnerable', 'safe to fail', 'open dialogue'],
-      moderate: ['trust', 'safe space', 'honest', 'transparent'],
-      weak: ['trust', 'honest', 'open']
-    },
-    'empathy-awareness': {
-      strong: ['perspective taking', 'understand feelings', 'emotional intelligence', 'put myself in'],
-      moderate: ['empathy', 'understand others', 'listen'],
-      weak: ['care', 'nice', 'kind']
-    },
-    'empowered-responsibility': { 
-      strong: ['delegate authority', 'autonomy', 'shared ownership', 'distributed decision'],
-      moderate: ['delegate', 'empower', 'trust team'],
-      weak: ['let them', 'allow']
-    },
-    'purpose-vision': { 
-      strong: ['strategic vision', 'align goals', 'mission driven', 'clear direction'],
-      moderate: ['vision', 'purpose', 'goal', 'direction'],
-      weak: ['plan', 'want']
-    },
-    'culture-leadership': { 
-      strong: ['develop leaders', 'coaching', 'leadership pipeline', 'grow capabilities'],
-      moderate: ['culture', 'grow team', 'mentor'],
-      weak: ['help', 'support']
-    },
-    'harnessing-tensions': { 
-      strong: ['productive conflict', 'harness tension', 'diverse perspectives', 'healthy debate'],
-      moderate: ['conflict', 'tension', 'disagree', 'balance'],
-      weak: ['different', 'argue']
-    },
-    'stakeholder-impact': { 
-      strong: ['stakeholder value', 'broader impact', 'community benefit', 'beyond profit'],
-      moderate: ['stakeholder', 'impact', 'customer', 'client'],
-      weak: ['people', 'others']
-    },
-    'change-innovation': { 
-      strong: ['drive innovation', 'transform', 'experiment', 'pilot new'],
-      moderate: ['change', 'innovate', 'new', 'adapt'],
-      weak: ['different', 'try']
-    },
-    'ethical-stewardship': { 
-      strong: ['ethical dilemma', 'integrity first', 'social responsibility', 'values-based'],
-      moderate: ['ethical', 'integrity', 'values', 'responsible'],
-      weak: ['right', 'good', 'should']
-    }
-  };
-  
-  const keywords = keywordMap[key] || { strong: [], moderate: [], weak: [] };
-  
-  // Count evidence strength
-  const strongMatches = keywords.strong.filter(kw => responseText.includes(kw.toLowerCase()));
-  const moderateMatches = keywords.moderate.filter(kw => responseText.includes(kw.toLowerCase()));
-  const weakMatches = keywords.weak ? keywords.weak.filter(kw => responseText.includes(kw.toLowerCase())) : [];
-  
-  console.log(`  📊 Fallback keywords for ${key}: strong=${strongMatches.length}, moderate=${moderateMatches.length}, weak=${weakMatches.length}`);
-  
-  // Scoring logic: strong evidence boosts, weak evidence doesn't help much
-  score += strongMatches.length * 15; // Strong evidence = significant boost
-  score += moderateMatches.length * 7; // Moderate evidence = medium boost
-  score += weakMatches.length * 2; // Weak evidence = minimal boost
-  
-  // Quality indicators (not length-based)
-  const hasSpecificExamples = /\b(example|instance|time when|situation where|case of)\b/.test(responseText);
-  const hasOutcomes = /\b(result|outcome|impact|effect|led to|caused|increased|decreased|improved)\b/.test(responseText);
-  const hasReflection = /\b(learned|realized|understood|discovered|recognized|became aware)\b/.test(responseText);
-  const hasNumbers = /\d+%|\d+ people|\d+ months|\d+ years|by \d+/.test(responseText);
-  
-  if (hasSpecificExamples) {
-    score += 10;
-    console.log(`  ✓ Has specific examples (+10)`);
-  }
-  if (hasOutcomes) {
-    score += 8;
-    console.log(`  ✓ Has measurable outcomes (+8)`);
-  }
-  if (hasReflection) {
-    score += 6;
-    console.log(`  ✓ Shows reflection (+6)`);
-  }
-  if (hasNumbers) {
-    score += 5;
-    console.log(`  ✓ Contains metrics (+5)`);
+  // Check for minimal effort first
+  if (responseText.trim().length < 10 || /^(x+|xx+|test|asdf)$/i.test(responseText.trim())) {
+    const minScore = Math.floor(Math.random() * 10) + 5; // 5-15 range
+    return {
+      key,
+      score: minScore,
+      summary: `Minimal response provided for ${principle.name.toLowerCase()}.`
+    };
   }
   
-  const finalScore = Math.min(95, Math.max(25, score));
-  console.log(`  📊 Fallback final score for ${principle.name}: ${finalScore}`);
+  // Language pattern indicators for each level (using regex patterns)
+  const level1Patterns = [
+    /\b(they|them|others|the team)\s+(didn't|failed|missed|should|need to)/i,
+    /\bit\s+wasn't\s+(really\s+)?my\s+(fault|failure|responsibility)/i,
+    /\b(the|they)\s+(needed|should|didn't)/i,
+    /\bi\s+dismissed/i,
+    /\bi\s+felt\s+(they|others)\s+didn't\s+(appreciate|understand|see)/i,
+    /\bi\s+prefer\s+to\s+move\s+forward/i,
+    /\bi\s+don't\s+really\s+(see|believe|think)/i,
+    /\bi've\s+been\s+doing\s+this\s+long\s+enough/i,
+    /\bi\s+told\s+(them|people)\s+to/i,
+    /\bmy\s+job\s+is\s+to/i,
+    /\bi\s+focus\s+on\s+(what|results|delivering)/i,
+    /\bi\s+guess\s+i/i,
+    /\bwork\s+still\s+needs\s+to\s+get\s+done/i,
+    /\bpeople\s+should\s+(handle|manage|sort)/i
+  ];
   
-  const levelDesc = finalScore >= 75 ? 'strong' : finalScore >= 65 ? 'proficient' : finalScore >= 55 ? 'competent' : finalScore >= 45 ? 'developing' : 'emerging';
+  const level2Patterns = [
+    /\bi\s+realized\s+(i\s+)?could\s+have/i,
+    /\bi\s+should\s+have/i,
+    /\beventually\s+i\s+(realized|acknowledged)/i,
+    /\ba\s+few\s+days\s+later/i,
+    /\bi\s+need\s+to/i,
+    /\bi\s+went\s+along\s+because/i,
+    /\bit\s+seemed\s+(expected|required)/i,
+    /\bi\s+implemented/i,
+    /\bi\s+set\s+up\s+(processes|systems)/i,
+    /\bi\s+still\s+(catch\s+myself|revert|find)/i,
+    /\bthough\s+i\s+still/i,
+    /\bi\s+didn't\s+make\s+big\s+changes/i,
+    /\bgrowth\s+still\s+feels\s+like/i
+  ];
+  
+  const level3Patterns = [
+    /\bi\s+took\s+time\s+to\s+(think|reflect)/i,
+    /\bi\s+realized\s+(that|my|how)/i,
+    /\bmy\s+(first\s+)?reaction\s+was\s+(defensive|but)/i,
+    /\bas\s+i\s+reflected/i,
+    /\bmy\s+(tone|actions|approach)\s+(could|can)\s+make/i,
+    /\bi\s+saw\s+(how|that|the\s+truth)/i,
+    /\bit\s+taught\s+me\s+that/i,
+    /\bi\s+began\s+(asking|experimenting|using|practicing)/i,
+    /\bi\s+started\s+(asking|using|pausing)/i,
+    /\bi\s+invited\s+(them|people)/i,
+    /\bi\s+tried\s+to\s+(listen|create)/i,
+    /\bit's\s+made\s+(our|the)/i,
+    /\bit\s+helped\s+(me|us)/i,
+    /\bthat\s+experience\s+taught\s+me/i,
+    /\bi\s+admitted\s+i\s+didn't\s+have\s+all\s+the\s+answers/i
+  ];
+  
+  const level4Patterns = [
+    /\bi\s+communicated\s+candidly/i,
+    /\bi\s+addressed\s+(the|an)\s+(entire\s+)?(company|team|organization)/i,
+    /\bi\s+shared\s+(not\s+just|how)/i,
+    /\bas\s+i\s+reflected,\s+i\s+saw/i,
+    /\bi\s+took\s+(full\s+)?responsibility/i,
+    /\bi\s+acknowledged\s+(the|our)/i,
+    /\b(deepened|strengthened|improved)\s+(trust|our\s+culture|team\s+morale)/i,
+    /\bacross\s+(the\s+)?(organization|company|team)/i,
+    /\bpeople\s+began\s+(speaking|sharing)/i,
+    /\bit\s+strengthened\s+(our|the)/i,
+    /\bit\s+didn't\s+align\s+with\s+(our|my)\s+values/i,
+    /\bcredibility\s+isn't\s+built/i,
+    /\bi\s+learned\s+that\s+(trust|credibility)/i,
+    /\bi\s+facilitated\s+workshops/i,
+    /\bwe\s+co-created/i
+  ];
+  
+  const level5Patterns = [
+    /\b(became|become)\s+transformative/i,
+    /\b(reshaped|transformed|completely\s+reshaped)\s+my\s+perspective/i,
+    /\bthat\s+feedback\s+(became|was)/i,
+    /\b(created|built|embedded)\s+(a|our)\s+(leadership\s+)?culture/i,
+    /\bwe\s+(redesigned|built|embedded|turned)/i,
+    /\bover\s+time,\s+that\s+(shift|change|experience)/i,
+    /\bit's\s+now\s+part\s+of\s+(our|how)/i,
+    /\btransforming\s+(error|challenge|experience)\s+into/i,
+    /\bturned\s+that\s+experience\s+into/i,
+    /\b(our|my)\s+company\s+exists\s+to/i,
+    /\bfoundation\s+of\s+(sustainable|shared|sustainable\s+growth)/i,
+    /\bfor\s+me,\s+(ethics|ownership|growth)\s+isn't\s+(just|a)/i,
+    /\bnormalizing\s+(open|these)/i,
+    /\bthe\s+result\s+(strengthened|has\s+been|created)/i,
+    /\bi\s+used\s+the\s+experience\s+to\s+start/i
+  ];
+  
+  // Score based on highest level pattern found
+  let score = 50; // Default middle
+  let level = 0;
+  
+  const level1Matches = level1Patterns.filter(p => p.test(responseText)).length;
+  const level2Matches = level2Patterns.filter(p => p.test(responseText)).length;
+  const level3Matches = level3Patterns.filter(p => p.test(responseText)).length;
+  const level4Matches = level4Patterns.filter(p => p.test(responseText)).length;
+  const level5Matches = level5Patterns.filter(p => p.test(responseText)).length;
+  
+  console.log(`  📊 Fallback pattern matches: L1=${level1Matches}, L2=${level2Matches}, L3=${level3Matches}, L4=${level4Matches}, L5=${level5Matches}`);
+  
+  if (level5Matches > 0) {
+    score = 80 + Math.min(20, level5Matches * 4); // 80-100
+    level = 5;
+  } else if (level4Matches > 0) {
+    score = 60 + Math.min(20, level4Matches * 4); // 60-80
+    level = 4;
+  } else if (level3Matches > 0) {
+    score = 40 + Math.min(20, level3Matches * 4); // 40-60
+    level = 3;
+  } else if (level2Matches > 0) {
+    score = 20 + Math.min(20, level2Matches * 4); // 20-40
+    level = 2;
+  } else if (level1Matches > 0) {
+    score = 1 + Math.min(19, level1Matches * 3); // 1-20
+    level = 1;
+  }
+  
+  // Ensure score is within bounds
+  score = Math.min(100, Math.max(1, Math.round(score)));
+  
+  const levelNames = ['', 'emerging', 'developing', 'expanding', 'flourishing', 'thriving'];
+  const levelDesc = levelNames[level] || 'developing';
+  
+  console.log(`  📊 Fallback final score for ${principle.name}: ${score} (Level ${level})`);
   
   return {
     key,
-    score: finalScore,
-    summary: `Demonstrates ${levelDesc} ${principle.name.toLowerCase()} with ${strongMatches.length > 0 ? 'solid depth' : 'room for growth'}.`
+    score,
+    summary: `Language patterns indicate ${levelDesc} level ${principle.name.toLowerCase()}.`
   };
 }
 
 function scoreToLevel(score: number): number {
-  if (score >= 85) return 7; // Transformational
-  if (score >= 75) return 6; // Advanced
-  if (score >= 65) return 5; // Proficient
-  if (score >= 55) return 4; // Competent
-  if (score >= 45) return 3; // Developing
-  if (score >= 35) return 2; // Beginning
+  if (score >= 80) return 5; // Thriving
+  if (score >= 60) return 4; // Flourishing
+  if (score >= 40) return 3; // Expanding
+  if (score >= 20) return 2; // Developing
   return 1; // Emerging
 }
 

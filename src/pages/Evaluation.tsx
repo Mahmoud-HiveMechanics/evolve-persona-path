@@ -260,29 +260,64 @@ export default function Evaluation() {
                           <div className="text-2xl font-bold text-primary mb-2">{level}</div>
                           <div className="text-lg font-semibold text-text-secondary mb-2">{Math.round(dimension.score)}/100</div>
                           <div className="flex justify-center">
-                            <div className="flex space-x-1">
-                              {[1, 2, 3, 4, 5, 6, 7].map((dot) => (
-                                <div
-                                  key={dot}
-                                  className={`w-2 h-2 rounded-full ${
-                                    dot <= getLeadershipLevelNumber(dimension.score)
-                                      ? 'bg-primary'
-                                      : 'bg-gray-200'
-                                  }`}
-                                />
-                              ))}
+                            <div className="flex space-x-1 items-center">
+                              {[1, 2, 3, 4, 5].map((dot) => {
+                                const levelNum = getLeadershipLevelNumber(dimension.score);
+                                const positionInLevel = getPositionWithinLevel(dimension.score);
+                                const isActive = dot < levelNum;
+                                const isCurrentLevel = dot === levelNum;
+                                
+                                return (
+                                  <div key={dot} className="relative">
+                                    <div
+                                      className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${
+                                        isActive
+                                          ? 'bg-primary'
+                                          : isCurrentLevel
+                                          ? 'bg-gray-300'
+                                          : 'bg-gray-200'
+                                      }`}
+                                    />
+                                    {/* Show partial fill for current level based on position */}
+                                    {isCurrentLevel && (
+                                      <div
+                                        className="absolute top-0 left-0 h-2.5 rounded-full bg-primary transition-all duration-300"
+                                        style={{ width: `${positionInLevel * 100}%` }}
+                                      />
+                                    )}
+                                  </div>
+                                );
+                              })}
                             </div>
                           </div>
                         </div>
                       </div>
                       
-                      {/* Progress Bar */}
+                      {/* Progress Bar with Level Bracket Indicators */}
                       <div className="mb-4">
-                        <div className="w-full bg-gray-100 rounded-full h-3">
+                        <div className="w-full bg-gray-100 rounded-full h-3 relative overflow-hidden">
+                          {/* Full score progress bar */}
                           <div 
-                            className="bg-gradient-to-r from-primary to-primary-dark h-3 rounded-full transition-all duration-1000 ease-out"
+                            className="bg-gradient-to-r from-primary to-primary-dark h-3 rounded-full transition-all duration-1000 ease-out absolute top-0 left-0"
                             style={{ width: `${progressWidth}%` }}
                           ></div>
+                          {/* Level bracket markers */}
+                          <div className="absolute inset-0 flex">
+                            {[20, 40, 60, 80].map((marker) => (
+                              <div
+                                key={marker}
+                                className="absolute top-0 bottom-0 w-px bg-gray-300 opacity-50"
+                                style={{ left: `${marker}%` }}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                        {/* Level range indicator */}
+                        <div className="text-xs text-text-secondary text-center mt-1">
+                          {(() => {
+                            const bounds = getLevelBounds(dimension.score);
+                            return `${bounds.min}-${bounds.max}`;
+                          })()}
                         </div>
                       </div>
                       
@@ -313,11 +348,22 @@ export default function Evaluation() {
                       </div>
                       
                       <div className="mb-4">
-                        <div className="w-full bg-gray-200 rounded-full h-3">
+                        <div className="w-full bg-gray-200 rounded-full h-3 relative overflow-hidden">
+                          {/* Full score progress bar */}
                           <div 
-                            className="bg-gradient-to-r from-primary to-primary-dark h-3 rounded-full transition-all duration-1000 ease-out"
+                            className="bg-gradient-to-r from-primary to-primary-dark h-3 rounded-full transition-all duration-1000 ease-out absolute top-0 left-0"
                             style={{ width: `${Math.max(0, Math.min(100, principle.score))}%` }}
                           ></div>
+                          {/* Level bracket markers */}
+                          <div className="absolute inset-0 flex">
+                            {[20, 40, 60, 80].map((marker) => (
+                              <div
+                                key={marker}
+                                className="absolute top-0 bottom-0 w-px bg-gray-300 opacity-50"
+                                style={{ left: `${marker}%` }}
+                              />
+                            ))}
+                          </div>
                         </div>
                       </div>
                       
@@ -326,20 +372,40 @@ export default function Evaluation() {
                       </p>
                       
                       <div className="mt-4 flex items-center justify-between">
-                        <div className="flex space-x-1">
-                          {[1, 2, 3, 4, 5, 6, 7].map((dot) => (
-                            <div
-                              key={dot}
-                              className={`w-2 h-2 rounded-full ${
-                                dot <= getLeadershipLevelNumber(principle.score)
-                                  ? 'bg-primary'
-                                  : 'bg-gray-200'
-                              }`}
-                            />
-                          ))}
+                        <div className="flex space-x-1 items-center">
+                          {[1, 2, 3, 4, 5].map((dot) => {
+                            const levelNum = getLeadershipLevelNumber(principle.score);
+                            const positionInLevel = getPositionWithinLevel(principle.score);
+                            const isActive = dot < levelNum;
+                            const isCurrentLevel = dot === levelNum;
+                            
+                            return (
+                              <div key={dot} className="relative">
+                                <div
+                                  className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                                    isActive
+                                      ? 'bg-primary'
+                                      : isCurrentLevel
+                                      ? 'bg-gray-300'
+                                      : 'bg-gray-200'
+                                  }`}
+                                />
+                                {/* Show partial fill for current level based on position */}
+                                {isCurrentLevel && (
+                                  <div
+                                    className="absolute top-0 left-0 h-2 rounded-full bg-primary transition-all duration-300"
+                                    style={{ width: `${positionInLevel * 100}%` }}
+                                  />
+                                )}
+                              </div>
+                            );
+                          })}
                         </div>
                         <span className="text-xs text-text-secondary">
-                          {principle.score >= 75 ? 'Strong' : principle.score >= 60 ? 'Good' : principle.score >= 45 ? 'Developing' : 'Needs Focus'}
+                          {(() => {
+                            const bounds = getLevelBounds(principle.score);
+                            return `${bounds.min}-${bounds.max}`;
+                          })()}
                         </span>
                       </div>
                     </div>
@@ -487,62 +553,82 @@ export default function Evaluation() {
 // OLD to NEW framework mapping for backward compatibility
 
 
+// New level definitions: Emerging (1-19), Developing (20-39), Expanding (40-59), Flourishing (60-79), Thriving (80-100)
 const getLeadershipLevel = (score: number): string => {
-  if (score >= 85) return 'Transformational';
-  if (score >= 75) return 'Advanced';
-  if (score >= 65) return 'Proficient';
-  if (score >= 55) return 'Competent';
-  if (score >= 45) return 'Developing';
-  if (score >= 35) return 'Beginning';
+  if (score >= 80) return 'Thriving';
+  if (score >= 60) return 'Flourishing';
+  if (score >= 40) return 'Expanding';
+  if (score >= 20) return 'Developing';
   return 'Emerging';
 };
 
 const getLeadershipLevelNumber = (score: number): number => {
-  if (score >= 85) return 7;
-  if (score >= 75) return 6;
-  if (score >= 65) return 5;
-  if (score >= 55) return 4;
-  if (score >= 45) return 3;
-  if (score >= 35) return 2;
-  return 1;
+  if (score >= 80) return 5; // Thriving
+  if (score >= 60) return 4; // Flourishing
+  if (score >= 40) return 3; // Expanding
+  if (score >= 20) return 2; // Developing
+  return 1; // Emerging
+};
+
+// Calculate position within level bracket (0-1) for granular visual representation
+const getPositionWithinLevel = (score: number): number => {
+  const clampedScore = Math.max(1, Math.min(100, score));
+  
+  if (clampedScore >= 80) {
+    // Thriving: 80-100, position 0-1
+    return (clampedScore - 80) / 20;
+  } else if (clampedScore >= 60) {
+    // Flourishing: 60-79, position 0-1
+    return (clampedScore - 60) / 20;
+  } else if (clampedScore >= 40) {
+    // Expanding: 40-59, position 0-1
+    return (clampedScore - 40) / 20;
+  } else if (clampedScore >= 20) {
+    // Developing: 20-39, position 0-1
+    return (clampedScore - 20) / 20;
+  } else {
+    // Emerging: 1-19, position 0-1
+    return (clampedScore - 1) / 19;
+  }
+};
+
+// Get level bracket boundaries for visual representation
+const getLevelBounds = (score: number): { min: number; max: number } => {
+  if (score >= 80) return { min: 80, max: 100 };
+  if (score >= 60) return { min: 60, max: 79 };  // Changed from 80 to 79
+  if (score >= 40) return { min: 40, max: 59 };  // Changed from 60 to 59
+  if (score >= 20) return { min: 20, max: 39 };  // Changed from 40 to 39
+  return { min: 1, max: 19 };  // Changed from 20 to 19
 };
 
 const getDimensionDescription = (dimensionKey: string, level: string): string => {
   const descriptions: Record<string, Record<string, string>> = {
     'self_leadership': {
-      'Transformational': 'You demonstrate exceptional self-awareness and personal mastery, serving as a role model for continuous growth and authentic leadership.',
-      'Advanced': 'You show strong self-leadership skills with sophisticated self-understanding and consistent responsibility for your development.',
-      'Proficient': 'You have solid self-awareness and effectively manage your growth, demonstrating good self-leadership foundation.',
-      'Competent': 'You show good self-awareness and take responsibility for your growth, with developing self-leadership practices.',
+      'Thriving': 'You demonstrate exceptional self-awareness and personal mastery, serving as a role model for continuous growth and authentic leadership.',
+      'Flourishing': 'You show strong self-leadership skills with sophisticated self-understanding and consistent responsibility for your development.',
+      'Expanding': 'You have solid self-awareness and effectively manage your growth, demonstrating good self-leadership foundation.',
       'Developing': 'You are building self-awareness and beginning to take ownership of your leadership development journey.',
-      'Beginning': 'You are starting to develop self-awareness and exploring personal responsibility for growth.',
       'Emerging': 'Focus on developing self-awareness and taking greater responsibility for your personal and professional growth.'
     },
     'relational_leadership': {
-      'Transformational': 'You excel at building deep trust, demonstrating empathy, and empowering others to reach their full potential.',
-      'Advanced': 'You effectively build strong relationships, show sophisticated empathy, and consistently empower team members.',
-      'Proficient': 'You maintain solid relationships, demonstrate empathy effectively, and work to empower others.',
-      'Competent': 'You build good relationships and show care for others, with developing empowerment capabilities.',
+      'Thriving': 'You excel at building deep trust, demonstrating empathy, and empowering others to reach their full potential.',
+      'Flourishing': 'You effectively build strong relationships, show sophisticated empathy, and consistently empower team members.',
+      'Expanding': 'You maintain solid relationships, demonstrate empathy effectively, and work to empower others.',
       'Developing': 'You are working on building stronger relationships and developing your ability to connect with and empower others.',
-      'Beginning': 'You are starting to build trust and practice empathy with team members.',
       'Emerging': 'Focus on building trust through consistent actions, practicing empathy, and learning to empower others.'
     },
     'organizational_leadership': {
-      'Transformational': 'You masterfully articulate vision, shape positive culture, and navigate organizational tensions with exceptional wisdom.',
-      'Advanced': 'You effectively communicate vision, significantly contribute to culture, and handle organizational challenges with skill.',
-      'Proficient': 'You understand organizational dynamics well, contribute to vision and culture, and navigate tensions effectively.',
-      'Competent': 'You grasp organizational dynamics and contribute to vision and culture, with growing ability to manage complexity.',
+      'Thriving': 'You masterfully articulate vision, shape positive culture, and navigate organizational tensions with exceptional wisdom.',
+      'Flourishing': 'You effectively communicate vision, significantly contribute to culture, and handle organizational challenges with skill.',
+      'Expanding': 'You understand organizational dynamics well, contribute to vision and culture, and navigate tensions effectively.',
       'Developing': 'You are learning to navigate organizational complexities and contribute more effectively to vision and culture.',
-      'Beginning': 'You are starting to understand organizational dynamics and beginning to influence culture.',
       'Emerging': 'Focus on understanding organizational dynamics, clarifying vision, and learning to address cultural and structural tensions.'
     },
     'leadership_beyond_organization': {
-      'Transformational': 'You drive innovation, masterfully engage stakeholders, and demonstrate exceptional stewardship of resources and impact.',
-      'Advanced': 'You effectively foster innovation, manage stakeholder relationships strategically, and show strong stewardship practices.',
-      'Proficient': 'You support innovation well, maintain good stakeholder relationships, and demonstrate solid stewardship awareness.',
-      'Competent': 'You encourage innovation, build stakeholder relationships, and show developing stewardship mindset.',
+      'Thriving': 'You drive innovation, masterfully engage stakeholders, and demonstrate exceptional stewardship of resources and impact.',
+      'Flourishing': 'You effectively foster innovation, manage stakeholder relationships strategically, and show strong stewardship practices.',
+      'Expanding': 'You support innovation well, maintain good stakeholder relationships, and demonstrate solid stewardship awareness.',
       'Developing': 'You are learning to foster innovation, build external relationships, and develop stewardship perspective.',
-      'Beginning': 'You are starting to think about innovation and external stakeholder relationships.',
       'Emerging': 'Focus on thinking beyond immediate boundaries, building stakeholder relationships, and developing long-term stewardship perspective.'
     }
   };
@@ -568,21 +654,49 @@ const getDefaultEvaluation = (): EvaluationData => {
     return Math.min(95, Math.max(25, baseScore));
   };
 
+  // 12 Principles with their dimension mappings
+  const principles = [
+    { key: 'self-awareness', label: 'Self-Awareness', score: generateVariedScore(), dimension: 'self_leadership' },
+    { key: 'self-responsibility', label: 'Self-Responsibility', score: generateVariedScore(), dimension: 'self_leadership' },
+    { key: 'continuous-growth', label: 'Continuous Personal Growth', score: generateVariedScore(), dimension: 'self_leadership' },
+    { key: 'trust-safety', label: 'Trust & Psychological Safety', score: generateVariedScore(), dimension: 'relational_leadership' },
+    { key: 'empathy-awareness', label: 'Empathy & Awareness of Others', score: generateVariedScore(), dimension: 'relational_leadership' },
+    { key: 'empowered-responsibility', label: 'Empowered & Shared Responsibility', score: generateVariedScore(), dimension: 'relational_leadership' },
+    { key: 'purpose-vision', label: 'Purpose, Vision and Aligned Outcome', score: generateVariedScore(), dimension: 'organizational_leadership' },
+    { key: 'culture-leadership', label: 'Culture of Leadership', score: generateVariedScore(), dimension: 'organizational_leadership' },
+    { key: 'harnessing-tensions', label: 'Harnessing Tensions for Effective Collaboration', score: generateVariedScore(), dimension: 'organizational_leadership' },
+    { key: 'stakeholder-impact', label: 'Positive Impact on Stakeholders', score: generateVariedScore(), dimension: 'leadership_beyond_organization' },
+    { key: 'change-innovation', label: 'Embracing Change & Driving Innovation', score: generateVariedScore(), dimension: 'leadership_beyond_organization' },
+    { key: 'ethical-stewardship', label: 'Social and Ethical Stewardship', score: generateVariedScore(), dimension: 'leadership_beyond_organization' }
+  ];
+
+  // Aggregate principles into 4 frameworks (dimensions)
+  const frameworks = [
+    {
+      key: 'self_leadership',
+      label: 'Self-Leadership',
+      score: Math.round(principles.filter(p => p.dimension === 'self_leadership').reduce((sum, p) => sum + p.score, 0) / 3)
+    },
+    {
+      key: 'relational_leadership',
+      label: 'Relational Leadership',
+      score: Math.round(principles.filter(p => p.dimension === 'relational_leadership').reduce((sum, p) => sum + p.score, 0) / 3)
+    },
+    {
+      key: 'organizational_leadership',
+      label: 'Organizational Leadership',
+      score: Math.round(principles.filter(p => p.dimension === 'organizational_leadership').reduce((sum, p) => sum + p.score, 0) / 3)
+    },
+    {
+      key: 'leadership_beyond_organization',
+      label: 'Leadership Beyond Organization',
+      score: Math.round(principles.filter(p => p.dimension === 'leadership_beyond_organization').reduce((sum, p) => sum + p.score, 0) / 3)
+    }
+  ];
+
   return {
-    frameworks: [
-      { key: 'self_awareness', label: 'Self-Awareness', score: generateVariedScore() },
-      { key: 'self_responsibility', label: 'Self-Responsibility', score: generateVariedScore() },
-      { key: 'continuous_growth', label: 'Continuous Growth', score: generateVariedScore() },
-      { key: 'trust_safety', label: 'Trust & Safety', score: generateVariedScore() },
-      { key: 'empathy', label: 'Empathy', score: generateVariedScore() },
-      { key: 'empowerment', label: 'Empowerment', score: generateVariedScore() },
-      { key: 'vision', label: 'Vision', score: generateVariedScore() },
-      { key: 'culture', label: 'Culture', score: generateVariedScore() },
-      { key: 'tension', label: 'Tension Management', score: generateVariedScore() },
-      { key: 'innovation', label: 'Innovation', score: generateVariedScore() },
-      { key: 'stakeholder', label: 'Stakeholder Management', score: generateVariedScore() },
-      { key: 'stewardship', label: 'Stewardship', score: generateVariedScore() }
-    ],
+    frameworks,
+    principles: principles.map(({ dimension, ...rest }) => rest), // Remove dimension from principles
     overall: {
       persona: 'Developing Leader',
       summary: 'You show promise as a leader with strengths to build upon and clear areas for growth and development.'
@@ -601,22 +715,50 @@ const generateFallbackEvaluation = (responses: string[], _conversationContext: s
     const finalScore = baseScore + variation;
     return Math.min(95, Math.max(25, Math.round(finalScore)));
   };
+
+  // 12 Principles with their dimension mappings
+  const principles = [
+    { key: 'self-awareness', label: 'Self-Awareness', score: generateVariedScore(), dimension: 'self_leadership' },
+    { key: 'self-responsibility', label: 'Self-Responsibility', score: generateVariedScore(), dimension: 'self_leadership' },
+    { key: 'continuous-growth', label: 'Continuous Personal Growth', score: generateVariedScore(), dimension: 'self_leadership' },
+    { key: 'trust-safety', label: 'Trust & Psychological Safety', score: generateVariedScore(), dimension: 'relational_leadership' },
+    { key: 'empathy-awareness', label: 'Empathy & Awareness of Others', score: generateVariedScore(), dimension: 'relational_leadership' },
+    { key: 'empowered-responsibility', label: 'Empowered & Shared Responsibility', score: generateVariedScore(), dimension: 'relational_leadership' },
+    { key: 'purpose-vision', label: 'Purpose, Vision and Aligned Outcome', score: generateVariedScore(), dimension: 'organizational_leadership' },
+    { key: 'culture-leadership', label: 'Culture of Leadership', score: generateVariedScore(), dimension: 'organizational_leadership' },
+    { key: 'harnessing-tensions', label: 'Harnessing Tensions for Effective Collaboration', score: generateVariedScore(), dimension: 'organizational_leadership' },
+    { key: 'stakeholder-impact', label: 'Positive Impact on Stakeholders', score: generateVariedScore(), dimension: 'leadership_beyond_organization' },
+    { key: 'change-innovation', label: 'Embracing Change & Driving Innovation', score: generateVariedScore(), dimension: 'leadership_beyond_organization' },
+    { key: 'ethical-stewardship', label: 'Social and Ethical Stewardship', score: generateVariedScore(), dimension: 'leadership_beyond_organization' }
+  ];
+
+  // Aggregate principles into 4 frameworks (dimensions)
+  const frameworks = [
+    {
+      key: 'self_leadership',
+      label: 'Self-Leadership',
+      score: Math.round(principles.filter(p => p.dimension === 'self_leadership').reduce((sum, p) => sum + p.score, 0) / 3)
+    },
+    {
+      key: 'relational_leadership',
+      label: 'Relational Leadership',
+      score: Math.round(principles.filter(p => p.dimension === 'relational_leadership').reduce((sum, p) => sum + p.score, 0) / 3)
+    },
+    {
+      key: 'organizational_leadership',
+      label: 'Organizational Leadership',
+      score: Math.round(principles.filter(p => p.dimension === 'organizational_leadership').reduce((sum, p) => sum + p.score, 0) / 3)
+    },
+    {
+      key: 'leadership_beyond_organization',
+      label: 'Leadership Beyond Organization',
+      score: Math.round(principles.filter(p => p.dimension === 'leadership_beyond_organization').reduce((sum, p) => sum + p.score, 0) / 3)
+    }
+  ];
   
   return {
-    frameworks: [
-      { key: 'self_awareness', label: 'Self-Awareness', score: generateVariedScore() },
-      { key: 'self_responsibility', label: 'Self-Responsibility', score: generateVariedScore() },
-      { key: 'continuous_growth', label: 'Continuous Growth', score: generateVariedScore() },
-      { key: 'trust_safety', label: 'Trust & Safety', score: generateVariedScore() },
-      { key: 'empathy', label: 'Empathy', score: generateVariedScore() },
-      { key: 'empowerment', label: 'Empowerment', score: generateVariedScore() },
-      { key: 'vision', label: 'Vision', score: generateVariedScore() },
-      { key: 'culture', label: 'Culture', score: generateVariedScore() },
-      { key: 'tension', label: 'Tension Management', score: generateVariedScore() },
-      { key: 'innovation', label: 'Innovation', score: generateVariedScore() },
-      { key: 'stakeholder', label: 'Stakeholder Management', score: generateVariedScore() },
-      { key: 'stewardship', label: 'Stewardship', score: generateVariedScore() }
-    ],
+    frameworks,
+    principles: principles.map(({ dimension, ...rest }) => rest), // Remove dimension from principles
     overall: {
       persona: 'Reflective Leader',
       summary: 'Based on your responses, you demonstrate thoughtful consideration of leadership challenges with opportunities for continued growth.'
