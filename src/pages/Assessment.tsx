@@ -212,27 +212,41 @@ export const Assessment = () => {
     }
   };
   const scrollToQuestion = () => {
-    // Scroll to the last bot message within the chat container
-    const chatContainer = document.querySelector('.chat-messages-container') as HTMLElement;
-    const lastBotMessage = document.querySelector('[data-message-type="bot"]:last-of-type') as HTMLElement;
-    
-    if (chatContainer && lastBotMessage) {
-      // Calculate the scroll position to center the message with some offset
-      const containerHeight = chatContainer.clientHeight;
-      const messageTop = lastBotMessage.offsetTop;
-      
-      // Position the message in the upper third of the viewport for better visibility
-      const targetScroll = messageTop - (containerHeight * 0.25);
-      
-      chatContainer.scrollTo({
-        top: Math.max(0, targetScroll),
-        behavior: 'smooth'
-      });
-    }
+    const chatContainer = document.querySelector('.chat-messages-container') as HTMLElement | null;
+    const lastBotMessage = document.querySelector('[data-message-type="bot"]:last-of-type') as HTMLElement | null;
+    if (!chatContainer || !lastBotMessage) return;
+
+    // Use bounding rects to compute position within the scroll container
+    const containerRect = chatContainer.getBoundingClientRect();
+    const messageRect = lastBotMessage.getBoundingClientRect();
+
+    // Account for sticky header height inside the container
+    const stickyHeader = chatContainer.querySelector('.chat-sticky-header') as HTMLElement | null;
+    const headerHeight = stickyHeader?.offsetHeight ?? 0;
+
+    const currentScroll = chatContainer.scrollTop;
+    const messageTopInContainer = messageRect.top - containerRect.top + currentScroll;
+    const visibleHeight = chatContainer.clientHeight - headerHeight;
+
+    // Center the message in the visible area
+    const targetScroll = messageTopInContainer - (visibleHeight - messageRect.height) / 2;
+
+    chatContainer.scrollTo({
+      top: Math.max(0, targetScroll),
+      behavior: 'smooth'
+    });
   };
   useEffect(() => {
-    scrollToQuestion();
-  }, [messages]);
+    const last = messages[messages.length - 1];
+    if (last?.type === 'bot') {
+      // Wait for layout to fully paint (question UI renders, heights stabilize)
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          scrollToQuestion();
+        });
+      });
+    }
+  }, [messages, showCurrentQuestion, currentQuestion]);
 
   // Cleanup MediaRecorder and streams on unmount
   useEffect(() => {
@@ -770,9 +784,9 @@ export const Assessment = () => {
 
       <div className="max-w-5xl mx-auto px-3 sm:px-6 py-4 sm:py-8">
         {/* Chat Container */}
-        <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-primary/10 h-[calc(100vh-120px)] sm:h-[700px] flex flex-col shadow-lg">
+        <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-primary/10 h-[calc(100dvh-120px)] sm:h-[700px] flex flex-col shadow-lg">
           {/* Progress Bar - sticky inside chat container */}
-          {introDone && !isComplete && <div className="sticky top-0 z-50 bg-gradient-to-b from-white via-white to-transparent pb-2 pt-3 px-3 sm:px-8 sm:pt-4 sm:pb-3 -mb-2 sm:-mb-3">
+          {introDone && !isComplete && <div className="sticky top-0 z-50 chat-sticky-header bg-gradient-to-b from-white via-white to-transparent pb-2 pt-3 px-3 sm:px-8 sm:pt-4 sm:pb-3 -mb-2 sm:-mb-3">
               <div className="bg-white/95 backdrop-blur-md rounded-xl border border-primary/10 p-3 sm:p-4 shadow-lg">
                 <div className="flex items-center justify-between mb-1.5 sm:mb-2">
                   <span className="text-xs sm:text-sm font-medium text-text-secondary">
