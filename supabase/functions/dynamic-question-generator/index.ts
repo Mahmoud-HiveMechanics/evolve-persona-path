@@ -524,12 +524,21 @@ CRITICAL REQUIREMENTS - MANDATORY ENFORCEMENT:
    ❌ "What strategies do you use for..."
    ❌ Generic "tell me about your leadership style" questions
    ❌ Repetitive "Imagine..." for every single question
+   ❌ REFORMULATING OR REPHRASING PREVIOUS QUESTIONS - Each question MUST be genuinely different
 
 **5. SYSTEMATIC COVERAGE** - Each principle requires MINIMUM 2 questions using DIVERSE formats:
    - Questions 1-12: First round through all 12 principles (using mixed question types)
-   - Questions 13-24: Second round through all 12 principles (using different formats than first round)
+   - Questions 13-24: Second round through all 12 principles (MUST use COMPLETELY DIFFERENT ANGLES - not reformulations)
    - Questions 25+: Deeper integration questions for specific principles
    - IMPORTANT: Apply the question type rotation pattern (#2) to ensure variety
+   
+   ⚠️ CRITICAL FOR SECOND ROUND PRINCIPLE QUESTIONS (13-24):
+   - DO NOT simply rephrase the first question on this principle
+   - Explore a DIFFERENT scenario, context, or leadership challenge
+   - Use a DIFFERENT question type than the first round
+   - Example: If Q3 asked about "handling team conflict" (scenario), Q15 must ask about 
+     something entirely different like "building trust with a new team" (behavioral) or 
+     "rating importance of feedback mechanisms" (scale)
 
 **6. DIMENSION ROTATION** - Rotate through all 4 leadership dimensions:
    - Self-Leadership (self-awareness, self-responsibility, continuous-growth)

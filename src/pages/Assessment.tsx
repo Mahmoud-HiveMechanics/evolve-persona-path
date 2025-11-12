@@ -211,13 +211,18 @@ export const Assessment = () => {
       setAiProcessing(false);
     }
   };
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({
-      behavior: 'smooth'
-    });
+  const scrollToQuestion = () => {
+    // Scroll to the last bot message to keep question visible
+    const lastBotMessage = document.querySelector('[data-message-type="bot"]:last-of-type');
+    if (lastBotMessage) {
+      lastBotMessage.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start'
+      });
+    }
   };
   useEffect(() => {
-    scrollToBottom();
+    scrollToQuestion();
   }, [messages]);
 
   // Cleanup MediaRecorder and streams on unmount
@@ -755,26 +760,26 @@ export const Assessment = () => {
       <Header />
 
       <div className="max-w-5xl mx-auto px-6 py-8">
-        {/* Progress Bar - only show during active assessment */}
-        {introDone && !isComplete && <div className="sticky top-0 z-50 mb-4 pt-2 -mt-2 bg-gradient-to-b from-white via-white to-transparent pb-4">
-            <div className="bg-white/95 backdrop-blur-md rounded-xl border border-primary/10 p-4 shadow-lg">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-text-secondary">
-                  Assessment Progress
-                </span>
-                <span className="text-lg font-bold text-primary">
-                  {Math.round(questionCount / MIN_QUESTIONS * 100)}%
-                </span>
-              </div>
-              <Progress value={questionCount / MIN_QUESTIONS * 100} className="h-2" />
-            </div>
-          </div>}
-
         {/* Chat Container */}
         <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-primary/10 h-[700px] flex flex-col shadow-lg">
+          {/* Progress Bar - sticky inside chat container */}
+          {introDone && !isComplete && <div className="sticky top-0 z-50 bg-gradient-to-b from-white via-white to-transparent pb-3 pt-4 px-8 -mb-3">
+              <div className="bg-white/95 backdrop-blur-md rounded-xl border border-primary/10 p-4 shadow-lg">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-text-secondary">
+                    Assessment Progress
+                  </span>
+                  <span className="text-lg font-bold text-primary">
+                    {Math.round(questionCount / MIN_QUESTIONS * 100)}%
+                  </span>
+                </div>
+                <Progress value={questionCount / MIN_QUESTIONS * 100} className="h-2" />
+              </div>
+            </div>}
+          
           {/* Chat Messages */}
           <div className="flex-1 p-8 overflow-y-auto space-y-6 max-h-full">
-            {messages.map(message => <div key={message.id} className={`flex gap-3 ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}>
+            {messages.map(message => <div key={message.id} className={`flex gap-3 ${message.type === 'user' ? 'justify-end' : 'justify-start'}`} data-message-type={message.type}>
                 {message.type === 'bot' && <div className="w-12 h-12 bg-gradient-to-br from-primary to-primary/80 rounded-full flex items-center justify-center flex-shrink-0 shadow-lg">
                     <Bot size={22} className="text-white" />
                   </div>}
