@@ -212,12 +212,22 @@ export const Assessment = () => {
     }
   };
   const scrollToQuestion = () => {
-    // Scroll to the last bot message to keep question visible
-    const lastBotMessage = document.querySelector('[data-message-type="bot"]:last-of-type');
-    if (lastBotMessage) {
-      lastBotMessage.scrollIntoView({
-        behavior: 'smooth',
-        block: 'center'
+    // Scroll to the last bot message within the chat container
+    const chatContainer = document.querySelector('.chat-messages-container') as HTMLElement;
+    const lastBotMessage = document.querySelector('[data-message-type="bot"]:last-of-type') as HTMLElement;
+    
+    if (chatContainer && lastBotMessage) {
+      // Calculate the scroll position to center the message with some offset
+      const containerHeight = chatContainer.clientHeight;
+      const messageTop = lastBotMessage.offsetTop;
+      const messageHeight = lastBotMessage.offsetHeight;
+      
+      // Position the message in the upper third of the viewport for better visibility
+      const targetScroll = messageTop - (containerHeight * 0.25);
+      
+      chatContainer.scrollTo({
+        top: Math.max(0, targetScroll),
+        behavior: 'smooth'
       });
     }
   };
@@ -759,33 +769,33 @@ export const Assessment = () => {
   return <div className="min-h-screen bg-gradient-to-br from-muted/10 via-white to-primary/5">
       <Header />
 
-      <div className="max-w-5xl mx-auto px-6 py-8">
+      <div className="max-w-5xl mx-auto px-3 sm:px-6 py-4 sm:py-8">
         {/* Chat Container */}
-        <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-primary/10 h-[700px] flex flex-col shadow-lg">
+        <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-primary/10 h-[calc(100vh-120px)] sm:h-[700px] flex flex-col shadow-lg">
           {/* Progress Bar - sticky inside chat container */}
-          {introDone && !isComplete && <div className="sticky top-0 z-50 bg-gradient-to-b from-white via-white to-transparent pb-3 pt-4 px-8 -mb-3">
-              <div className="bg-white/95 backdrop-blur-md rounded-xl border border-primary/10 p-4 shadow-lg">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-text-secondary">
+          {introDone && !isComplete && <div className="sticky top-0 z-50 bg-gradient-to-b from-white via-white to-transparent pb-2 pt-3 px-3 sm:px-8 sm:pt-4 sm:pb-3 -mb-2 sm:-mb-3">
+              <div className="bg-white/95 backdrop-blur-md rounded-xl border border-primary/10 p-3 sm:p-4 shadow-lg">
+                <div className="flex items-center justify-between mb-1.5 sm:mb-2">
+                  <span className="text-xs sm:text-sm font-medium text-text-secondary">
                     Assessment Progress
                   </span>
-                  <span className="text-lg font-bold text-primary">
+                  <span className="text-base sm:text-lg font-bold text-primary">
                     {Math.round(questionCount / MIN_QUESTIONS * 100)}%
                   </span>
                 </div>
-                <Progress value={questionCount / MIN_QUESTIONS * 100} className="h-2" />
+                <Progress value={questionCount / MIN_QUESTIONS * 100} className="h-1.5 sm:h-2" />
               </div>
             </div>}
           
           {/* Chat Messages */}
-          <div className="flex-1 p-8 overflow-y-auto space-y-6 max-h-full">
-            {messages.map(message => <div key={message.id} className={`flex gap-3 ${message.type === 'user' ? 'justify-end' : 'justify-start'}`} data-message-type={message.type}>
-                {message.type === 'bot' && <div className="w-12 h-12 bg-gradient-to-br from-primary to-primary/80 rounded-full flex items-center justify-center flex-shrink-0 shadow-lg">
-                    <Bot size={22} className="text-white" />
+          <div className="flex-1 p-3 sm:p-6 md:p-8 overflow-y-auto space-y-4 sm:space-y-6 max-h-full chat-messages-container">
+            {messages.map(message => <div key={message.id} className={`flex gap-2 sm:gap-3 ${message.type === 'user' ? 'justify-end' : 'justify-start'}`} data-message-type={message.type}>
+                {message.type === 'bot' && <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-primary to-primary/80 rounded-full flex items-center justify-center flex-shrink-0 shadow-lg">
+                    <Bot size={18} className="sm:size-[22px] text-white" />
                   </div>}
 
-                <div className={`max-w-[80%] ${message.type === 'user' ? 'order-first' : ''}`}>
-                  <div className={`p-4 rounded-xl ${message.type === 'user' ? 'bg-primary text-white ml-auto' : 'bg-white border border-border text-text-primary'}`}>
+                <div className={`max-w-[85%] sm:max-w-[80%] ${message.type === 'user' ? 'order-first' : ''}`}>
+                  <div className={`p-3 sm:p-4 rounded-xl ${message.type === 'user' ? 'bg-primary text-white ml-auto' : 'bg-white border border-border text-text-primary'}`}>
                     <p className={`text-sm leading-relaxed ${message.type === 'user' ? 'text-white' : ''}`}>{message.content}</p>
 
                     {/* Dynamic Question UI based on type - only show for the current active question */}
@@ -929,15 +939,15 @@ export const Assessment = () => {
                   </div>
                 </div>
 
-                {message.type === 'user' && <div className="w-12 h-12 bg-gradient-to-br from-text-secondary to-text-secondary/80 rounded-full flex items-center justify-center flex-shrink-0 shadow-lg">
-                    <User size={22} className="text-white" />
+                {message.type === 'user' && <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-text-secondary to-text-secondary/80 rounded-full flex items-center justify-center flex-shrink-0 shadow-lg">
+                    <User size={18} className="sm:size-[22px] text-white" />
                   </div>}
               </div>)}
 
             {/* AI Processing Loading Indicator */}
-            {aiProcessing && <div className="flex gap-4 justify-start">
-                <div className="w-12 h-12 bg-gradient-to-br from-primary to-primary/80 rounded-full flex items-center justify-center flex-shrink-0 shadow-lg animate-pulse">
-                  <Bot size={22} className="text-white" />
+            {aiProcessing && <div className="flex gap-2 sm:gap-4 justify-start">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-primary to-primary/80 rounded-full flex items-center justify-center flex-shrink-0 shadow-lg animate-pulse">
+                  <Bot size={18} className="sm:size-[22px] text-white" />
                 </div>
                 <div className="bg-white/90 backdrop-blur-sm border border-primary/10 rounded-xl p-6 shadow-sm">
                   <div className="space-y-3">
