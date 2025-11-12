@@ -217,7 +217,7 @@ export const Assessment = () => {
     if (lastBotMessage) {
       lastBotMessage.scrollIntoView({
         behavior: 'smooth',
-        block: 'start'
+        block: 'center'
       });
     }
   };
