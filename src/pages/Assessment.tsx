@@ -220,7 +220,6 @@ export const Assessment = () => {
       // Calculate the scroll position to center the message with some offset
       const containerHeight = chatContainer.clientHeight;
       const messageTop = lastBotMessage.offsetTop;
-      const messageHeight = lastBotMessage.offsetHeight;
       
       // Position the message in the upper third of the viewport for better visibility
       const targetScroll = messageTop - (containerHeight * 0.25);
