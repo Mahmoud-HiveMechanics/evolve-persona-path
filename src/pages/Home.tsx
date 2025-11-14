@@ -352,7 +352,7 @@ export const Home = () => {
           <div className="border-t border-white/20 pt-8">
             <div className="flex flex-col md:flex-row justify-between items-center gap-4">
               <div className="text-white/60">
-                © 2024 EVOLVE Leadership. All rights reserved.
+                © 2025 Thrive Culture. All rights reserved.
               </div>
               <div className="text-white/60 text-sm">
                 Made with ❤️ for leaders worldwide
