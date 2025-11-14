@@ -3,10 +3,8 @@ import { SpiralElement } from '../components/SpiralElement';
 import { Link } from 'react-router-dom';
 import { ArrowRight, CheckCircle, Users, Star, Clock } from 'lucide-react';
 import thriveLogo from '@/assets/thrive-logo.png';
-
 export const Home = () => {
-  return (
-    <div className="min-h-screen bg-white">
+  return <div className="min-h-screen bg-white">
       <Header />
       
       {/* Hero Section */}
@@ -40,7 +38,7 @@ export const Home = () => {
                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 text-sm text-text-secondary">
                   <div className="flex items-center gap-2">
                     <Clock size={18} className="text-primary" />
-                    <span className="font-medium">10 minutes</span>
+                    <span className="font-medium"> 30 minutes</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <CheckCircle size={18} className="text-primary" />
@@ -202,9 +200,7 @@ export const Home = () => {
             <div className="grid lg:grid-cols-2 gap-8 max-w-5xl mx-auto">
               <div className="bg-white p-8 rounded-2xl shadow-lg hover:shadow-xl transition-shadow duration-300 border border-primary/10">
                 <div className="flex gap-1 mb-6">
-                  {[...Array(5)].map((_, i) => (
-                    <Star key={i} size={20} className="fill-primary text-primary" />
-                  ))}
+                  {[...Array(5)].map((_, i) => <Star key={i} size={20} className="fill-primary text-primary" />)}
                 </div>
                 <blockquote className="text-text-secondary text-lg leading-relaxed mb-6 italic">
                   "The THRIVE assessment gave me clarity on my leadership style and actionable insights for growth. Highly recommended for any executive looking to enhance their impact."
@@ -222,9 +218,7 @@ export const Home = () => {
               
               <div className="bg-white p-8 rounded-2xl shadow-lg hover:shadow-xl transition-shadow duration-300 border border-primary/10">
                 <div className="flex gap-1 mb-6">
-                  {[...Array(5)].map((_, i) => (
-                    <Star key={i} size={20} className="fill-primary text-primary" />
-                  ))}
+                  {[...Array(5)].map((_, i) => <Star key={i} size={20} className="fill-primary text-primary" />)}
                 </div>
                 <blockquote className="text-text-secondary text-lg leading-relaxed mb-6 italic">
                   "This assessment transformed how I approach leadership challenges. The personalized insights were spot-on and immediately applicable to my role."
@@ -367,6 +361,5 @@ export const Home = () => {
           </div>
         </div>
       </footer>
-    </div>
-  );
+    </div>;
 };
