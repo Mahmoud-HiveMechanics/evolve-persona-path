@@ -268,7 +268,7 @@ export const Home = () => {
             <div className="flex flex-col sm:flex-row items-center justify-center gap-6 text-text-secondary">
               <div className="flex items-center gap-2">
                 <Clock size={20} className="text-primary" />
-                <span className="font-medium">Takes approximately 10 minutes</span>
+                <span className="font-medium">Takes approximately 30 minutes</span>
               </div>
               <div className="hidden sm:block w-1 h-1 bg-text-secondary/30 rounded-full"></div>
               <div className="flex items-center gap-2">
