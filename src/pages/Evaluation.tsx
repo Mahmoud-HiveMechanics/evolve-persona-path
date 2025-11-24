@@ -431,7 +431,7 @@ export default function Evaluation() {
                     </p>
                     <div className="flex items-center gap-4">
                       <button 
-                        onClick={() => window.open('https://calendly.com/your-coaching-link', '_blank')}
+                        onClick={() => window.open('https://api.leadconnectorhq.com/widget/booking/e7zn8FBA37Ohsvbbd1U5', '_blank')}
                         className="bg-primary hover:bg-primary-dark text-white px-6 py-3 rounded-xl font-medium transition-all duration-200 hover:scale-105 shadow-lg"
                       >
                         Book your free coaching call
