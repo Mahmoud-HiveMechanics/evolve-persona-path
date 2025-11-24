@@ -248,7 +248,7 @@ export default function Evaluation() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
                 {frameworks.map((dimension) => {
                   const level = getLeadershipLevel(dimension.score);
-                  const progressWidth = Math.max(0, Math.min(100, dimension.score));
+                  const progressWidth = Math.max(30, Math.min(100, dimension.score));
                   
                   return (
                     <div key={dimension.key} className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100 transition-all duration-300 hover:shadow-xl">
@@ -258,7 +258,7 @@ export default function Evaluation() {
                         </h3>
                         <div className="mb-4">
                           <div className="text-2xl font-bold text-primary mb-2">{level}</div>
-                          <div className="text-lg font-semibold text-text-secondary mb-2">{Math.round(dimension.score)}/100</div>
+                          <div className="text-lg font-semibold text-text-secondary mb-2">{Math.max(30, Math.round(dimension.score))}/100</div>
                           <div className="flex justify-center">
                             <div className="flex space-x-1 items-center">
                               {[1, 2, 3, 4, 5].map((dot) => {
@@ -352,7 +352,7 @@ export default function Evaluation() {
                           {/* Full score progress bar */}
                           <div 
                             className="bg-gradient-to-r from-primary to-primary-dark h-3 rounded-full transition-all duration-1000 ease-out absolute top-0 left-0"
-                            style={{ width: `${Math.max(0, Math.min(100, principle.score))}%` }}
+                            style={{ width: `${Math.max(30, Math.min(100, principle.score))}%` }}
                           ></div>
           {/* Level bracket markers */}
           <div className="absolute inset-0 flex">
@@ -491,7 +491,7 @@ export default function Evaluation() {
                       
                       <div className="mb-4">
                         <div className="text-sm text-text-secondary mb-2">Current Level: {getLeadershipLevel(fr.score)}</div>
-                        <Progress value={fr.score} className="h-2" />
+                        <Progress value={Math.max(30, Math.min(100, fr.score))} className="h-2" />
                       </div>
                       
                       <div className="space-y-3">
@@ -713,13 +713,13 @@ const getDefaultEvaluation = (): EvaluationData => {
 const generateFallbackEvaluation = (responses: string[], _conversationContext: string): EvaluationData => {
   // Enhanced rule-based scoring with better distribution across leadership levels
   const responseLength = responses.join(' ').length;
-  const baseScore = Math.min(85, Math.max(25, responseLength / 8)); // Adjusted calculation for better range
+  const baseScore = Math.min(85, Math.max(30, responseLength / 8)); // Adjusted calculation for better range
   
   // Generate varied scores with more realistic distribution
   const generateVariedScore = () => {
     const variation = Math.random() * 40 - 20; // -20 to +20 variation
     const finalScore = baseScore + variation;
-    return Math.min(95, Math.max(25, Math.round(finalScore)));
+    return Math.min(95, Math.max(30, Math.round(finalScore)));
   };
 
   // 12 Principles with their dimension mappings
