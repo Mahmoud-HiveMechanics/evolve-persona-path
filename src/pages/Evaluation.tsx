@@ -301,16 +301,16 @@ export default function Evaluation() {
                             className="bg-gradient-to-r from-primary to-primary-dark h-3 rounded-full transition-all duration-1000 ease-out absolute top-0 left-0"
                             style={{ width: `${progressWidth}%` }}
                           ></div>
-                          {/* Level bracket markers */}
-                          <div className="absolute inset-0 flex">
-                            {[20, 40, 60, 80].map((marker) => (
-                              <div
-                                key={marker}
-                                className="absolute top-0 bottom-0 w-px bg-gray-300 opacity-50"
-                                style={{ left: `${marker}%` }}
-                              />
-                            ))}
-                          </div>
+          {/* Level bracket markers */}
+          <div className="absolute inset-0 flex">
+            {[40, 50, 70, 90].map((marker) => (
+              <div
+                key={marker}
+                className="absolute top-0 bottom-0 w-px bg-gray-300 opacity-50"
+                style={{ left: `${marker}%` }}
+              />
+            ))}
+          </div>
                         </div>
                         {/* Level range indicator */}
                         <div className="text-xs text-text-secondary text-center mt-1">
@@ -354,21 +354,27 @@ export default function Evaluation() {
                             className="bg-gradient-to-r from-primary to-primary-dark h-3 rounded-full transition-all duration-1000 ease-out absolute top-0 left-0"
                             style={{ width: `${Math.max(0, Math.min(100, principle.score))}%` }}
                           ></div>
-                          {/* Level bracket markers */}
-                          <div className="absolute inset-0 flex">
-                            {[20, 40, 60, 80].map((marker) => (
-                              <div
-                                key={marker}
-                                className="absolute top-0 bottom-0 w-px bg-gray-300 opacity-50"
-                                style={{ left: `${marker}%` }}
-                              />
-                            ))}
-                          </div>
+          {/* Level bracket markers */}
+          <div className="absolute inset-0 flex">
+            {[40, 50, 70, 90].map((marker) => (
+              <div
+                key={marker}
+                className="absolute top-0 bottom-0 w-px bg-gray-300 opacity-50"
+                style={{ left: `${marker}%` }}
+              />
+            ))}
+          </div>
                         </div>
                       </div>
                       
                       <p className="text-sm text-text-secondary leading-relaxed">
-                        {principle.summary || `Your ${principle.label.toLowerCase()} shows ${getLeadershipLevel(principle.score).toLowerCase()} development.`}
+                        {principle.summary || (() => {
+                          const level = getLeadershipLevel(principle.score);
+                          if (level === 'Emerging' || level === 'Developing') {
+                            return `Your ${principle.label.toLowerCase()} shows strong development potential. Area of improvement where you can expand further with focused practice.`;
+                          }
+                          return `Your ${principle.label.toLowerCase()} shows ${level.toLowerCase()} development.`;
+                        })()}
                       </p>
                       
                       <div className="mt-4 flex items-center justify-between">
@@ -419,17 +425,17 @@ export default function Evaluation() {
                   <div className="bg-white rounded-2xl p-8 shadow-lg border border-gray-100">
                     <h3 className="text-2xl font-bold text-text-primary mb-6">Your Leadership Journey</h3>
                     <p className="text-text-secondary leading-relaxed mb-6">
-                      Your assessment reveals unique strengths and opportunities for growth across the four dimensions of leadership. 
-                      Focus on the priority areas below to accelerate your development and maximize your impact as a leader.
+                      The assessment reveals your unique strengths as a leader — as well as the potential within you to grow and thrive even further.
+                      Getting professional coaching support on this journey has been proven to accelerate development and significantly increase long-term success.
+                      Curious to learn more and explore whether this is the right next step for you?
                     </p>
                     <div className="flex items-center gap-4">
                       <button 
-                        onClick={() => window.open('/assessment', '_blank')}
+                        onClick={() => window.open('https://calendly.com/your-coaching-link', '_blank')}
                         className="bg-primary hover:bg-primary-dark text-white px-6 py-3 rounded-xl font-medium transition-all duration-200 hover:scale-105 shadow-lg"
                       >
-                        Start Coaching Session
+                        Book your free coaching call
                       </button>
-                      <span className="text-sm text-text-secondary">Get personalized guidance</span>
                     </div>
                   </div>
                 </div>
@@ -553,52 +559,52 @@ export default function Evaluation() {
 // OLD to NEW framework mapping for backward compatibility
 
 
-// New level definitions: Emerging (1-19), Developing (20-39), Expanding (40-59), Flourishing (60-79), Thriving (80-100)
+// New level definitions: Emerging (30-40), Developing (40-50), Expanding (50-70), Flourishing (70-90), Thriving (90+)
 const getLeadershipLevel = (score: number): string => {
-  if (score >= 80) return 'Thriving';
-  if (score >= 60) return 'Flourishing';
-  if (score >= 40) return 'Expanding';
-  if (score >= 20) return 'Developing';
+  if (score >= 90) return 'Thriving';
+  if (score >= 70) return 'Flourishing';
+  if (score >= 50) return 'Expanding';
+  if (score >= 40) return 'Developing';
   return 'Emerging';
 };
 
 const getLeadershipLevelNumber = (score: number): number => {
-  if (score >= 80) return 5; // Thriving
-  if (score >= 60) return 4; // Flourishing
-  if (score >= 40) return 3; // Expanding
-  if (score >= 20) return 2; // Developing
+  if (score >= 90) return 5; // Thriving
+  if (score >= 70) return 4; // Flourishing
+  if (score >= 50) return 3; // Expanding
+  if (score >= 40) return 2; // Developing
   return 1; // Emerging
 };
 
 // Calculate position within level bracket (0-1) for granular visual representation
 const getPositionWithinLevel = (score: number): number => {
-  const clampedScore = Math.max(1, Math.min(100, score));
+  const clampedScore = Math.max(30, Math.min(100, score));
   
-  if (clampedScore >= 80) {
-    // Thriving: 80-100, position 0-1
-    return (clampedScore - 80) / 20;
-  } else if (clampedScore >= 60) {
-    // Flourishing: 60-79, position 0-1
-    return (clampedScore - 60) / 20;
+  if (clampedScore >= 90) {
+    // Thriving: 90-100, position 0-1
+    return (clampedScore - 90) / 10;
+  } else if (clampedScore >= 70) {
+    // Flourishing: 70-89, position 0-1
+    return (clampedScore - 70) / 20;
+  } else if (clampedScore >= 50) {
+    // Expanding: 50-69, position 0-1
+    return (clampedScore - 50) / 20;
   } else if (clampedScore >= 40) {
-    // Expanding: 40-59, position 0-1
-    return (clampedScore - 40) / 20;
-  } else if (clampedScore >= 20) {
-    // Developing: 20-39, position 0-1
-    return (clampedScore - 20) / 20;
+    // Developing: 40-49, position 0-1
+    return (clampedScore - 40) / 10;
   } else {
-    // Emerging: 1-19, position 0-1
-    return (clampedScore - 1) / 19;
+    // Emerging: 30-39, position 0-1
+    return (clampedScore - 30) / 10;
   }
 };
 
 // Get level bracket boundaries for visual representation
 const getLevelBounds = (score: number): { min: number; max: number } => {
-  if (score >= 80) return { min: 80, max: 100 };
-  if (score >= 60) return { min: 60, max: 79 };  // Changed from 80 to 79
-  if (score >= 40) return { min: 40, max: 59 };  // Changed from 60 to 59
-  if (score >= 20) return { min: 20, max: 39 };  // Changed from 40 to 39
-  return { min: 1, max: 19 };  // Changed from 20 to 19
+  if (score >= 90) return { min: 90, max: 100 };
+  if (score >= 70) return { min: 70, max: 89 };
+  if (score >= 50) return { min: 50, max: 69 };
+  if (score >= 40) return { min: 40, max: 49 };
+  return { min: 30, max: 39 };
 };
 
 const getDimensionDescription = (dimensionKey: string, level: string): string => {
@@ -608,28 +614,28 @@ const getDimensionDescription = (dimensionKey: string, level: string): string =>
       'Flourishing': 'You show strong self-leadership skills with sophisticated self-understanding and consistent responsibility for your development.',
       'Expanding': 'You have solid self-awareness and effectively manage your growth, demonstrating good self-leadership foundation.',
       'Developing': 'You are building self-awareness and beginning to take ownership of your leadership development journey.',
-      'Emerging': 'Focus on developing self-awareness and taking greater responsibility for your personal and professional growth.'
+      'Emerging': 'Your development potential in self-awareness is exciting. To improve, you could consider practicing daily reflection on your leadership decisions and seeking feedback to deepen your personal growth journey.'
     },
     'relational_leadership': {
       'Thriving': 'You excel at building deep trust, demonstrating empathy, and empowering others to reach their full potential.',
       'Flourishing': 'You effectively build strong relationships, show sophisticated empathy, and consistently empower team members.',
       'Expanding': 'You maintain solid relationships, demonstrate empathy effectively, and work to empower others.',
       'Developing': 'You are working on building stronger relationships and developing your ability to connect with and empower others.',
-      'Emerging': 'Focus on building trust through consistent actions, practicing empathy, and learning to empower others.'
+      'Emerging': 'Growth opportunities exist in building deeper connections. Where you can expand further: Focus on building trust through consistent actions, practicing empathy in daily interactions, and learning to empower others.'
     },
     'organizational_leadership': {
       'Thriving': 'You masterfully articulate vision, shape positive culture, and navigate organizational tensions with exceptional wisdom.',
       'Flourishing': 'You effectively communicate vision, significantly contribute to culture, and handle organizational challenges with skill.',
       'Expanding': 'You understand organizational dynamics well, contribute to vision and culture, and navigate tensions effectively.',
       'Developing': 'You are learning to navigate organizational complexities and contribute more effectively to vision and culture.',
-      'Emerging': 'Focus on understanding organizational dynamics, clarifying vision, and learning to address cultural and structural tensions.'
+      'Emerging': 'Your learning potential in organizational dynamics is promising. Where your strengths can deepen: Understanding organizational complexities, clarifying vision more explicitly, and learning to address cultural tensions constructively.'
     },
     'leadership_beyond_organization': {
       'Thriving': 'You drive innovation, masterfully engage stakeholders, and demonstrate exceptional stewardship of resources and impact.',
       'Flourishing': 'You effectively foster innovation, manage stakeholder relationships strategically, and show strong stewardship practices.',
       'Expanding': 'You support innovation well, maintain good stakeholder relationships, and demonstrate solid stewardship awareness.',
       'Developing': 'You are learning to foster innovation, build external relationships, and develop stewardship perspective.',
-      'Emerging': 'Focus on thinking beyond immediate boundaries, building stakeholder relationships, and developing long-term stewardship perspective.'
+      'Emerging': 'Area of improvement where you can evolve further: Thinking beyond immediate boundaries, building stakeholder relationships proactively, and developing a long-term stewardship perspective.'
     }
   };
 
