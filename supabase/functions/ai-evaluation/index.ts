@@ -171,7 +171,7 @@ serve(async (req) => {
       return {
         key: framework.key,
         label: framework.label,
-        score: Math.round(avgScore),
+        score: Math.max(30, Math.round(avgScore)),
         summary: `Your ${framework.label.toLowerCase()} reflects: ${summaries}`,
         confidence: 0.85,
         level: scoreToLevel(avgScore)
@@ -222,9 +222,9 @@ serve(async (req) => {
     
     // Return comprehensive fallback evaluation on error with better score distribution
     const fallbackFrameworks = LEADERSHIP_FRAMEWORKS.map(framework => {
-      // Generate more varied scores across all leadership levels
+      // Generate more varied scores across all leadership levels (min 30)
       const baseScore = Math.floor(Math.random() * 60) + 30; // 30-89 range
-      const finalScore = Math.min(95, Math.max(25, baseScore));
+      const finalScore = Math.min(95, Math.max(30, baseScore));
       return {
         key: framework.key,
         label: framework.label,
@@ -237,7 +237,7 @@ serve(async (req) => {
 
     const fallbackPrinciples = Object.entries(LEADERSHIP_PRINCIPLES).map(([key, principle]) => {
       const baseScore = Math.floor(Math.random() * 60) + 30; // 30-89 range
-      const finalScore = Math.min(95, Math.max(25, baseScore));
+      const finalScore = Math.min(95, Math.max(30, baseScore));
       return {
         key,
         label: principle.name,
@@ -305,7 +305,7 @@ SCORING APPROACH: Focus ONLY on LANGUAGE PATTERNS and CONTENT, NOT response leng
 
 SCORE BASED ON THESE LANGUAGE INDICATORS:
 
-**LEVEL 1 - Emerging (1-20):**
+**LEVEL 1 - Emerging (30-40):**
 Look for these language patterns:
 - External blame: "the team didn't", "they failed", "others didn't", "it wasn't really my failure"
 - No ownership: "I had given clear guidance", "the team needed to perform better"
@@ -318,7 +318,7 @@ Look for these language patterns:
 Example Level 1: "During a board meeting, one of our investors told me I tend to shut down debate when my ideas are challenged. Honestly, it irritated me — I felt they didn't appreciate how much pressure I'm under. I dismissed it at first, assuming they just didn't see the bigger picture."
 Key indicators: "it irritated me", "I felt they didn't appreciate", "I dismissed it"
 
-**LEVEL 2 - Developing (20-40):**
+**LEVEL 2 - Developing (40-50):**
 Look for these language patterns:
 - Surface acknowledgment: "I realized I could have", "I should have", "I later realized"
 - Compliance mindset: "I need to", "I should", "I went along because", "it seemed expected"
@@ -330,7 +330,7 @@ Look for these language patterns:
 Example Level 2: "I once received feedback that I sometimes dominate discussions. It stung, because I saw myself as a decisive leader. Initially, I felt misunderstood. A few days later, I realized they might be right. I've started pausing more before responding, though I still catch myself reverting under pressure."
 Key indicators: "A few days later, I realized", "I've started", "though I still catch myself"
 
-**LEVEL 3 - Expanding (40-60):**
+**LEVEL 3 - Expanding (50-70):**
 Look for these language patterns:
 - Genuine reflection: "I took time to think", "I realized", "as I reflected", "I saw"
 - Links intent to impact: "my tone could make others", "I saw how my actions", "it taught me that"
@@ -342,7 +342,7 @@ Look for these language patterns:
 Example Level 3: "After a major presentation, one of my senior leaders told me that my communication can feel intimidating. My first reaction was defensive — I've always valued candor. But I took time to think about it and realized my tone could make others hesitant. I began asking my team to give me real-time feedback and experimented with softer phrasing. It's made our strategic discussions more balanced."
 Key indicators: "I took time to think", "I realized", "I began asking", "It's made our"
 
-**LEVEL 4 - Flourishing (60-80):**
+**LEVEL 4 - Flourishing (70-90):**
 Look for these language patterns:
 - Mature emotional intelligence: "as I reflected, I saw the truth in it", "I communicated candidly"
 - Transparent accountability: "I addressed the entire company", "I took full responsibility", "I acknowledged"
@@ -354,7 +354,7 @@ Look for these language patterns:
 Example Level 4: "After a leadership retreat, my CHRO shared that I often move too quickly from problem to solution. It stung because I pride myself on being efficient. But as I reflected, I saw the truth in it — my need for speed sometimes overshadows the emotional processing others need. Since then, I've made it a practice to slow down, name the tension, and invite more perspectives. It's deepened trust and improved decision quality across the organization."
 Key indicators: "as I reflected, I saw the truth", "I've made it a practice", "It's deepened trust", "across the organization"
 
-**LEVEL 5 - Thriving (80-100):**
+**LEVEL 5 - Thriving (90-100):**
 Look for these language patterns:
 - Transformative wisdom: "became transformative", "completely reshaped my perspective", "that feedback became transformative"
 - Cultural transformation: "created a leadership culture", "we redesigned", "we built", "we've embedded", "it's now part of"
@@ -367,16 +367,17 @@ Example Level 5: "Several years ago, my coach told me that my constant drive to 
 Key indicators: "became transformative", "I realized", "Over time, that shift created a leadership culture", "rooted in trust, empowerment"
 
 CRITICAL SCORING RULES:
-1. IGNORE response length - a short response with high-level language can score 80+
+1. IGNORE response length - a short response with high-level language can score 90+
 2. IGNORE format - MCQ responses can score high if language shows high-level thinking
 3. FOCUS on language patterns - match the actual words and phrases used
-4. USE FULL RANGE - don't compress scores. If language shows Level 5, score 80-100. If Level 1, score 1-20
-5. DIFFERENTIATE clearly - Level 1 responses should score 1-20, Level 5 should score 80-100
-6. MINIMAL EFFORT ONLY: If response is truly minimal ("x", "xx", blank), score 5-15. Otherwise, score based on language patterns above.
+4. USE FULL RANGE - don't compress scores. If language shows Level 5, score 90-100. If Level 1, score 30-40
+5. DIFFERENTIATE clearly - Level 1 responses should score 30-40, Level 5 should score 90-100
+6. MINIMAL EFFORT ONLY: If response is truly minimal ("x", "xx", blank), score 30-35. Otherwise, score based on language patterns above.
+7. MINIMUM SCORE IS 30 - never score below 30
 
 Return JSON only:
 {
-  "score": [1-100 integer matching language patterns above],
+  "score": [30-100 integer matching language patterns above - minimum 30],
   "summary": "[1-2 sentences citing specific language from response that indicates this level]"
 }`;
 
@@ -398,7 +399,7 @@ Return JSON only:
         messages: [
           { 
             role: 'system', 
-            content: 'You are an expert leadership assessment analyst. Score based on LANGUAGE PATTERNS only, not response length or format. Use the FULL 1-100 range - Level 1 responses score 1-20, Level 5 responses score 80-100. Always respond with valid JSON only.' 
+            content: 'You are an expert leadership assessment analyst. Score based on LANGUAGE PATTERNS only, not response length or format. Use the FULL 30-100 range - Level 1 responses score 30-40, Level 5 responses score 90-100. MINIMUM score is 30. Always respond with valid JSON only.' 
           },
           { role: 'user', content: prompt }
         ],
@@ -419,7 +420,7 @@ Return JSON only:
     const content = data.choices[0].message.content;
     const analysis = JSON.parse(content);
 
-    const score = typeof analysis.score === 'number' ? Math.max(0, Math.min(100, Math.round(analysis.score))) : 60;
+    const score = typeof analysis.score === 'number' ? Math.max(30, Math.min(100, Math.round(analysis.score))) : 55;
     const summary = typeof analysis.summary === 'string' ? analysis.summary : `Shows developing ${principle.name.toLowerCase()}.`;
 
     console.log(`✅ Principle ${principle.name} scored: ${score}/100`);
@@ -442,7 +443,7 @@ function calculatePrincipleFallback(key: string, principle: any, responses: stri
   
   // Check for minimal effort first
   if (responseText.trim().length < 10 || /^(x+|xx+|test|asdf)$/i.test(responseText.trim())) {
-    const minScore = Math.floor(Math.random() * 10) + 5; // 5-15 range
+    const minScore = Math.floor(Math.random() * 6) + 30; // 30-35 range (Emerging)
     return {
       key,
       score: minScore,
@@ -539,7 +540,7 @@ function calculatePrincipleFallback(key: string, principle: any, responses: stri
   ];
   
   // Score based on highest level pattern found
-  let score = 50; // Default middle
+  let score = 45; // Default - middle of Developing range
   let level = 0;
   
   const level1Matches = level1Patterns.filter(p => p.test(responseText)).length;
@@ -551,24 +552,24 @@ function calculatePrincipleFallback(key: string, principle: any, responses: stri
   console.log(`  📊 Fallback pattern matches: L1=${level1Matches}, L2=${level2Matches}, L3=${level3Matches}, L4=${level4Matches}, L5=${level5Matches}`);
   
   if (level5Matches > 0) {
-    score = 80 + Math.min(20, level5Matches * 4); // 80-100
+    score = 90 + Math.min(10, level5Matches * 2); // 90-100 (Thriving)
     level = 5;
   } else if (level4Matches > 0) {
-    score = 60 + Math.min(20, level4Matches * 4); // 60-80
+    score = 70 + Math.min(20, level4Matches * 4); // 70-90 (Flourishing)
     level = 4;
   } else if (level3Matches > 0) {
-    score = 40 + Math.min(20, level3Matches * 4); // 40-60
+    score = 50 + Math.min(20, level3Matches * 4); // 50-70 (Expanding)
     level = 3;
   } else if (level2Matches > 0) {
-    score = 20 + Math.min(20, level2Matches * 4); // 20-40
+    score = 40 + Math.min(10, level2Matches * 2); // 40-50 (Developing)
     level = 2;
   } else if (level1Matches > 0) {
-    score = 1 + Math.min(19, level1Matches * 3); // 1-20
+    score = 30 + Math.min(10, level1Matches * 2); // 30-40 (Emerging)
     level = 1;
   }
   
-  // Ensure score is within bounds
-  score = Math.min(100, Math.max(1, Math.round(score)));
+  // Ensure score is within bounds (minimum 30)
+  score = Math.min(100, Math.max(30, Math.round(score)));
   
   const levelNames = ['', 'emerging', 'developing', 'expanding', 'flourishing', 'thriving'];
   const levelDesc = levelNames[level] || 'developing';
@@ -583,11 +584,11 @@ function calculatePrincipleFallback(key: string, principle: any, responses: stri
 }
 
 function scoreToLevel(score: number): number {
-  if (score >= 80) return 5; // Thriving
-  if (score >= 60) return 4; // Flourishing
-  if (score >= 40) return 3; // Expanding
-  if (score >= 20) return 2; // Developing
-  return 1; // Emerging
+  if (score >= 90) return 5; // Thriving (90+)
+  if (score >= 70) return 4; // Flourishing (70-89)
+  if (score >= 50) return 3; // Expanding (50-69)
+  if (score >= 40) return 2; // Developing (40-49)
+  return 1; // Emerging (30-39)
 }
 
 
