@@ -197,7 +197,7 @@ export default function Evaluation() {
   }, []);
 
   const frameworks = data?.frameworks || []; // 4 dimensions
-  const principles = data?.principles || []; // 12 principles
+  // Note: principles data (12 principles) is still computed and stored in evaluation data, just not displayed
 
   const lowestThree = useMemo(() => {
     return [...frameworks].sort((a, b) => (a.score ?? 0) - (b.score ?? 0)).slice(0, 3);
@@ -329,95 +329,6 @@ export default function Evaluation() {
                 })}
               </div>
 
-              {/* Detailed 12 Principles Breakdown */}
-              <div className="bg-white rounded-2xl p-8 shadow-lg border border-gray-100 mb-12">
-                <h3 className="text-2xl font-bold text-text-primary mb-6 text-center">Your Leadership Principles Breakdown</h3>
-                <p className="text-text-secondary text-center mb-8 max-w-3xl mx-auto">
-                  Detailed analysis across all 12 leadership principles showing your specific strengths and growth areas.
-                </p>
-                
-                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {principles.map((principle) => (
-                    <div key={principle.key} className="bg-gradient-to-br from-gray-50 to-white rounded-xl p-6 border border-gray-100 hover:shadow-md transition-all duration-300">
-                      <div className="flex items-center justify-between mb-4">
-                        <h4 className="font-bold text-text-primary text-lg">{principle.label}</h4>
-                        <div className="text-right">
-                          <div className="text-2xl font-bold text-primary">{principle.score}/100</div>
-                          <div className="text-sm text-text-secondary">{getLeadershipLevel(principle.score)}</div>
-                        </div>
-                      </div>
-                      
-                      <div className="mb-4">
-                        <div className="w-full bg-gray-200 rounded-full h-3 relative overflow-hidden">
-                          {/* Full score progress bar */}
-                          <div 
-                            className="bg-gradient-to-r from-primary to-primary-dark h-3 rounded-full transition-all duration-1000 ease-out absolute top-0 left-0"
-                            style={{ width: `${Math.max(30, Math.min(100, principle.score))}%` }}
-                          ></div>
-          {/* Level bracket markers */}
-          <div className="absolute inset-0 flex">
-            {[40, 50, 70, 90].map((marker) => (
-              <div
-                key={marker}
-                className="absolute top-0 bottom-0 w-px bg-gray-300 opacity-50"
-                style={{ left: `${marker}%` }}
-              />
-            ))}
-          </div>
-                        </div>
-                      </div>
-                      
-                      <p className="text-sm text-text-secondary leading-relaxed">
-                        {principle.summary || (() => {
-                          const level = getLeadershipLevel(principle.score);
-                          if (level === 'Emerging' || level === 'Developing') {
-                            return `Your ${principle.label.toLowerCase()} shows strong development potential. Area of improvement where you can expand further with focused practice.`;
-                          }
-                          return `Your ${principle.label.toLowerCase()} shows ${level.toLowerCase()} development.`;
-                        })()}
-                      </p>
-                      
-                      <div className="mt-4 flex items-center justify-between">
-                        <div className="flex space-x-1 items-center">
-                          {[1, 2, 3, 4, 5].map((dot) => {
-                            const levelNum = getLeadershipLevelNumber(principle.score);
-                            const positionInLevel = getPositionWithinLevel(principle.score);
-                            const isActive = dot < levelNum;
-                            const isCurrentLevel = dot === levelNum;
-                            
-                            return (
-                              <div key={dot} className="relative">
-                                <div
-                                  className={`w-2 h-2 rounded-full transition-all duration-300 ${
-                                    isActive
-                                      ? 'bg-primary'
-                                      : isCurrentLevel
-                                      ? 'bg-gray-300'
-                                      : 'bg-gray-200'
-                                  }`}
-                                />
-                                {/* Show partial fill for current level based on position */}
-                                {isCurrentLevel && (
-                                  <div
-                                    className="absolute top-0 left-0 h-2 rounded-full bg-primary transition-all duration-300"
-                                    style={{ width: `${positionInLevel * 100}%` }}
-                                  />
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                        <span className="text-xs text-text-secondary">
-                          {(() => {
-                            const bounds = getLevelBounds(principle.score);
-                            return `${bounds.min}-${bounds.max}`;
-                          })()}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
 
               {/* Bottom Section with Top Priorities */}
               <div className="grid lg:grid-cols-3 gap-8">
