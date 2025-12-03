@@ -1,13 +1,13 @@
 project_id = "apidixbcujmqhxicjqut"
 
 [functions.ai-evaluation]
-verify_jwt = false
+verify_jwt = true
 
 [functions.chat-assistant]
-verify_jwt = false
+verify_jwt = true
 
 [functions.dynamic-question-generator]
-verify_jwt = false
+verify_jwt = true
 
 [functions.gpt5-chat]
-verify_jwt = false
+verify_jwt = true

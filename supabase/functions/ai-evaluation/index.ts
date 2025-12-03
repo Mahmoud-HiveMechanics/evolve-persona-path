@@ -1,5 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
 
@@ -7,6 +8,36 @@ const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+// Helper to validate JWT and get user
+async function validateAuth(req: Request): Promise<{ userId: string } | null> {
+  const authHeader = req.headers.get('Authorization');
+  if (!authHeader) {
+    console.log('No Authorization header provided');
+    return null;
+  }
+
+  const supabaseUrl = Deno.env.get('SUPABASE_URL');
+  const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
+  
+  if (!supabaseUrl || !supabaseAnonKey) {
+    console.error('Missing Supabase configuration');
+    return null;
+  }
+
+  const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+    global: { headers: { Authorization: authHeader } }
+  });
+
+  const { data: { user }, error } = await supabase.auth.getUser();
+  
+  if (error || !user) {
+    console.log('Auth validation failed:', error?.message);
+    return null;
+  }
+
+  return { userId: user.id };
+}
 
 interface EvaluationRequest {
   responses: string[];
@@ -79,6 +110,20 @@ serve(async (req) => {
   }
 
   try {
+    // Validate authentication
+    const auth = await validateAuth(req);
+    if (!auth) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized - valid authentication required' }), 
+        { 
+          status: 401, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+
+    console.log('Authenticated user:', auth.userId);
+
     const { responses, conversationContext, messages = [] }: EvaluationRequest = await req.json();
 
     console.log('AI Evaluation request received:', { 

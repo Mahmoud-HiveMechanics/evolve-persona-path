@@ -301,11 +301,52 @@ const corsHeaders = {
     return principlesNeedingMore[0] || null;
   };
 
+// Helper to validate JWT and get user
+async function validateAuth(req: Request): Promise<{ userId: string } | null> {
+  const authHeader = req.headers.get('Authorization');
+  if (!authHeader) {
+    console.log('No Authorization header provided');
+    return null;
+  }
+
+  const supabaseUrl = Deno.env.get('SUPABASE_URL');
+  const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
+  
+  if (!supabaseUrl || !supabaseAnonKey) {
+    console.error('Missing Supabase configuration');
+    return null;
+  }
+
+  const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
+    global: { headers: { Authorization: authHeader } }
+  });
+
+  const { data: { user }, error } = await supabaseClient.auth.getUser();
+  
+  if (error || !user) {
+    console.log('Auth validation failed:', error?.message);
+    return null;
+  }
+
+  return { userId: user.id };
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
+
+  // Validate authentication
+  const auth = await validateAuth(req);
+  if (!auth) {
+    return new Response(JSON.stringify({ error: 'Unauthorized - valid authentication required' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  console.log('Authenticated user:', auth.userId);
 
   const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
   if (!openAIApiKey) {
